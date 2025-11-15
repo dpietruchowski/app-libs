@@ -1,0 +1,10 @@
+build/
+.cache/
+compile_commands.json
+.vscode/
+.idea/
+*.user
+*.autosave
+CMakeLists.txt.user
+cmake-build-*/
+.DS_Store

@@ -1,0 +1,25 @@
+set(QUERY_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/sqlquery.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/sqlcommand.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/insert.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/insert.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/update.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/update.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/delete.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/delete.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/createtable.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/createtable.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/select.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/select.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/where.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/where.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/join.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/join.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/order.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/order.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/alias.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/alias.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/column.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/column.cpp
+    PARENT_SCOPE
+)
