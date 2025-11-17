@@ -9,10 +9,11 @@
 
 #include <QDebug>
 
-DbRepository::DbRepository(const QString& tableName, const QStringList& keys, DbStorage& storage,
-                           QObject* parent)
+DbRepository::DbRepository(const QString& tableName, const QString& idKey, const QStringList& keys,
+                           DbStorage& storage, QObject* parent)
     : QObject(parent)
     , m_tableName(tableName)
+    , m_idKey(idKey)
     , m_keys(keys)
     , m_storage(storage)
 {
@@ -20,7 +21,7 @@ DbRepository::DbRepository(const QString& tableName, const QStringList& keys, Db
 
 bool DbRepository::createTable(const CreateTable& tableDefinition)
 {
-    int result = m_storage.execute(tableDefinition);
+    int result = m_storage.execute(tableDefinition).toInt();
     return result >= 0;
 }
 
@@ -29,7 +30,7 @@ void DbRepository::clearTable()
     Delete deleteCommand;
     deleteCommand.from(m_tableName).all();
 
-    int rowsAffected = m_storage.execute(deleteCommand);
+    int rowsAffected = m_storage.execute(deleteCommand).toInt();
 
     if (rowsAffected >= 0)
     {
@@ -64,7 +65,7 @@ QVector<QVariantMap> DbRepository::select(const Where& condition, const Order& o
     return m_storage.execute(query);
 }
 
-int DbRepository::insert(const QVariantMap& item)
+QVariant DbRepository::insert(const QVariantMap& item)
 {
     Insert insertCommand;
     insertCommand.into(m_tableName);
@@ -75,16 +76,22 @@ int DbRepository::insert(const QVariantMap& item)
         insertCommand.value(it.key(), it.value());
     }
 
-    int insertedId = m_storage.execute(insertCommand);
+    QVariant insertedId = m_storage.execute(insertCommand);
 
-    if (insertedId < 0)
+    if (!insertedId.isValid())
     {
         logError("inserting");
-        return -1;
+        return QVariant();
     }
 
     logSuccess("Inserted ID:", insertedId);
-    return insertedId;
+
+    if (!m_keys.isEmpty() && validItems.contains(m_keys.first()))
+    {
+        return validItems[m_keys.first()];
+    }
+
+    return QVariant(insertedId);
 }
 
 int DbRepository::update(const QVariantMap& item, const Where& condition)
@@ -102,36 +109,45 @@ int DbRepository::update(const QVariantMap& item, const Where& condition)
     if (whereCondition.isEmpty())
     {
         logError("updating: no valid condition");
-        return -1;
+        return 0;
     }
 
     updateCommand.where(whereCondition);
 
-    int rowsAffected = m_storage.execute(updateCommand);
+    int rowsAffected = m_storage.execute(updateCommand).toInt();
 
     if (rowsAffected < 0)
     {
         logError("updating");
-        return -1;
+        return 0;
     }
 
     logSuccess("Updated", rowsAffected);
+
+    if (!m_keys.isEmpty() && validItems.contains(m_keys.first()))
+    {
+        return validItems[m_keys.first()].toInt();
+    }
+
     return rowsAffected;
 }
 
-int DbRepository::upsert(const QVariantMap& item)
+QVariant DbRepository::upsert(const QVariantMap& item)
 {
-    if (!item.contains("id") || item.value("id").toInt() == -1)
+    if (exists(Where(m_idKey).equals(item.value(m_idKey))))
     {
-        return insert(item);
+        return update(item);
     }
-    int rowsAffected = update(item);
-    if (rowsAffected < 0)
+
+    QVariant result = insert(item);
+
+    if (!result.isValid())
     {
         qWarning() << "[" << m_tableName << "] Upsert failed for item:" << item;
-        return -1;
+        return QVariant();
     }
-    return item.value("id").toInt();
+
+    return result;
 }
 
 int DbRepository::remove(const Where& condition)
@@ -144,7 +160,7 @@ int DbRepository::remove(const Where& condition)
         deleteCommand.where(condition);
     }
 
-    int rowsAffected = m_storage.execute(deleteCommand);
+    int rowsAffected = m_storage.execute(deleteCommand).toInt();
 
     if (rowsAffected < 0)
     {
@@ -196,7 +212,8 @@ int DbRepository::upsertAll(const QVector<QVariantMap>& items)
     int count = 0;
     for (const auto& item : items)
     {
-        if (upsert(item) != -1)
+        QVariant result = upsert(item);
+        if (result.isValid())
         {
             count++;
         }
@@ -228,9 +245,9 @@ Where DbRepository::buildWhereCondition(const QVariantMap& item, const Where& co
         return condition;
     }
 
-    if (item.contains("id") && item.value("id").toInt() > 0)
+    if (item.contains(m_idKey) && item.value(m_idKey).isValid())
     {
-        return Where("id").equals(item.value("id"));
+        return Where(m_idKey).equals(item.value(m_idKey));
     }
 
     return Where();
@@ -241,7 +258,7 @@ void DbRepository::logError(const QString& operation) const
     qWarning() << "[" << m_tableName << "] Error" << operation;
 }
 
-void DbRepository::logSuccess(const QString& operation, int affectedRows) const
+void DbRepository::logSuccess(const QString& operation, QVariant affectedRows) const
 {
     qDebug() << "[" << m_tableName << "]" << operation << affectedRows << "row(s)";
 }

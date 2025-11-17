@@ -82,7 +82,7 @@ CreateTable& CreateTable::uniqueConstraint(const QStringList& columns)
     return *this;
 }
 
-int CreateTable::execute(QSqlDatabase& database) const
+QVariant CreateTable::execute(QSqlDatabase &database) const
 {
     QString sql = toSql();
     

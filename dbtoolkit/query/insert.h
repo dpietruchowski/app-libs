@@ -15,7 +15,7 @@ public:
     Insert& values(const QVariantMap& values);
     Insert& value(const QString& column, const QVariant& value);
 
-    int execute(QSqlDatabase& database) const override;
+    QVariant execute(QSqlDatabase &database) const override;
     QString toSql() const override;
 
     bool hasTable() const;

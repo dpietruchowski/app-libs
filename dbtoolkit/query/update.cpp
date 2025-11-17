@@ -42,7 +42,7 @@ Update& Update::where(const QString& condition)
     return *this;
 }
 
-int Update::execute(QSqlDatabase& database) const
+QVariant Update::execute(QSqlDatabase &database) const
 {
     QStringList columns = m_values.keys();
     columns.removeAll("id");

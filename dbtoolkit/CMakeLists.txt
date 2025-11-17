@@ -2,6 +2,7 @@ add_subdirectory(query)
 
 add_library(dbtoolkit SHARED
     ${QUERY_SOURCES}
+    dbtoolkit.h
     dbstorage.h
     dbstorage.cpp
     dbrepository.h

@@ -8,5 +8,5 @@ class SqlCommand : public SqlQuery
 public:
     virtual ~SqlCommand() = default;
 
-    virtual int execute(QSqlDatabase& database) const = 0;
+    virtual QVariant execute(QSqlDatabase &database) const = 0;
 };

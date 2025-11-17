@@ -16,7 +16,7 @@ public:
 
     Delete& all();
 
-    int execute(QSqlDatabase& database) const override;
+    QVariant execute(QSqlDatabase &database) const override;
     QString toSql() const override;
     QString build() const override;
 

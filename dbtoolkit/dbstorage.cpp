@@ -19,7 +19,7 @@ QVector<QVariantMap> DbStorage::execute(const Select& query)
     return query.execute(m_database);
 }
 
-int DbStorage::execute(const SqlCommand& command)
+QVariant DbStorage::execute(const SqlCommand &command)
 {
     QMutexLocker locker(&m_mutex);
     return command.execute(m_database);

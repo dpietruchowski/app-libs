@@ -35,14 +35,14 @@ Insert& Insert::value(const QString& column, const QVariant& value)
     return *this;
 }
 
-int Insert::execute(QSqlDatabase& database) const
+QVariant Insert::execute(QSqlDatabase &database) const
 {
     QString sql = toSql();
     
     if (sql.isEmpty())
     {
         qWarning() << "Insert: invalid query";
-        return -1;
+        return QVariant();
     }
     
     QStringList columns = m_columnOrder.isEmpty() ? m_values.keys() : m_columnOrder;
@@ -51,14 +51,14 @@ int Insert::execute(QSqlDatabase& database) const
     if (columns.isEmpty())
     {
         qWarning() << "Insert: no columns to insert";
-        return -1;
+        return QVariant();
     }
     
     QSqlQuery query(database);
     if (!query.prepare(sql))
     {
         qWarning() << "Insert prepare failed:" << query.lastError();
-        return -1;
+        return QVariant();
     }
     
     for (const QString& column : columns)
@@ -70,10 +70,10 @@ int Insert::execute(QSqlDatabase& database) const
     {
         qWarning() << "Insert exec failed:" << query.lastError();
         qWarning() << "SQL:" << sql;
-        return -1;
+        return QVariant();
     }
-    
-    return query.lastInsertId().toInt();
+
+    return query.lastInsertId();
 }
 
 QString Insert::toSql() const

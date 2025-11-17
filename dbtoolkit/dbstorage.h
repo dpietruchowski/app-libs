@@ -15,7 +15,7 @@ public:
     virtual ~DbStorage() = default;
 
     QVector<QVariantMap> execute(const Select& query);
-    int execute(const SqlCommand& command);
+    QVariant execute(const SqlCommand &command);
 
     bool beginTransaction();
     bool commit();

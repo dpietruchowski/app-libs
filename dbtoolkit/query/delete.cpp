@@ -36,7 +36,7 @@ Delete& Delete::all()
     return *this;
 }
 
-int Delete::execute(QSqlDatabase& database) const
+QVariant Delete::execute(QSqlDatabase &database) const
 {
     QString sql = toSql();
     

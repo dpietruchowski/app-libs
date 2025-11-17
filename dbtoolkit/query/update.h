@@ -17,7 +17,7 @@ public:
     Update& where(const Where& condition);
     Update& where(const QString& condition);
 
-    int execute(QSqlDatabase& database) const override;
+    QVariant execute(QSqlDatabase &database) const override;
     QString toSql() const override;
     QString build() const override;
 

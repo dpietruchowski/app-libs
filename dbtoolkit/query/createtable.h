@@ -46,7 +46,7 @@ public:
                             OnDeleteAction onDelete = OnDeleteAction::NoAction);
     CreateTable& uniqueConstraint(const QStringList& columns);
 
-    int execute(QSqlDatabase& database) const override;
+    QVariant execute(QSqlDatabase &database) const override;
     QString toSql() const override;
     QString build() const override;
 
