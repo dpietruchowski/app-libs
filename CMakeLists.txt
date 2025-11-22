@@ -5,6 +5,7 @@ set(CMAKE_AUTORCC ON)
 
 add_subdirectory(qmllive)
 add_subdirectory(dbtoolkit)
+add_subdirectory(utils)
 
 if(NOT QML_LIVE_ENABLED)
     add_subdirectory(qmlcomponents)

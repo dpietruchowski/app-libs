@@ -23,8 +23,7 @@ public:
     void registerSingletonType(const QString& moduleName, const QString& qmlFile,
                                const QString& name);
     void registerSingletonType(const QString& qmlFile, const QString& name);
-    void setupLiveReload(const QString& loaderName = "mainLoader",
-                         const QString& mainViewFile = "MainView.qml");
+    void setupLiveReload();
     QUrl getMainQmlUrl();
 
 private:

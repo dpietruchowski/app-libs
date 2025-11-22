@@ -7,12 +7,15 @@ add_library(${LIBRARY_NAME} STATIC ${SOURCES} ${HEADERS})
 
 target_include_directories(${LIBRARY_NAME}
     PUBLIC
-        ${PROJECT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
 
 target_link_libraries(${LIBRARY_NAME}
     PUBLIC
         Qt6::Core
+        Qt6::Gui
+        Qt6::Qml
+        Qt6::Quick
 )
 
 target_compile_options(${LIBRARY_NAME} PRIVATE

@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 
-import FillIn.Components
+import Themed.Components
 
 CheckBox {
     id: control

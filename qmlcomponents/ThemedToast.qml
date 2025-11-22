@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Controls
-import FillIn.Components
+import Themed.Components
 
 Item {
     id: toast

@@ -82,7 +82,7 @@ void QmlRegistrator::generateQmlDir()
 }
 #endif
 
-void QmlRegistrator::setupLiveReload(const QString& loaderName, const QString& mainViewFile)
+void QmlRegistrator::setupLiveReload()
 {
 #ifdef QML_LIVE_ENABLED
     qDebug() << "Using qml live";
