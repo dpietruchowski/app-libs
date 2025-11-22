@@ -75,13 +75,13 @@ Where& Where::in(const QVariantList& values)
     {
         if (!m_condition.isEmpty())
             m_condition += " ";
-        
+
         QStringList formattedValues;
         for (const QVariant& value : values)
         {
             formattedValues << formatValue(value);
         }
-        
+
         m_condition += QString("%1 IN (%2)").arg(m_currentColumn, formattedValues.join(", "));
         m_currentColumn.clear();
     }
@@ -94,13 +94,13 @@ Where& Where::in(const QStringList& values)
     {
         if (!m_condition.isEmpty())
             m_condition += " ";
-        
+
         QStringList formattedValues;
         for (const QString& value : values)
         {
             formattedValues << formatValue(value);
         }
-        
+
         m_condition += QString("%1 IN (%2)").arg(m_currentColumn, formattedValues.join(", "));
         m_currentColumn.clear();
     }
@@ -113,13 +113,13 @@ Where& Where::in(const QList<int>& values)
     {
         if (!m_condition.isEmpty())
             m_condition += " ";
-        
+
         QStringList formattedValues;
         for (int value : values)
         {
             formattedValues << QString::number(value);
         }
-        
+
         m_condition += QString("%1 IN (%2)").arg(m_currentColumn, formattedValues.join(", "));
         m_currentColumn.clear();
     }
@@ -229,7 +229,10 @@ Where& Where::or_(const QString& column)
     return *this;
 }
 
-Where& Where::or_(const QString& alias, const QString& column) { return or_(TableAlias(alias), column); }
+Where& Where::or_(const QString& alias, const QString& column)
+{
+    return or_(TableAlias(alias), column);
+}
 
 Where& Where::or_(const TableAlias& alias, const QString& column)
 {
@@ -295,6 +298,11 @@ QString Where::formatValue(const QVariant& value) const
     else if (value.typeId() == QMetaType::Bool)
     {
         return value.toBool() ? "1" : "0";
+    }
+    else if (value.typeId() == QMetaType::QByteArray)
+    {
+        QByteArray blob = value.toByteArray();
+        return QString("X'%1'").arg(QString::fromLatin1(blob.toHex()));
     }
     else if (value.isNull())
     {
