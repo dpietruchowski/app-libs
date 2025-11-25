@@ -11,8 +11,8 @@ Control {
     property color backgroundColor: Theme.colors.cardBackground
     signal clicked()
 
-    implicitWidth: Theme.card.sizeSmall
-    implicitHeight: Theme.card.sizeSmall
+    implicitWidth: Math.max(contentArea.implicitWidth, Theme.card.sizeSmall)
+    implicitHeight: Math.max(contentArea.implicitHeight, Theme.card.sizeSmall)
 
     background: Rectangle {
         color: backgroundColor
@@ -45,6 +45,7 @@ Control {
     Control {
         id: contentArea
         anchors.fill: parent
+        anchors.margins: 0
     }
 
     MouseArea {
