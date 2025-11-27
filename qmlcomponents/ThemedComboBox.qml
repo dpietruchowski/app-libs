@@ -7,6 +7,23 @@ ComboBox {
     id: control
 
     font.pixelSize: Theme.fontSize.medium
+    implicitHeight: 44
+    implicitWidth: Math.max(background.implicitWidth, contentItem.implicitWidth + leftPadding + rightPadding + indicator.width)
+
+    Component.onCompleted: {
+        var maxWidth = 0
+        for (var i = 0; i < model.length; i++) {
+            var itemText = model[i]
+            maxWidth = Math.max(maxWidth, textMetrics.advanceWidth)
+            textMetrics.text = itemText
+        }
+        implicitWidth = maxWidth + Theme.padding.medium * 2 + indicator.width + Theme.spacing.medium
+    }
+
+    TextMetrics {
+        id: textMetrics
+        font: control.font
+    }
 
     background: Rectangle {
         color: Theme.colors.background

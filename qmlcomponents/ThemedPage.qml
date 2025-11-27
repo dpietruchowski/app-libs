@@ -8,6 +8,7 @@ Page {
 
     property int contentPadding: Theme.padding.medium
     property bool usePadding: true
+    property int maxContentWidth: 400
     default property alias content: contentArea.data
 
     background: Rectangle {
@@ -16,7 +17,11 @@ Page {
 
     Item {
         id: contentArea
-        anchors.fill: parent
-        anchors.margins: root.usePadding ? root.contentPadding : 0
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.topMargin: root.usePadding ? root.contentPadding : 0
+        anchors.bottomMargin: root.usePadding ? root.contentPadding : 0
+        width: Math.min(parent.width - (root.usePadding ? root.contentPadding * 2 : 0), root.maxContentWidth)
     }
 }
