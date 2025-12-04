@@ -8,6 +8,7 @@ Control {
 
     default property alias content: contentArea.contentItem
     property bool clickable: false
+    property int margins: 0
     property color backgroundColor: Theme.colors.cardBackground
     signal clicked()
 
@@ -45,7 +46,7 @@ Control {
     Control {
         id: contentArea
         anchors.fill: parent
-        anchors.margins: 0
+        anchors.margins: control.margins
     }
 
     MouseArea {
