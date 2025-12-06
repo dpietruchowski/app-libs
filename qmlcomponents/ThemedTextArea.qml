@@ -20,8 +20,19 @@ Item {
     property color cursorColor: Theme.colors.primary
     property color scrollBarColor: Theme.colors.border
 
+    function copyAll() {
+        textArea.selectAll()
+        textArea.copy()
+        textArea.deselect()
+    }
+
+    function pasteFromClipboard() {
+        textArea.selectAll()
+        textArea.paste()
+    }
+
     implicitWidth: 400
-    implicitHeight: flickable.contentHeight
+    implicitHeight: Math.max(flickable.contentHeight, 200)
 
     Rectangle {
         id: bgRect
