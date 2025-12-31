@@ -14,6 +14,8 @@ public:
     Join& on(const QString& leftAlias, const QString& leftColumn);
     Join& on(const TableAlias& leftAlias, const QString& leftColumn);
     Join& equals(const QString& rightColumn);
+    Join& andColumn(const QString& column);
+    Join& equalsValue(int value);
     Join& withColumns(const QStringList& columnKeys);
     Join& withPrefix(const QString& prefix);
     Join& withPrefix(const ColumnPrefix& prefix);
@@ -31,6 +33,8 @@ private:
     TableAlias m_leftAlias;
     QString m_leftColumn;
     QString m_rightColumn;
+    QString m_additionalColumn;
+    std::optional<int> m_additionalValue;
     QStringList m_columnKeys;
     std::optional<ColumnPrefix> m_prefix;
 };

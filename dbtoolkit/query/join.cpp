@@ -31,6 +31,18 @@ Join& Join::equals(const QString& rightColumn)
     return *this;
 }
 
+Join& Join::andColumn(const QString& column)
+{
+    m_additionalColumn = column;
+    return *this;
+}
+
+Join& Join::equalsValue(int value)
+{
+    m_additionalValue = value;
+    return *this;
+}
+
 Join& Join::withColumns(const QStringList& columnKeys)
 {
     m_columnKeys = columnKeys;
@@ -45,10 +57,7 @@ Join& Join::withPrefix(const ColumnPrefix& prefix)
     return *this;
 }
 
-QString Join::tableName() const
-{
-    return m_tableName;
-}
+QString Join::tableName() const { return m_tableName; }
 
 QString Join::tableAlias() const { return m_tableAlias.prefix(); }
 
@@ -59,8 +68,15 @@ QString Join::tableWithAlias() const
 
 QString Join::condition() const
 {
-    return QString("%1 = %2").arg(m_leftAlias.createColumn(m_leftColumn),
-                                  m_tableAlias.createColumn(m_rightColumn));
+    QString result = QString("%1 = %2").arg(m_leftAlias.createColumn(m_leftColumn),
+                                            m_tableAlias.createColumn(m_rightColumn));
+    if (m_additionalValue.has_value())
+    {
+        result += QString(" AND %1 = %2")
+                      .arg(m_tableAlias.createColumn(m_additionalColumn),
+                           QString::number(m_additionalValue.value()));
+    }
+    return result;
 }
 
 QStringList Join::columnsWithPrefix() const
