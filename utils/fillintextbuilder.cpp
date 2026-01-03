@@ -10,7 +10,7 @@ QString FillInTextBuilder::buildPartialText(const QString& chosenWord) const
 {
     if (chosenWord.isEmpty())
         return replaceInText(m_targetWord, "_____");
-    QString correctWord = "<span class=\"green\">" + m_targetWord + "</span>";
+    QString correctWord = "<span class=\"correct\">" + m_targetWord + "</span>";
     if (compareWords(m_targetWord, chosenWord))
         return replaceInText(m_targetWord, correctWord);
     return replaceInText(m_targetWord,
