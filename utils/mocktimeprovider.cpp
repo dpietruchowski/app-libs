@@ -5,28 +5,34 @@ void MockTimeProvider::setCurrentDateTime(const QDateTime& dateTime)
     m_currentDateTime = dateTime;
 }
 
-void MockTimeProvider::setCurrentDate(const QDate& date) { m_currentDate = date; }
+void MockTimeProvider::setCurrentDate(const QDate& date)
+{
+    m_currentDateTime = QDateTime(date, m_currentDateTime.time());
+}
 
 void MockTimeProvider::advanceDays(int days)
 {
-    QDate current = m_currentDate.isValid() ? m_currentDate : QDate::currentDate();
-    m_currentDate = current.addDays(days);
-
     if (m_currentDateTime.isValid())
     {
         m_currentDateTime = m_currentDateTime.addDays(days);
+    }
+    else
+    {
+        m_currentDateTime = QDateTime::currentDateTime().addDays(days);
     }
 }
 
 void MockTimeProvider::advanceDate(const QDate& targetDate)
 {
-    m_currentDate = targetDate;
-
     if (m_currentDateTime.isValid())
     {
         QDate current = m_currentDateTime.date();
         int days = current.daysTo(targetDate);
         m_currentDateTime = m_currentDateTime.addDays(days);
+    }
+    else
+    {
+        m_currentDateTime = QDateTime(targetDate, QTime(12, 0, 0));
     }
 }
 
@@ -37,5 +43,5 @@ QDateTime MockTimeProvider::currentDateTime() const
 
 QDate MockTimeProvider::currentDate() const
 {
-    return m_currentDate.isValid() ? m_currentDate : QDate::currentDate();
+    return m_currentDateTime.isValid() ? m_currentDateTime.date() : QDate::currentDate();
 }

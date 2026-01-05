@@ -18,5 +18,4 @@ public:
 
 private:
     QDateTime m_currentDateTime;
-    QDate m_currentDate;
 };
