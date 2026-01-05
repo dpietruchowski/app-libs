@@ -11,7 +11,7 @@ void MockTimeProvider::advanceDays(int days)
 {
     QDate current = m_currentDate.isValid() ? m_currentDate : QDate::currentDate();
     m_currentDate = current.addDays(days);
-    
+
     if (m_currentDateTime.isValid())
     {
         m_currentDateTime = m_currentDateTime.addDays(days);
@@ -21,7 +21,7 @@ void MockTimeProvider::advanceDays(int days)
 void MockTimeProvider::advanceDate(const QDate& targetDate)
 {
     m_currentDate = targetDate;
-    
+
     if (m_currentDateTime.isValid())
     {
         QDate current = m_currentDateTime.date();
