@@ -11,6 +11,7 @@ TextField {
     signal submitted(string text)
 
     placeholderText: placeholder
+    placeholderTextColor: Theme.colors.textPlaceholder
 
     color: Theme.colors.textPrimary
     font.pixelSize: Theme.fontSize.medium
@@ -20,21 +21,6 @@ TextField {
 
     implicitWidth: Theme.applicationWidth * 0.8
     implicitHeight: 52
-
-    PlaceholderText {
-        id: placeholderLabel
-        text: control.placeholderText
-        font: control.font
-        color: Theme.colors.textPlaceholder
-        verticalAlignment: control.verticalAlignment
-        horizontalAlignment: control.horizontalAlignment
-        visible: !control.length && !control.activeFocus && (!control.hasOwnProperty("preeditText") || !control.preeditText)
-        anchors.fill: parent
-        leftPadding: control.leftPadding
-        rightPadding: control.rightPadding
-        topPadding: control.topPadding
-        bottomPadding: control.bottomPadding
-    }
 
     background: Rectangle {
         color: Theme.colors.surface
