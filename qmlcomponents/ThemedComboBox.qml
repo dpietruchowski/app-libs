@@ -26,7 +26,7 @@ ComboBox {
     }
 
     background: Rectangle {
-        color: Theme.colors.background
+        color: Theme.colors.surface
         border.color: Theme.colors.cardBorder
         border.width: Theme.border.thin
         radius: Theme.radius.small
@@ -58,7 +58,7 @@ ComboBox {
         }
 
         background: Rectangle {
-            color: Theme.colors.cardBackground
+            color: Theme.colors.surface
             border.color: Theme.colors.cardBorder
             border.width: Theme.border.thin
             radius: Theme.radius.small

@@ -14,7 +14,7 @@ ProgressBar {
     background: Rectangle {
         implicitWidth: 200
         implicitHeight: 8
-        color: Theme.colors.surface
+        color: Theme.colors.divider
         radius: Theme.radius.small
         border.color: Theme.colors.border
         border.width: Theme.border.thin

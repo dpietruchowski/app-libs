@@ -37,7 +37,7 @@ Button {
             ThemedIcon {
                 visible: iconSource.toString() !== ""
                 svgSource: iconSource
-                color: buttonStyle.text
+                color: !control.enabled ? Theme.colors.textDisabled : buttonStyle.text
                 width: buttonSize.iconSize
                 height: buttonSize.iconSize
                 anchors.verticalCenter: parent.verticalCenter
@@ -47,7 +47,7 @@ Button {
                 visible: control.text !== ""
                 text: control.text
                 font.pixelSize: buttonSize.fontSize
-                color: buttonStyle.text
+                color: !control.enabled ? Theme.colors.textDisabled : buttonStyle.text
                 verticalAlignment: Text.AlignVCenter
                 horizontalAlignment: Text.AlignHCenter
                 anchors.verticalCenter: parent.verticalCenter

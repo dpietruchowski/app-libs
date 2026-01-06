@@ -11,7 +11,7 @@ SpinBox {
     implicitHeight: 44
 
     background: Rectangle {
-        color: Theme.colors.background
+        color: Theme.colors.surface
         border.color: Theme.colors.cardBorder
         border.width: Theme.border.thin
         radius: Theme.radius.small
@@ -34,7 +34,7 @@ SpinBox {
         x: control.mirrored ? 0 : parent.width - width
         height: parent.height
         implicitWidth: 35
-        color: control.up.pressed ? Theme.colors.surface : Theme.colors.background
+        color: control.up.pressed ? Theme.colors.cardBackground : Theme.colors.surface
         border.color: Theme.colors.cardBorder
         border.width: Theme.border.thin
 
@@ -50,7 +50,7 @@ SpinBox {
         x: control.mirrored ? parent.width - width : 0
         height: parent.height
         implicitWidth: 35
-        color: control.down.pressed ? Theme.colors.surface : Theme.colors.background
+        color: control.down.pressed ? Theme.colors.cardBackground : Theme.colors.surface
         border.color: Theme.colors.cardBorder
         border.width: Theme.border.thin
 
