@@ -36,7 +36,7 @@ Control {
                 when: clickable && mouseArea.containsMouse
                 PropertyChanges {
                     target: control.background
-                    color: Qt.lighter(backgroundColor,5)
+                    color: Theme.isNightMode ? Qt.lighter(backgroundColor, 1.3) : Qt.darker(backgroundColor, 1.1)
                 }
             },
             State {
@@ -44,7 +44,7 @@ Control {
                 when: clickable && mouseArea.pressed
                 PropertyChanges {
                     target: control.background
-                    color: Qt.darker(backgroundColor,5)
+                    color: Theme.isNightMode ? Qt.lighter(backgroundColor, 1.15) : Qt.darker(backgroundColor, 1.2)
                 }
             }
         ]
