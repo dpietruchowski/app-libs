@@ -10,9 +10,16 @@ Control {
     property bool clickable: false
     property int margins: 0
     property color backgroundColor: Theme.colors.cardBackground
+    property real maxImplicitWidth: -1
     signal clicked()
 
-    implicitWidth: Math.max(contentArea.implicitWidth, Theme.card.sizeSmall)
+    implicitWidth: {
+        var baseWidth = Math.max(contentArea.implicitWidth, Theme.card.sizeSmall);
+        if (maxImplicitWidth > 0) {
+            return Math.min(baseWidth, maxImplicitWidth);
+        }
+        return baseWidth;
+    }
     implicitHeight: Math.max(contentArea.implicitHeight, Theme.card.sizeSmall)
 
     background: Rectangle {
