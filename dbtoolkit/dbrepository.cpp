@@ -196,7 +196,12 @@ int DbRepository::count(const Where& condition) const
         query.where(condition);
     }
 
-    auto results = m_storage.execute(query);
+    return count(query);
+}
+
+int DbRepository::count(const Select& select) const
+{
+    auto results = m_storage.execute(select);
 
     if (results.isEmpty())
     {

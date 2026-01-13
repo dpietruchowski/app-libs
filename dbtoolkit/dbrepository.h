@@ -2,9 +2,9 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QUuid>
 #include <QVariantMap>
 #include <QVector>
-#include <QUuid>
 
 #include "dbstorage.h"
 #include "query/insert.h"
@@ -22,36 +22,37 @@ public:
                           DbStorage& storage, QObject* parent = nullptr);
     virtual ~DbRepository() = default;
 
-    bool createTable(const CreateTable &tableDefinition);
+    bool createTable(const CreateTable& tableDefinition);
     void clearTable();
 
-    QVector<QVariantMap> select(const Where &condition = Where(), const Order &order = Order(),
+    QVector<QVariantMap> select(const Where& condition = Where(), const Order& order = Order(),
                                 int limit = -1, int offset = -1,
-                                const QString &groupBy = QString()) const;
+                                const QString& groupBy = QString()) const;
 
-    QVariant insert(const QVariantMap &item);
-    QVariant upsert(const QVariantMap &item);
+    QVariant insert(const QVariantMap& item);
+    QVariant upsert(const QVariantMap& item);
 
-    int update(const QVariantMap &item, const Where &condition = Where());
-    int remove(const Where &condition);
+    int update(const QVariantMap& item, const Where& condition = Where());
+    int remove(const Where& condition);
 
-    bool exists(const Where &condition) const;
-    int count(const Where &condition = {}) const;
+    bool exists(const Where& condition) const;
+    int count(const Where& condition = {}) const;
+    int count(const Select& select) const;
 
-    int upsertAll(const QVector<QVariantMap> &items);
+    int upsertAll(const QVector<QVariantMap>& items);
 
-    DbStorage &storage();
-    const DbStorage &storage() const;
+    DbStorage& storage();
+    const DbStorage& storage() const;
 
 private:
     QString m_tableName;
     QString m_idKey = "id";
     QStringList m_keys;
-    DbStorage &m_storage;
+    DbStorage& m_storage;
 
 private:
-    QVariantMap filterValidKeys(const QVariantMap &item) const;
-    Where buildWhereCondition(const QVariantMap &item, const Where &condition) const;
-    void logError(const QString &operation) const;
-    void logSuccess(const QString &operation, QVariant affectedRows) const;
+    QVariantMap filterValidKeys(const QVariantMap& item) const;
+    Where buildWhereCondition(const QVariantMap& item, const Where& condition) const;
+    void logError(const QString& operation) const;
+    void logSuccess(const QString& operation, QVariant affectedRows) const;
 };

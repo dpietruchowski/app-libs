@@ -202,7 +202,15 @@ QStringList Select::selectColumns() const
     {
         for (const QString& col : m_columns)
         {
-            selectColumns.append(m_fromAlias->createColumn(col));
+            if (col.startsWith("COUNT(") || col.startsWith("SUM(") || col.startsWith("AVG(")
+                || col.startsWith("MIN(") || col.startsWith("MAX(") || col.startsWith("DISTINCT("))
+            {
+                selectColumns.append(col);
+            }
+            else
+            {
+                selectColumns.append(m_fromAlias->createColumn(col));
+            }
         }
     }
     else
