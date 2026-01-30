@@ -1,9 +1,5 @@
 #include "fillintextbuilder.h"
-
-namespace
-{
-const QString kPunctuationCharacters = ",.!?:;\"'()-¡¿";
-}
+#include "wordmatcher.h"
 
 FillInTextBuilder::FillInTextBuilder(const QString& targetWord, const QString& sentence)
     : m_targetWord(targetWord)
@@ -19,7 +15,7 @@ QString FillInTextBuilder::buildPartialText(const QString& chosenWord) const
                               { return isTarget ? "_____" : word; });
     }
 
-    if (compareWords(m_targetWord, chosenWord))
+    if (WordMatcher::compareWords(m_targetWord, chosenWord))
     {
         return transformWords(m_targetWord, [this](const QString& word, bool isTarget)
                               { return isTarget ? wrapInSpan(word, SpanClass::Correct) : word; });
@@ -49,17 +45,11 @@ FillInTextBuilder::transformWords(const QString& targetWord,
     QStringList words = m_sentence.split(' ');
     for (auto& word : words)
     {
-        QString cleanWord = word;
-        removePunctuation(cleanWord);
-        bool isTarget = compareWords(cleanWord, targetWord);
+        QString cleanWord = WordMatcher::removePunctuation(word);
+        bool isTarget = WordMatcher::compareWords(cleanWord, targetWord);
         word = callback(word, isTarget);
     }
     return words.join(' ');
-}
-
-bool FillInTextBuilder::compareWords(const QString& a, const QString& b) const
-{
-    return a.compare(b, Qt::CaseInsensitive) == 0;
 }
 
 QString FillInTextBuilder::wrapInSpan(const QString& text, SpanClass spanClass) const
@@ -94,10 +84,10 @@ FillInTextBuilder::WordParts FillInTextBuilder::splitWordParts(const QString& wo
     int start = 0;
     int end = word.length();
 
-    while (start < end && kPunctuationCharacters.contains(word[start]))
+    while (start < end && WordMatcher::kPunctuationCharacters.contains(word[start]))
         start++;
 
-    while (end > start && kPunctuationCharacters.contains(word[end - 1]))
+    while (end > start && WordMatcher::kPunctuationCharacters.contains(word[end - 1]))
         end--;
 
     WordParts parts;
@@ -106,10 +96,4 @@ FillInTextBuilder::WordParts FillInTextBuilder::splitWordParts(const QString& wo
     parts.suffix = word.mid(end);
 
     return parts;
-}
-
-void FillInTextBuilder::removePunctuation(QString& word) const
-{
-    for (auto c : kPunctuationCharacters)
-        word.remove(c);
 }

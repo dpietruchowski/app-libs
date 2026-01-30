@@ -32,8 +32,6 @@ private:
     transformWords(const QString& targetWord,
                    std::function<QString(const QString& word, bool isTarget)> callback) const;
     QString wrapInSpan(const QString& text, SpanClass spanClass) const;
-    bool compareWords(const QString& a, const QString& b) const;
-    void removePunctuation(QString& word) const;
     QString findOriginalWord(const QString& targetWord) const;
 
     QString m_targetWord;
