@@ -9,6 +9,7 @@ Page {
     property int contentPadding: Theme.padding.medium
     property bool usePadding: true
     property int maxContentWidth: 400
+    property Component overlayContent: null
     default property alias content: contentArea.data
 
     background: Rectangle {
