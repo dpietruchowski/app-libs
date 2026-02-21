@@ -1,4 +1,5 @@
 #pragma once
+#include <QMap>
 #include <QString>
 #include <QStringList>
 #include <functional>
@@ -14,9 +15,12 @@ enum class SpanClass
 class FillInTextBuilder
 {
 public:
-    explicit FillInTextBuilder(const QString& targetWord, const QString& sentence);
+    explicit FillInTextBuilder(const QStringList& targetWords, const QString& sentence);
 
-    QString buildPartialText(const QString& chosenWord = QString()) const;
+    void setAttempt(const QString& word, const QString& answer);
+    void setAttempt(int index, const QString& answer);
+
+    QString buildPartialText() const;
     QString buildHighlightedText() const;
 
 private:
@@ -29,11 +33,11 @@ private:
 
     WordParts splitWordParts(const QString& word) const;
     QString
-    transformWords(const QString& targetWord,
-                   std::function<QString(const QString& word, bool isTarget)> callback) const;
+    transformWords(std::function<QString(const QString& word, int targetIndex)> callback) const;
     QString wrapInSpan(const QString& text, SpanClass spanClass) const;
     QString findOriginalWord(const QString& targetWord) const;
 
-    QString m_targetWord;
+    QStringList m_targetWords;
     QString m_sentence;
+    QMap<QString, QString> m_attempts;
 };

@@ -1,53 +1,78 @@
 #include "fillintextbuilder.h"
 #include "wordmatcher.h"
 
-FillInTextBuilder::FillInTextBuilder(const QString& targetWord, const QString& sentence)
-    : m_targetWord(targetWord)
+FillInTextBuilder::FillInTextBuilder(const QStringList& targetWords, const QString& sentence)
+    : m_targetWords(targetWords)
     , m_sentence(sentence)
 {
 }
 
-QString FillInTextBuilder::buildPartialText(const QString& chosenWord) const
+void FillInTextBuilder::setAttempt(const QString& word, const QString& answer)
 {
-    if (chosenWord.isEmpty())
-    {
-        return transformWords(m_targetWord, [](const QString& word, bool isTarget)
-                              { return isTarget ? "_____" : word; });
-    }
+    m_attempts[word] = answer;
+}
 
-    if (WordMatcher::compareWords(m_targetWord, chosenWord))
+void FillInTextBuilder::setAttempt(int index, const QString& answer)
+{
+    if (index >= 0 && index < m_targetWords.size())
     {
-        return transformWords(m_targetWord, [this](const QString& word, bool isTarget)
-                              { return isTarget ? wrapInSpan(word, SpanClass::Correct) : word; });
+        m_attempts[m_targetWords[index]] = answer;
     }
+}
 
-    return transformWords(m_targetWord,
-                          [this, &chosenWord](const QString& word, bool isTarget)
-                          {
-                              if (!isTarget)
-                                  return word;
-                              QString wrongSpan = wrapInSpan(chosenWord, SpanClass::Wrong);
-                              QString correctSpan = wrapInSpan(word, SpanClass::Correct);
-                              return wrongSpan + " " + correctSpan;
-                          });
+QString FillInTextBuilder::buildPartialText() const
+{
+    return transformWords(
+        [this](const QString& word, int targetIndex)
+        {
+            if (targetIndex == -1)
+                return word;
+
+            QString targetWord = m_targetWords[targetIndex];
+            QString attempt = m_attempts.value(targetWord, "");
+
+            if (attempt.isEmpty())
+            {
+                return QString("_____");
+            }
+
+            if (WordMatcher::compareWords(targetWord, attempt))
+            {
+                return wrapInSpan(word, SpanClass::Correct);
+            }
+
+            QString wrongSpan = wrapInSpan(attempt, SpanClass::Wrong);
+            QString correctSpan = wrapInSpan(word, SpanClass::Correct);
+            return wrongSpan + " " + correctSpan;
+        });
 }
 
 QString FillInTextBuilder::buildHighlightedText() const
 {
-    return transformWords(m_targetWord, [this](const QString& word, bool isTarget)
-                          { return isTarget ? wrapInSpan(word, SpanClass::Highlighted) : word; });
+    return transformWords(
+        [this](const QString& word, int targetIndex)
+        { return targetIndex != -1 ? wrapInSpan(word, SpanClass::Highlighted) : word; });
 }
 
 QString
-FillInTextBuilder::transformWords(const QString& targetWord,
-                                  std::function<QString(const QString&, bool)> callback) const
+FillInTextBuilder::transformWords(std::function<QString(const QString&, int)> callback) const
 {
     QStringList words = m_sentence.split(' ');
     for (auto& word : words)
     {
         QString cleanWord = WordMatcher::removePunctuation(word);
-        bool isTarget = WordMatcher::compareWords(cleanWord, targetWord);
-        word = callback(word, isTarget);
+        int targetIndex = -1;
+
+        for (int i = 0; i < m_targetWords.size(); ++i)
+        {
+            if (WordMatcher::compareWords(cleanWord, m_targetWords[i]))
+            {
+                targetIndex = i;
+                break;
+            }
+        }
+
+        word = callback(word, targetIndex);
     }
     return words.join(' ');
 }
