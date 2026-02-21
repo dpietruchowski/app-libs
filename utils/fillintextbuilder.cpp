@@ -47,6 +47,23 @@ QString FillInTextBuilder::buildPartialText() const
         });
 }
 
+QString FillInTextBuilder::buildPreviewText(const QString& preview) const
+{
+    return transformWords(
+        [this, &preview](const QString& word, int targetIndex)
+        {
+            if (targetIndex == -1)
+                return word;
+
+            if (preview.isEmpty())
+            {
+                return QString("_____");
+            }
+
+            return wrapInSpan(preview, SpanClass::Highlighted);
+        });
+}
+
 QString FillInTextBuilder::buildHighlightedText() const
 {
     return transformWords(

@@ -21,6 +21,7 @@ public:
     void setAttempt(int index, const QString& answer);
 
     QString buildPartialText() const;
+    QString buildPreviewText(const QString& preview) const;
     QString buildHighlightedText() const;
 
 private:
