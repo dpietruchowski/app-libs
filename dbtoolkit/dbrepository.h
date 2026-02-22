@@ -29,8 +29,8 @@ public:
                                 int limit = -1, int offset = -1,
                                 const QString& groupBy = QString()) const;
 
-    QVector<QVariant> insert(const QVector<QVariantMap>& items, int chunkSize = 100);
-    QVector<QVariant> upsert(const QVector<QVariantMap>& items, int chunkSize = 100);
+    QVector<QVariant> insert(const QVector<QVariantMap>& items, int chunkSize = 20);
+    QVector<QVariant> upsert(const QVector<QVariantMap>& items, int chunkSize = 20);
 
     QVariant insert(const QVariantMap& item);
     QVariant upsert(const QVariantMap& item);

@@ -99,6 +99,12 @@ QVector<QVariant> DbRepository::batchInsert(const QVector<QVariantMap>& items)
 
     if (!result.isValid())
     {
+        qWarning() << "[" << m_tableName << "] Insert failed:";
+        qWarning() << "Items to insert:";
+        for (int i = 0; i < validItemsList.size(); ++i)
+        {
+            qWarning() << "  Item" << i << ":" << validItemsList[i];
+        }
         logError("inserting");
         return insertedIds;
     }
@@ -130,9 +136,12 @@ QVector<QVariant> DbRepository::batchUpsert(const QVector<QVariantMap>& items)
         return allIds;
     }
 
+    allIds.resize(items.size());
+
     auto existingIds = batchExists(items);
     QMap<int, QVariantMap> itemsToInsert;
     QMap<int, QVariantMap> itemsToUpdate;
+    QList<QVariant> seenIds;
 
     for (int i = 0; i < items.size(); ++i)
     {
@@ -143,15 +152,31 @@ QVector<QVariant> DbRepository::batchUpsert(const QVector<QVariantMap>& items)
         }
         else
         {
-            itemsToInsert.insert(i, item);
+            QVariant itemId = item.value(m_idKey);
+            if (itemId.isValid() && seenIds.contains(itemId))
+            {
+                allIds[i] = itemId;
+            }
+            else
+            {
+                itemsToInsert.insert(i, item);
+                if (itemId.isValid())
+                {
+                    seenIds.append(itemId);
+                }
+            }
         }
     }
-
-    allIds.resize(items.size());
 
     if (!itemsToInsert.isEmpty())
     {
         QVector<QVariant> insertedIds = batchInsert(itemsToInsert.values().toVector());
+        if (insertedIds.size() != itemsToInsert.size())
+        {
+            qWarning() << "[" << m_tableName << "] Batch insert failed: expected"
+                       << itemsToInsert.size() << "IDs, got" << insertedIds.size();
+            return QVector<QVariant>();
+        }
         int idx = 0;
         for (int originalIndex : itemsToInsert.keys())
         {
@@ -162,6 +187,12 @@ QVector<QVariant> DbRepository::batchUpsert(const QVector<QVariantMap>& items)
     if (!itemsToUpdate.isEmpty())
     {
         QVector<QVariant> updatedIds = updateAll(itemsToUpdate.values().toVector());
+        if (updatedIds.size() != itemsToUpdate.size())
+        {
+            qWarning() << "[" << m_tableName << "] Batch update failed: expected"
+                       << itemsToUpdate.size() << "IDs, got" << updatedIds.size();
+            return QVector<QVariant>();
+        }
         int idx = 0;
         for (int originalIndex : itemsToUpdate.keys())
         {
