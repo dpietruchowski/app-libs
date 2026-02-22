@@ -8,6 +8,8 @@
 #include "query/where.h"
 
 #include <QDebug>
+#include <QSqlError>
+#include <QSqlQuery>
 
 DbRepository::DbRepository(const QString& tableName, const QString& idKey, const QStringList& keys,
                            DbStorage& storage, QObject* parent)
@@ -65,33 +67,178 @@ QVector<QVariantMap> DbRepository::select(const Where& condition, const Order& o
     return m_storage.execute(query);
 }
 
-QVariant DbRepository::insert(const QVariantMap& item)
+QVector<QVariant> DbRepository::batchInsert(const QVector<QVariantMap>& items)
 {
+    QVector<QVariant> insertedIds;
+
+    if (items.isEmpty())
+    {
+        return insertedIds;
+    }
+
     Insert insertCommand;
     insertCommand.into(m_tableName);
 
-    QVariantMap validItems = filterValidKeys(item);
-    for (auto it = validItems.constBegin(); it != validItems.constEnd(); ++it)
+    QVector<QVariantMap> validItemsList;
+    bool hasExplicitId = !items.isEmpty() && items.first().contains(m_idKey)
+        && items.first().value(m_idKey).isValid();
+
+    for (const auto& item : items)
     {
-        insertCommand.value(it.key(), it.value());
+        QVariantMap validItem = filterValidKeys(item);
+        if (!hasExplicitId)
+        {
+            validItem.remove(m_idKey);
+        }
+        validItemsList.append(validItem);
     }
 
-    QVariant insertedId = m_storage.execute(insertCommand);
+    insertCommand.batchValues(validItemsList);
 
-    if (!insertedId.isValid())
+    QVariant result = m_storage.execute(insertCommand);
+
+    if (!result.isValid())
     {
         logError("inserting");
+        return insertedIds;
+    }
+
+    logSuccess("Inserted", items.size());
+
+    for (int i = 0; i < validItemsList.size(); ++i)
+    {
+        const auto& validItem = validItemsList[i];
+        if (validItem.contains(m_idKey))
+        {
+            insertedIds.append(validItem[m_idKey]);
+        }
+        else if (result.isValid())
+        {
+            insertedIds.append(QVariant(result.toLongLong() + i));
+        }
+    }
+
+    return insertedIds;
+}
+
+QVector<QVariant> DbRepository::batchUpsert(const QVector<QVariantMap>& items)
+{
+    QVector<QVariant> allIds;
+
+    if (items.isEmpty())
+    {
+        return allIds;
+    }
+
+    auto existingIds = batchExists(items);
+    QMap<int, QVariantMap> itemsToInsert;
+    QMap<int, QVariantMap> itemsToUpdate;
+
+    for (int i = 0; i < items.size(); ++i)
+    {
+        const auto& item = items[i];
+        if (item.contains(m_idKey) && existingIds.contains(item.value(m_idKey)))
+        {
+            itemsToUpdate.insert(i, item);
+        }
+        else
+        {
+            itemsToInsert.insert(i, item);
+        }
+    }
+
+    allIds.resize(items.size());
+
+    if (!itemsToInsert.isEmpty())
+    {
+        QVector<QVariant> insertedIds = batchInsert(itemsToInsert.values().toVector());
+        int idx = 0;
+        for (int originalIndex : itemsToInsert.keys())
+        {
+            allIds[originalIndex] = insertedIds[idx++];
+        }
+    }
+
+    if (!itemsToUpdate.isEmpty())
+    {
+        QVector<QVariant> updatedIds = updateAll(itemsToUpdate.values().toVector());
+        int idx = 0;
+        for (int originalIndex : itemsToUpdate.keys())
+        {
+            allIds[originalIndex] = updatedIds[idx++];
+        }
+    }
+
+    logSuccess("Batch upserted", allIds.size());
+    return allIds;
+}
+
+QVector<QVariant> DbRepository::insert(const QVector<QVariantMap>& items, int chunkSize)
+{
+    QVector<QVariant> allInsertedIds;
+
+    if (items.isEmpty())
+    {
+        return allInsertedIds;
+    }
+
+    for (int i = 0; i < items.size(); i += chunkSize)
+    {
+        int remaining = items.size() - i;
+        int batchSize = qMin(chunkSize, remaining);
+
+        QVector<QVariantMap> chunk;
+        chunk.reserve(batchSize);
+        for (int j = 0; j < batchSize; ++j)
+        {
+            chunk.append(items[i + j]);
+        }
+
+        QVector<QVariant> chunkIds = batchInsert(chunk);
+        allInsertedIds.append(chunkIds);
+    }
+
+    return allInsertedIds;
+}
+
+QVector<QVariant> DbRepository::upsert(const QVector<QVariantMap>& items, int chunkSize)
+{
+    QVector<QVariant> allUpsertedIds;
+
+    if (items.isEmpty())
+    {
+        return allUpsertedIds;
+    }
+
+    for (int i = 0; i < items.size(); i += chunkSize)
+    {
+        int remaining = items.size() - i;
+        int batchSize = qMin(chunkSize, remaining);
+
+        QVector<QVariantMap> chunk;
+        chunk.reserve(batchSize);
+        for (int j = 0; j < batchSize; ++j)
+        {
+            chunk.append(items[i + j]);
+        }
+
+        QVector<QVariant> chunkIds = batchUpsert(chunk);
+        allUpsertedIds.append(chunkIds);
+    }
+
+    return allUpsertedIds;
+}
+
+QVariant DbRepository::insert(const QVariantMap& item)
+{
+    auto result = batchInsert(QVector<QVariantMap> { item });
+
+    if (result.isEmpty())
+    {
         return QVariant();
     }
 
-    logSuccess("Inserted ID:", insertedId);
-
-    if (!m_keys.isEmpty() && validItems.contains(m_keys.first()))
-    {
-        return validItems[m_keys.first()];
-    }
-
-    return QVariant(insertedId);
+    return result.first();
 }
 
 int DbRepository::update(const QVariantMap& item, const Where& condition)
@@ -100,6 +247,8 @@ int DbRepository::update(const QVariantMap& item, const Where& condition)
     updateCommand.table(m_tableName);
 
     QVariantMap validItems = filterValidKeys(item);
+    validItems.remove(m_idKey);
+
     for (auto it = validItems.constBegin(); it != validItems.constEnd(); ++it)
     {
         updateCommand.set(it.key(), it.value());
@@ -123,11 +272,6 @@ int DbRepository::update(const QVariantMap& item, const Where& condition)
     }
 
     logSuccess("Updated", rowsAffected);
-
-    if (!m_keys.isEmpty() && validItems.contains(m_keys.first()))
-    {
-        return validItems[m_keys.first()].toInt();
-    }
 
     return rowsAffected;
 }
@@ -186,6 +330,42 @@ bool DbRepository::exists(const Where& condition) const
     return !m_storage.execute(query).isEmpty();
 }
 
+QList<QVariant> DbRepository::batchExists(const QVector<QVariantMap>& items) const
+{
+    QList<QVariant> existingIds;
+
+    if (items.isEmpty())
+    {
+        return existingIds;
+    }
+
+    QVariantList idsToCheck;
+    for (const auto& item : items)
+    {
+        if (item.contains(m_idKey) && item.value(m_idKey).isValid())
+        {
+            idsToCheck.append(item.value(m_idKey));
+        }
+    }
+
+    if (idsToCheck.isEmpty())
+    {
+        return existingIds;
+    }
+
+    Where where(m_idKey);
+    where.in(idsToCheck);
+
+    auto results = select(where);
+
+    for (const auto& row : results)
+    {
+        existingIds.append(row[m_idKey]);
+    }
+
+    return existingIds;
+}
+
 int DbRepository::count(const Where& condition) const
 {
     Select query({ "COUNT(*)" });
@@ -212,18 +392,23 @@ int DbRepository::count(const Select& select) const
     return results.first().value("COUNT(*)").toInt();
 }
 
-int DbRepository::upsertAll(const QVector<QVariantMap>& items)
+QVector<QVariant> DbRepository::updateAll(const QVector<QVariantMap>& items, const Where& condition)
 {
-    int count = 0;
+    QVector<QVariant> updatedIds;
     for (const auto& item : items)
     {
-        QVariant result = upsert(item);
-        if (result.isValid())
+        int updated = update(item, condition);
+        if (updated > 0 && item.contains(m_idKey))
         {
-            count++;
+            updatedIds.append(item.value(m_idKey));
         }
     }
-    return count;
+    return updatedIds;
+}
+
+QVector<QVariant> DbRepository::upsertAll(const QVector<QVariantMap>& items)
+{
+    return upsert(items, items.size());
 }
 
 DbStorage& DbRepository::storage() { return m_storage; }

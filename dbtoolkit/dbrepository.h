@@ -29,6 +29,9 @@ public:
                                 int limit = -1, int offset = -1,
                                 const QString& groupBy = QString()) const;
 
+    QVector<QVariant> insert(const QVector<QVariantMap>& items, int chunkSize = 100);
+    QVector<QVariant> upsert(const QVector<QVariantMap>& items, int chunkSize = 100);
+
     QVariant insert(const QVariantMap& item);
     QVariant upsert(const QVariantMap& item);
 
@@ -39,7 +42,9 @@ public:
     int count(const Where& condition = {}) const;
     int count(const Select& select) const;
 
-    int upsertAll(const QVector<QVariantMap>& items);
+    QVector<QVariant> updateAll(const QVector<QVariantMap>& items,
+                                const Where& condition = Where());
+    QVector<QVariant> upsertAll(const QVector<QVariantMap>& items);
 
     DbStorage& storage();
     const DbStorage& storage() const;
@@ -51,6 +56,10 @@ private:
     DbStorage& m_storage;
 
 private:
+    QList<QVariant> batchExists(const QVector<QVariantMap>& items) const;
+    QVector<QVariant> batchInsert(const QVector<QVariantMap>& items);
+    QVector<QVariant> batchUpsert(const QVector<QVariantMap>& items);
+
     QVariantMap filterValidKeys(const QVariantMap& item) const;
     Where buildWhereCondition(const QVariantMap& item, const Where& condition) const;
     void logError(const QString& operation) const;

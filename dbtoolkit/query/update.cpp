@@ -1,11 +1,9 @@
 #include "update.h"
+#include <QDebug>
 #include <QSqlError>
 #include <QSqlQuery>
-#include <QDebug>
 
-Update::Update()
-{
-}
+Update::Update() { }
 
 Update::Update(const QString& table)
     : m_table(table)
@@ -42,12 +40,11 @@ Update& Update::where(const QString& condition)
     return *this;
 }
 
-QVariant Update::execute(QSqlDatabase &database) const
+QVariant Update::execute(QSqlDatabase& database) const
 {
     QStringList columns = m_values.keys();
-    columns.removeAll("id");
     QString sql = toSql();
-    
+
     if (sql.isEmpty())
     {
         qWarning() << "Update: invalid query";
@@ -60,19 +57,19 @@ QVariant Update::execute(QSqlDatabase &database) const
         qWarning() << "Update prepare failed:" << query.lastError();
         return -1;
     }
-    
+
     for (const QString& column : columns)
     {
         query.addBindValue(m_values.value(column));
     }
-    
+
     if (!query.exec())
     {
         qWarning() << "Update exec failed:" << query.lastError();
         qWarning() << "SQL:" << sql;
         return -1;
     }
-    
+
     return query.numRowsAffected();
 }
 
@@ -82,53 +79,34 @@ QString Update::toSql() const
     {
         return QString();
     }
-    
+
     QStringList columns = m_values.keys();
-    columns.removeAll("id");
-    
+
     if (columns.isEmpty())
     {
         return QString();
     }
-    
+
     QString whereClause = m_where;
-    
-    if (whereClause.isEmpty() && m_values.contains("id"))
-    {
-        int id = m_values.value("id").toInt();
-        if (id > 0)
-        {
-            whereClause = QString("id = %1").arg(id);
-        }
-    }
-    
+
     QStringList setParts;
     for (const QString& column : columns)
     {
         setParts.append(column + " = ?");
     }
-    
+
     QString sql = QString("UPDATE %1 SET %2").arg(m_table).arg(setParts.join(", "));
-    
+
     if (!whereClause.isEmpty())
     {
         sql += " WHERE " + whereClause;
     }
-    
+
     return sql;
 }
 
-QString Update::build() const
-{
-    return toSql();
-}
+QString Update::build() const { return toSql(); }
 
-bool Update::hasTable() const
-{
-    return !m_table.isEmpty();
-}
+bool Update::hasTable() const { return !m_table.isEmpty(); }
 
-bool Update::hasWhere() const
-{
-    return !m_where.isEmpty();
-}
+bool Update::hasWhere() const { return !m_where.isEmpty(); }
