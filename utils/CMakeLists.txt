@@ -1,9 +1,13 @@
 set(LIBRARY_NAME app_utils)
 
-file(GLOB_RECURSE SOURCES "*.cpp")
-file(GLOB_RECURSE HEADERS "*.h")
+file(GLOB SOURCES "*.cpp")
+file(GLOB HEADERS "*.h")
 
 add_library(${LIBRARY_NAME} STATIC ${SOURCES} ${HEADERS})
+
+if(ANDROID)
+    add_subdirectory(android)
+endif()
 
 target_include_directories(${LIBRARY_NAME}
     PUBLIC
