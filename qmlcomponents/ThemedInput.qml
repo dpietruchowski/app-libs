@@ -22,6 +22,8 @@ TextField {
     implicitWidth: Theme.applicationWidth * 0.8
     implicitHeight: 52
 
+    inputMethodHints: Qt.ImhNoPredictiveText
+
     background: Rectangle {
         color: Theme.colors.surface
         radius: Theme.radius.medium
