@@ -1,5 +1,6 @@
 #include "textmatcher.h"
 
+#include <QDebug>
 #include <QStringList>
 
 const QString TextMatcher::kPunctuationCharacters = ",.!?:;\"'()-¡¿";
@@ -22,15 +23,18 @@ bool TextMatcher::compare(const QString& a, const QString& b)
 bool TextMatcher::existsInSentence(const QString& text, const QString& sentenceText)
 {
     QStringList words = sentenceText.split(' ', Qt::SkipEmptyParts);
-    QString cleanTarget = removePunctuation(text).trimmed();
+    QStringList textWords = text.split(' ', Qt::SkipEmptyParts);
 
-    for (const QString& word : words)
-    {
-        QString cleanWord = removePunctuation(word).trimmed();
-        if (compare(cleanWord, cleanTarget))
-        {
-            return true;
-        }
-    }
-    return false;
+    auto it = std::search(words.begin(), words.end(), textWords.begin(), textWords.end(),
+                          [](const QString& a, const QString& b)
+                          {
+                              QString cleanA = removePunctuation(a).trimmed();
+                              QString cleanB = removePunctuation(b).trimmed();
+
+                              qDebug() << "Comparing:" << cleanA << "vs" << cleanB;
+
+                              return compare(cleanA, cleanB);
+                          });
+
+    return it != words.end();
 }
