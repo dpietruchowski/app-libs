@@ -31,8 +31,6 @@ bool TextMatcher::existsInSentence(const QString& text, const QString& sentenceT
                               QString cleanA = removePunctuation(a).trimmed();
                               QString cleanB = removePunctuation(b).trimmed();
 
-                              qDebug() << "Comparing:" << cleanA << "vs" << cleanB;
-
                               return compare(cleanA, cleanB);
                           });
 
