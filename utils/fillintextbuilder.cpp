@@ -1,5 +1,5 @@
 #include "fillintextbuilder.h"
-#include "wordmatcher.h"
+#include "textmatcher.h"
 
 FillInTextBuilder::FillInTextBuilder(const QStringList& targetWords, const QString& sentence)
     : m_targetWords(targetWords)
@@ -36,7 +36,7 @@ QString FillInTextBuilder::buildPartialText() const
                 return QString("_____");
             }
 
-            if (WordMatcher::compareWords(targetWord, attempt))
+            if (TextMatcher::compare(targetWord, attempt))
             {
                 return wrapInSpan(word, SpanClass::Correct);
             }
@@ -77,12 +77,12 @@ FillInTextBuilder::transformWords(std::function<QString(const QString&, int)> ca
     QStringList words = m_sentence.split(' ');
     for (auto& word : words)
     {
-        QString cleanWord = WordMatcher::removePunctuation(word);
+        QString cleanWord = TextMatcher::removePunctuation(word);
         int targetIndex = -1;
 
         for (int i = 0; i < m_targetWords.size(); ++i)
         {
-            if (WordMatcher::compareWords(cleanWord, m_targetWords[i]))
+            if (TextMatcher::compare(cleanWord, m_targetWords[i]))
             {
                 targetIndex = i;
                 break;
@@ -126,10 +126,10 @@ FillInTextBuilder::WordParts FillInTextBuilder::splitWordParts(const QString& wo
     int start = 0;
     int end = word.length();
 
-    while (start < end && WordMatcher::kPunctuationCharacters.contains(word[start]))
+    while (start < end && TextMatcher::kPunctuationCharacters.contains(word[start]))
         start++;
 
-    while (end > start && WordMatcher::kPunctuationCharacters.contains(word[end - 1]))
+    while (end > start && TextMatcher::kPunctuationCharacters.contains(word[end - 1]))
         end--;
 
     WordParts parts;
