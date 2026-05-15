@@ -22,6 +22,7 @@ Dialog {
     closePolicy: Popup.NoAutoClose
 
     width: Math.min(parent.width * 0.9, 400)
+    padding: Theme.padding.large
 
     background: Rectangle {
         color: Theme.colors.dialogSurface
@@ -30,18 +31,20 @@ Dialog {
         border.width: Theme.border.thin
     }
 
-    header: Rectangle {
+    header: Item {
         visible: control.title !== ""
-        color: "transparent"
-        height: visible ? headerText.height + Theme.padding.large * 2 : 0
+        implicitHeight: visible ? headerText.implicitHeight + Theme.padding.large * 2 : 0
 
         Text {
             id: headerText
             anchors.centerIn: parent
+            width: parent.width - Theme.padding.large * 2
             text: control.title
             font.pixelSize: Theme.fontSize.large
             font.bold: true
             color: Theme.colors.textPrimary
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.WordWrap
         }
     }
 
@@ -50,37 +53,42 @@ Dialog {
 
         Text {
             Layout.fillWidth: true
-            text: message
+            text: control.message
             wrapMode: Text.WordWrap
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: Theme.fontSize.medium
             color: Theme.colors.textSecondary
-            visible: message !== ""
+            visible: control.message !== ""
         }
 
         Item {
             Layout.fillWidth: true
-            Layout.fillHeight: true
-            visible: customContent !== null
-            children: customContent
+            Layout.preferredHeight: control.customContent ? control.customContent.implicitHeight : 0
+            visible: control.customContent !== null
+            children: control.customContent ? [control.customContent] : []
         }
+    }
+
+    footer: Item {
+        implicitHeight: footerRow.implicitHeight + Theme.padding.large * 2
 
         RowLayout {
-            Layout.alignment: Qt.AlignHCenter
+            id: footerRow
+            anchors.centerIn: parent
             spacing: Theme.spacing.medium
 
             ThemedButton {
-                visible: showRejectButton
-                text: rejectText
+                visible: control.showRejectButton
+                text: control.rejectText
                 buttonSize: Theme.button.medium
                 buttonStyle: Theme.button.secondary
                 onClicked: control.reject()
             }
 
             ThemedButton {
-                text: acceptText
+                text: control.acceptText
                 buttonSize: Theme.button.medium
-                buttonStyle: getButtonStyle()
+                buttonStyle: control.getButtonStyle()
                 onClicked: control.accept()
             }
         }
