@@ -7,6 +7,8 @@ add_library(dbtoolkit SHARED
     dbstorage.cpp
     dbrepository.h
     dbrepository.cpp
+    migrationrunner.h
+    migrationrunner.cpp
 )
 
 target_link_libraries(dbtoolkit 

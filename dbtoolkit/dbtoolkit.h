@@ -1,6 +1,8 @@
 #include "dbrepository.h"
 #include "dbstorage.h"
+#include "migrationrunner.h"
 #include "query/createtable.h"
+#include "query/altertable.h"
 #include "query/createindex.h"
 #include "query/alias.h"
 #include "query/column.h"

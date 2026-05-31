@@ -9,6 +9,8 @@ set(QUERY_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/delete.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/createtable.h
     ${CMAKE_CURRENT_SOURCE_DIR}/createtable.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/altertable.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/altertable.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/createindex.h
     ${CMAKE_CURRENT_SOURCE_DIR}/createindex.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/select.h
