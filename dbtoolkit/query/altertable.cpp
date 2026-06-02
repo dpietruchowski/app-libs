@@ -16,6 +16,12 @@ AlterTable& AlterTable::addColumn(const Column& col)
     return *this;
 }
 
+AlterTable& AlterTable::dropColumn(const QString& name)
+{
+    m_dropColumns.append(name);
+    return *this;
+}
+
 QVariant AlterTable::execute(QSqlDatabase& database) const
 {
     if (m_tableName.isEmpty())
@@ -43,12 +49,30 @@ QVariant AlterTable::execute(QSqlDatabase& database) const
         }
     }
 
+    for (const auto& name : m_dropColumns)
+    {
+        if (!existing.contains(name))
+        {
+            continue;
+        }
+
+        const QString sql = "ALTER TABLE " + m_tableName + " DROP COLUMN " + name;
+
+        QSqlQuery query(database);
+        if (!query.exec(sql))
+        {
+            qWarning() << "AlterTable exec failed:" << query.lastError();
+            qWarning() << "SQL:" << sql;
+            return 0;
+        }
+    }
+
     return 1;
 }
 
 QString AlterTable::toSql() const
 {
-    if (m_tableName.isEmpty() || m_columns.isEmpty())
+    if (m_tableName.isEmpty() || (m_columns.isEmpty() && m_dropColumns.isEmpty()))
     {
         return QString();
     }
@@ -57,6 +81,10 @@ QString AlterTable::toSql() const
     for (const auto& col : m_columns)
     {
         statements.append("ALTER TABLE " + m_tableName + " ADD COLUMN " + col.toSql());
+    }
+    for (const auto& name : m_dropColumns)
+    {
+        statements.append("ALTER TABLE " + m_tableName + " DROP COLUMN " + name);
     }
 
     return statements.join("; ");
