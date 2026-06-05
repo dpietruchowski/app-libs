@@ -1,5 +1,16 @@
 set(LIBRARY_NAME app_utils)
 
+set(LIBSECRET_AVAILABLE FALSE)
+if(NOT ANDROID)
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(LIBSECRET IMPORTED_TARGET libsecret-1)
+        if(LIBSECRET_FOUND)
+            set(LIBSECRET_AVAILABLE TRUE)
+        endif()
+    endif()
+endif()
+
 file(GLOB SOURCES "*.cpp")
 file(GLOB HEADERS "*.h")
 
@@ -7,6 +18,10 @@ add_library(${LIBRARY_NAME} STATIC ${SOURCES} ${HEADERS})
 
 if(ANDROID)
     add_subdirectory(android)
+elseif(LIBSECRET_AVAILABLE)
+    add_subdirectory(linux)
+    target_compile_definitions(${LIBRARY_NAME} PRIVATE HAVE_LIBSECRET)
+    target_link_libraries(${LIBRARY_NAME} PRIVATE app_securestorage_linux)
 endif()
 
 target_include_directories(${LIBRARY_NAME}

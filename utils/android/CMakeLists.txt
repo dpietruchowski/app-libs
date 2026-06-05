@@ -5,6 +5,8 @@ target_sources(app_utils PRIVATE
     androidnotification.cpp
     androidnotificationscheduler.h
     androidnotificationscheduler.cpp
+    securestorageandroid.h
+    securestorageandroid.cpp
 )
 
 target_include_directories(app_utils PUBLIC
