@@ -75,6 +75,7 @@ struct Completion
     QString model;
     Usage usage;
     QVector<Choice> choices;
+    QString error; // non-empty when the request failed (network/HTTP/server)
 
     QJsonObject toJsonObject() const;
     static Completion fromJsonObject(const QJsonObject& json);

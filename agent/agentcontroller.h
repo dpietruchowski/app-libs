@@ -25,6 +25,7 @@ signals:
     void messagesChanged();
     void busyChanged();
     void requestFinished();
+    void errorOccurred(const QString& message);
 
 private:
     Agent m_agent;

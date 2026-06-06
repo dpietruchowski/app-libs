@@ -4,6 +4,12 @@ AgentController::AgentController(const QString& model, const QString& systemProm
     : QObject(parent)
     , m_agent(model, systemPrompt)
 {
+    m_agent.setErrorCallback(
+        [this](const QString& error)
+        {
+            QMetaObject::invokeMethod(
+                this, [this, error] { emit errorOccurred(error); }, Qt::QueuedConnection);
+        });
 }
 
 void AgentController::addTool(const QString docstring, const Tool& tool) { m_agent.addTool(docstring, tool); }

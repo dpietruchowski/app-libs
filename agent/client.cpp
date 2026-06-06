@@ -111,6 +111,7 @@ Completion Client::parseReply(QNetworkReply* reply) const
         QString errorString = reply->errorString();
         QByteArray serverResponse = reply->readAll();
         qCWarning(ClientLogic) << "Error occurred:" << errorString << "Server replied:" << QString(serverResponse);
+        completion.error = errorString;
     }
     delete reply;
     return completion;

@@ -123,6 +123,8 @@ Agent::Agent(const QString& model, const QString& systemPrompt)
     clear();
 }
 
+void Agent::setErrorCallback(ErrorReceivedCallback callback) { m_errorCallback = std::move(callback); }
+
 void Agent::addInitialMessage(const QString& message)
 {
     m_messages.append(Message { .role = "assistant", .content = message });
@@ -194,9 +196,16 @@ void Agent::createCompletionAsync(const Client& client)
 
 QString Agent::onCompletionReceived(const Client& client, const Completion& completion, bool async)
 {
-    if (completion.choices.size() == 0)
+    if (!completion.error.isEmpty() || completion.choices.size() == 0)
     {
-        qCWarning(AgentLogic) << QStringLiteral("Missing choices in completion");
+        const QString error = completion.error.isEmpty()
+            ? QStringLiteral("Empty response from the model")
+            : completion.error;
+        qCWarning(AgentLogic) << QStringLiteral("Completion failed:") << error;
+        if (m_errorCallback)
+        {
+            m_errorCallback(error);
+        }
         if (m_responseReceivedCallback)
         {
             m_responseReceivedCallback("");

@@ -10,7 +10,10 @@ class Agent
 {
 public:
     using ResponseReceivedCallback = std::function<void(const QString& response)>;
+    using ErrorReceivedCallback = std::function<void(const QString& error)>;
     Agent(const QString& model, const QString& systemPrompt);
+
+    void setErrorCallback(ErrorReceivedCallback callback);
 
     void addInitialMessage(const QString& message);
 
@@ -37,5 +40,6 @@ private:
     ToolsMap m_toolsMap;
     Messages m_messages;
     ResponseReceivedCallback m_responseReceivedCallback;
+    ErrorReceivedCallback m_errorCallback;
     int m_toolCallsCount = 0;
 };
