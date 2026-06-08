@@ -17,5 +17,10 @@ public:
     QString sentence;
     QString language;
 
+    Q_INVOKABLE QString targetText(bool showContext) const
+    {
+        return showContext ? blankedText : expression;
+    }
+
     bool operator==(const ExpressionEntry& other) const = default;
 };
