@@ -7,8 +7,16 @@ TextField {
     id: control
 
     property string placeholder: "Type..."
+    property int enterKeyType: Qt.EnterKeyDone
 
     signal submitted(string text)
+
+    function submit() {
+        if (text.trim() !== "") {
+            submitted(text.trim())
+            text = ""
+        }
+    }
 
     placeholderText: placeholder
     placeholderTextColor: Theme.colors.textPlaceholder
@@ -23,6 +31,7 @@ TextField {
     implicitHeight: 52
 
     inputMethodHints: Qt.ImhNoPredictiveText
+    EnterKey.type: control.enterKeyType
 
     background: Rectangle {
         color: Theme.colors.surface
@@ -34,17 +43,7 @@ TextField {
         Behavior on border.width { NumberAnimation { duration: 150 } }
     }
 
-    Keys.onReturnPressed: {
-        if (text.trim() !== "") {
-            submitted(text.trim())
-            text = ""
-        }
-    }
-
-    Keys.onEnterPressed: {
-        if (text.trim() !== "") {
-            submitted(text.trim())
-            text = ""
-        }
-    }
+    Keys.onReturnPressed: control.submit()
+    Keys.onEnterPressed: control.submit()
+    onAccepted: control.submit()
 }
