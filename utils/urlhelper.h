@@ -15,6 +15,9 @@ public:
                                            const QString& sourceLanguage = "en",
                                            const QString& targetLanguage = "pl");
 
+    Q_INVOKABLE void openTranslate(const QString& text, const QString& sourceLanguage = "en",
+                                   const QString& targetLanguage = "pl");
+
 private:
     static QString languageToCode(const QString& language);
 };

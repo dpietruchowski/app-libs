@@ -18,6 +18,7 @@ public:
         Pick,
         Search,
         WebSearch,
+        ProcessText,
     };
 
     enum class Extra
@@ -27,6 +28,8 @@ public:
         Email,
         Stream,
         Title,
+        ProcessText,
+        ProcessTextReadonly,
     };
 
     enum class MimeType
@@ -49,12 +52,15 @@ public:
     Intent& setData(const QString& uri);
     Intent& setType(MimeType mimeType);
     Intent& setClassName(const QString& packageName, const QString& className);
+    Intent& setPackage(const QString& packageName);
     Intent& putExtra(Extra key, const QString& value);
+    Intent& putExtra(Extra key, bool value);
     Intent& putExtra(const QString& key, const QString& value);
     Intent& putExtra(const QString& key, int value);
 
     static Intent createChooser(const Intent& target, const QString& title);
 
+    bool resolves() const;
     void start() const;
     QJniObject jniObject() const;
 

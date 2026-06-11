@@ -1,7 +1,12 @@
 #include "urlhelper.h"
 
+#include <QDesktopServices>
 #include <QUrl>
 #include <QUrlQuery>
+
+#ifdef Q_OS_ANDROID
+#include "intent.h"
+#endif
 
 UrlHelper::UrlHelper(QObject* parent)
     : QObject(parent)
@@ -22,6 +27,25 @@ QString UrlHelper::googleTranslateUrl(const QString& text, const QString& source
     url.setQuery(query);
 
     return url.toString();
+}
+
+void UrlHelper::openTranslate(const QString& text, const QString& sourceLanguage,
+                              const QString& targetLanguage)
+{
+#ifdef Q_OS_ANDROID
+    android::Intent intent(android::Intent::Action::ProcessText);
+    intent.setType(android::Intent::MimeType::TextPlain)
+        .setPackage("com.google.android.apps.translate")
+        .putExtra(android::Intent::Extra::ProcessText, text)
+        .putExtra(android::Intent::Extra::ProcessTextReadonly, true);
+
+    if (intent.resolves())
+    {
+        intent.start();
+        return;
+    }
+#endif
+    QDesktopServices::openUrl(QUrl(googleTranslateUrl(text, sourceLanguage, targetLanguage)));
 }
 
 QString UrlHelper::languageToCode(const QString& language)

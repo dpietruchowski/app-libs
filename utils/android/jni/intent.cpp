@@ -23,6 +23,8 @@ QString toString(android::Intent::Action action)
             return "android.intent.action.SEARCH";
         case android::Intent::Action::WebSearch:
             return "android.intent.action.WEB_SEARCH";
+        case android::Intent::Action::ProcessText:
+            return "android.intent.action.PROCESS_TEXT";
     }
     return {};
 }
@@ -41,6 +43,10 @@ QString toString(android::Intent::Extra extra)
             return "android.intent.extra.STREAM";
         case android::Intent::Extra::Title:
             return "android.intent.extra.TITLE";
+        case android::Intent::Extra::ProcessText:
+            return "android.intent.extra.PROCESS_TEXT";
+        case android::Intent::Extra::ProcessTextReadonly:
+            return "android.intent.extra.PROCESS_TEXT_READONLY";
     }
     return {};
 }
@@ -124,6 +130,13 @@ Intent& Intent::setClassName(const QString& packageName, const QString& classNam
     return *this;
 }
 
+Intent& Intent::setPackage(const QString& packageName)
+{
+    m_intent.callObjectMethod("setPackage", "(Ljava/lang/String;)Landroid/content/Intent;",
+                              QJniObject::fromString(packageName).object<jstring>());
+    return *this;
+}
+
 Intent& Intent::setType(MimeType mimeType)
 {
     m_intent.callObjectMethod("setType", "(Ljava/lang/String;)Landroid/content/Intent;",
@@ -137,6 +150,14 @@ Intent& Intent::putExtra(Extra key, const QString& value)
                               "(Ljava/lang/String;Ljava/lang/String;)Landroid/content/Intent;",
                               QJniObject::fromString(toString(key)).object<jstring>(),
                               QJniObject::fromString(value).object<jstring>());
+    return *this;
+}
+
+Intent& Intent::putExtra(Extra key, bool value)
+{
+    m_intent.callObjectMethod("putExtra", "(Ljava/lang/String;Z)Landroid/content/Intent;",
+                              QJniObject::fromString(toString(key)).object<jstring>(),
+                              static_cast<jboolean>(value));
     return *this;
 }
 
@@ -164,6 +185,17 @@ Intent Intent::createChooser(const Intent& target, const QString& title)
         "(Landroid/content/Intent;Ljava/lang/CharSequence;)Landroid/content/Intent;",
         target.m_intent.object<jobject>(), QJniObject::fromString(title).object<jstring>());
     return Intent(std::move(chooser));
+}
+
+bool Intent::resolves() const
+{
+    QJniObject context(QNativeInterface::QAndroidApplication::context());
+    QJniObject packageManager
+        = context.callObjectMethod("getPackageManager", "()Landroid/content/pm/PackageManager;");
+    QJniObject component = m_intent.callObjectMethod(
+        "resolveActivity", "(Landroid/content/pm/PackageManager;)Landroid/content/ComponentName;",
+        packageManager.object<jobject>());
+    return component.isValid();
 }
 
 void Intent::start() const
