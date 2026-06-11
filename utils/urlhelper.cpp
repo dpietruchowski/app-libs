@@ -33,15 +33,30 @@ void UrlHelper::openTranslate(const QString& text, const QString& sourceLanguage
                               const QString& targetLanguage)
 {
 #ifdef Q_OS_ANDROID
-    android::Intent intent(android::Intent::Action::ProcessText);
-    intent.setType(android::Intent::MimeType::TextPlain)
+    android::Intent sendIntent(android::Intent::Action::Send);
+    sendIntent.setType(android::Intent::MimeType::TextPlain)
+        .setClassName("com.google.android.apps.translate",
+                      "com.google.android.apps.translate.TranslateActivity")
+        .putExtra(android::Intent::Extra::Text, text)
+        .putExtra("key_text_input", text)
+        .putExtra("key_language_from", languageToCode(sourceLanguage))
+        .putExtra("key_language_to", languageToCode(targetLanguage));
+
+    if (sendIntent.resolves())
+    {
+        sendIntent.start();
+        return;
+    }
+
+    android::Intent processTextIntent(android::Intent::Action::ProcessText);
+    processTextIntent.setType(android::Intent::MimeType::TextPlain)
         .setPackage("com.google.android.apps.translate")
         .putExtra(android::Intent::Extra::ProcessText, text)
         .putExtra(android::Intent::Extra::ProcessTextReadonly, true);
 
-    if (intent.resolves())
+    if (processTextIntent.resolves())
     {
-        intent.start();
+        processTextIntent.start();
         return;
     }
 #endif
@@ -61,6 +76,20 @@ QString UrlHelper::languageToCode(const QString& language)
         return "fr";
     if (lower == "spanish" || lower == "es")
         return "es";
+    if (lower == "japanese" || lower == "ja")
+        return "ja";
+    if (lower == "chinese" || lower == "zh")
+        return "zh";
+    if (lower == "italian" || lower == "it")
+        return "it";
+    if (lower == "korean" || lower == "ko")
+        return "ko";
+    if (lower == "russian" || lower == "ru")
+        return "ru";
+    if (lower == "portuguese" || lower == "pt")
+        return "pt";
+    if (lower == "arabic" || lower == "ar")
+        return "ar";
 
     return lower;
 }
