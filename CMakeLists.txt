@@ -25,6 +25,7 @@ add_subdirectory(agent)
 
 if(NOT QML_LIVE_ENABLED)
     add_subdirectory(qmlcomponents)
+    add_subdirectory(appcomponents)
 endif()
 
 if(LIBS_BUILD_TESTS AND NOT ANDROID)
