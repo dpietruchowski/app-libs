@@ -8,13 +8,15 @@ TextField {
 
     property string placeholder: "Type..."
     property int enterKeyType: Qt.EnterKeyDone
+    property bool clearOnSubmit: true
 
     signal submitted(string text)
 
     function submit() {
         if (text.trim() !== "") {
             submitted(text.trim())
-            text = ""
+            if (clearOnSubmit)
+                text = ""
         }
     }
 
