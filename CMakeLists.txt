@@ -18,6 +18,7 @@ set(CMAKE_AUTORCC ON)
 
 add_subdirectory(qmllive)
 add_subdirectory(dbtoolkit)
+add_subdirectory(eventbus)
 add_subdirectory(utils)
 add_subdirectory(icons)
 add_subdirectory(agent)
