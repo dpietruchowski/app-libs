@@ -67,8 +67,8 @@ Item {
 
                 Rectangle {
                     id: bubble
-                    width: Math.min(chatList.width * 0.82, messageText.implicitWidth + Theme.padding.medium * 2)
-                    height: messageText.implicitHeight + Theme.padding.small * 2
+                    width: messageText.width + Theme.padding.small * 2
+                    height: messageText.height + Theme.padding.small * 2
                     radius: Theme.radius.large
                     anchors.right: isUser ? parent.right : undefined
                     anchors.left: isUser ? undefined : parent.left
@@ -76,8 +76,8 @@ Item {
 
                     Text {
                         id: messageText
-                        anchors.fill: parent
-                        anchors.margins: Theme.padding.small
+                        anchors.centerIn: parent
+                        width: Math.min(implicitWidth, chatList.width * 0.82 - Theme.padding.small * 2)
                         text: modelData.text
                         wrapMode: Text.Wrap
                         color: isUser ? Theme.colors.textInverse : Theme.colors.textPrimary
