@@ -28,6 +28,7 @@ Rectangle {
         Repeater {
             model: bottomNav.model
             delegate: Rectangle {
+                objectName: modelData.name || ""
                 width: 55
                 height: 50
                 color: "transparent"
