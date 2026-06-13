@@ -110,6 +110,7 @@ Item {
 
             ThemedInput {
                 id: input
+                objectName: "chatInput"
                 Layout.fillWidth: true
                 placeholder: root.placeholderText
                 enabled: !root.busy
@@ -120,6 +121,7 @@ Item {
             }
 
             ThemedButton {
+                objectName: "chatSendButton"
                 Layout.alignment: Qt.AlignVCenter
                 buttonSize: Theme.button.square
                 iconSource: root.sendIcon
