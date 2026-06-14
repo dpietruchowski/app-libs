@@ -11,6 +11,7 @@ Item {
 
     property string title
     property alias titleFont: titleText.font
+    property alias titleColor: titleText.color
     property bool expandable: false
     property bool expanded: true
     default property alias actions: actionsRow.data
