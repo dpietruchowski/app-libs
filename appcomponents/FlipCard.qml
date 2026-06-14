@@ -11,6 +11,7 @@ Item {
     property bool flipped: false
     property bool enabled: true
     property real textSize: Theme.fontSize.xxLarge
+    property string text: flipped ? targetText : sourceText
 
     implicitWidth: card.implicitWidth
     implicitHeight: card.implicitHeight

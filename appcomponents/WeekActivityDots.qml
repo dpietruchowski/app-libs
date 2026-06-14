@@ -20,6 +20,7 @@ Row {
                 objectName: "weekDot" + index
 
                 readonly property bool filled: root.activity[index] === true
+                property string text: (filled ? "active" : "inactive") + (index === root.todayIndex ? " (today)" : "")
                 property bool animationReady: false
 
                 width: 12

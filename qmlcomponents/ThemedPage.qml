@@ -21,6 +21,7 @@ Page {
 
     ThemedButton {
         id: backButton
+        objectName: "backButton"
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.margins: root.contentPadding

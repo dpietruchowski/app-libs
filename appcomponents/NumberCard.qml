@@ -7,6 +7,8 @@ ThemedCard {
 
     property string title: "Title"
     property int number: 10
+    property bool done: false
+    property string text: title + ": " + number + (done ? " ✓" : "")
 
     clickable: true
     backgroundColor: Theme.colors.surface

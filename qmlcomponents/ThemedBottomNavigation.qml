@@ -66,7 +66,7 @@ Rectangle {
                         bottomNav.currentIndex = index
                         bottomNav.itemSelected(index)
                         if (modelData.screen && stackView) {
-                            stackView.replace(modelData.screen)
+                            stackView.replace(null, modelData.screen)
                         }
                     }
                 }
