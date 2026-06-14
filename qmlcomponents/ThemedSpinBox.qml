@@ -25,7 +25,7 @@ SpinBox {
         verticalAlignment: Qt.AlignVCenter
         leftPadding: control.mirrored ? control.down.indicator.width  : control.up.indicator.width
         rightPadding: control.mirrored ? control.up.indicator.width  : control.down.indicator.width
-        readOnly: true
+        readOnly: !control.editable
         validator: control.validator
         inputMethodHints: Qt.ImhFormattedNumbersOnly
     }
