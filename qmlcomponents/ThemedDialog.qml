@@ -78,6 +78,7 @@ Dialog {
             spacing: Theme.spacing.medium
 
             ThemedButton {
+                objectName: control.objectName + "CancelButton"
                 visible: control.showRejectButton
                 text: control.rejectText
                 buttonSize: Theme.button.medium
@@ -86,6 +87,7 @@ Dialog {
             }
 
             ThemedButton {
+                objectName: control.objectName + "ConfirmButton"
                 text: control.acceptText
                 buttonSize: Theme.button.medium
                 buttonStyle: control.getButtonStyle()

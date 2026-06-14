@@ -60,10 +60,12 @@ Item {
             onCountChanged: positionViewAtEnd()
 
             delegate: Item {
+                objectName: "chatMessage" + index
                 width: chatList.width
                 height: bubble.height
 
                 readonly property bool isUser: modelData.sender === root.userRole
+                property alias text: messageText.text
 
                 Rectangle {
                     id: bubble

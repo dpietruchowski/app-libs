@@ -17,6 +17,7 @@ Row {
 
             Rectangle {
                 id: dot
+                objectName: "weekDot" + index
 
                 readonly property bool filled: root.activity[index] === true
                 property bool animationReady: false
@@ -68,6 +69,7 @@ Row {
             }
 
             Text {
+                objectName: "weekDayLabel" + index
                 text: Qt.locale().dayName(index + 1, Locale.NarrowFormat)
                 font.pixelSize: Theme.fontSize.xSmall
                 font.bold: index === root.todayIndex
