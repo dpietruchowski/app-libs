@@ -148,7 +148,7 @@ Rectangle {
             id: messageText
             anchors.centerIn: parent
             text: root.message
-            font.pixelSize: Theme.font.size.xxxLarge
+            font.pixelSize: Theme.fontSize.xxLarge
             font.bold: true
             color: Theme.colors.primary
             horizontalAlignment: Text.AlignHCenter
