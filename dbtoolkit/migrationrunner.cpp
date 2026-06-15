@@ -1,11 +1,11 @@
 #include "migrationrunner.h"
 
 #include <QDebug>
-#include <QSqlError>
-#include <QSqlQuery>
+#include <QVariantMap>
 #include <algorithm>
 
 #include "dbstorage.h"
+#include "query/pragma.h"
 
 MigrationRunner::MigrationRunner(DbStorage& storage)
     : m_storage(storage)
@@ -20,23 +20,20 @@ MigrationRunner& MigrationRunner::add(int version, MigrationStep step)
 
 int MigrationRunner::currentVersion() const
 {
-    QSqlQuery query(m_storage.database());
-    if (!query.exec("PRAGMA user_version") || !query.next())
+    QVector<QVariantMap> rows = Pragma("user_version").query(m_storage.database());
+    if (rows.isEmpty())
     {
-        qWarning() << "MigrationRunner: failed to read user_version:" << query.lastError();
+        qWarning() << "MigrationRunner: failed to read user_version";
         return 0;
     }
-    return query.value(0).toInt();
+    return rows.first().value("user_version").toInt();
 }
 
 bool MigrationRunner::setVersion(int version)
 {
-    QSqlQuery query(m_storage.database());
-    // PRAGMA does not accept bound parameters; version is an internally controlled int.
-    if (!query.exec(QStringLiteral("PRAGMA user_version = %1").arg(version)))
+    if (!Pragma("user_version").set(version).execute(m_storage.database()).toBool())
     {
-        qWarning() << "MigrationRunner: failed to set user_version to" << version << ":"
-                   << query.lastError();
+        qWarning() << "MigrationRunner: failed to set user_version to" << version;
         return false;
     }
     return true;

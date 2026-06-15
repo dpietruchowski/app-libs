@@ -8,5 +8,6 @@
 #include "query/column.h"
 #include "query/join.h"
 #include "query/order.h"
+#include "query/pragma.h"
 #include "query/select.h"
 #include "query/where.h"
