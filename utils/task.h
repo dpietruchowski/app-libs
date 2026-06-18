@@ -1,6 +1,5 @@
 #pragma once
 
-#include <QCoreApplication>
 #include <QFuture>
 #include <QMetaObject>
 #include <QObject>
@@ -54,8 +53,9 @@ template <typename T> class Task final
 public:
     using value_type = T;
 
-    explicit Task(QFuture<Result<T>> future)
-        : m_future(std::move(future))
+    Task(QObject* worker, QFuture<Result<T>> future)
+        : m_worker(worker)
+        , m_future(std::move(future))
     {
     }
 
@@ -75,21 +75,46 @@ public:
                                       promise->finish();
                                   });
 
-        return Task<T>(std::move(future));
+        return Task<T>(worker, std::move(future));
     }
 
-    template <typename F> auto then(F&& fn)
+    template <typename F> auto then(F&& fn) { return thenOn(m_worker, std::forward<F>(fn)); }
+
+    template <typename F> auto then(QObject* context, F&& fn)
+    {
+        return thenOn(context, std::forward<F>(fn));
+    }
+
+    Task& onError(QObject* context, std::function<void(const QString&)> handler)
+    {
+        m_future.then(context,
+                      [handler = std::move(handler)](Result<T> result)
+                      {
+                          if (result.isFailure())
+                          {
+                              handler(result.error());
+                          }
+                          return result;
+                      });
+        return *this;
+    }
+
+    QObject* worker() const { return m_worker; }
+    QFuture<Result<T>> future() const { return m_future; }
+
+private:
+    template <typename F> auto thenOn(QObject* context, F&& fn)
     {
         using Ret = decltype(task_detail::callWith(fn, std::declval<Result<T>>()));
         if constexpr (task_detail::is_task_v<Ret>)
         {
-            return thenTask(std::forward<F>(fn));
+            return thenTaskOn(context, std::forward<F>(fn));
         }
         else
         {
             using U = Ret;
             QFuture<Result<U>> next = m_future.then(
-                qApp,
+                context,
                 [fn = std::forward<F>(fn)](Result<T> result) mutable -> Result<U>
                 {
                     if (result.isFailure())
@@ -106,33 +131,16 @@ public:
                         return Result<U>::success(task_detail::callWith(fn, result));
                     }
                 });
-            return Task<U>(std::move(next));
+            return Task<U>(m_worker, std::move(next));
         }
     }
 
-    Task& onError(std::function<void(const QString&)> handler)
-    {
-        m_future.then(qApp,
-                      [handler = std::move(handler)](Result<T> result)
-                      {
-                          if (result.isFailure())
-                          {
-                              handler(result.error());
-                          }
-                          return result;
-                      });
-        return *this;
-    }
-
-    QFuture<Result<T>> future() const { return m_future; }
-
-private:
-    template <typename F> auto thenTask(F&& fn)
+    template <typename F> auto thenTaskOn(QObject* context, F&& fn)
     {
         using Inner = decltype(task_detail::callWith(fn, std::declval<Result<T>>()));
         using U = typename Inner::value_type;
         QFuture<QFuture<Result<U>>> nested = m_future.then(
-            qApp,
+            context,
             [fn = std::forward<F>(fn)](Result<T> result) mutable -> QFuture<Result<U>>
             {
                 if (result.isFailure())
@@ -146,8 +154,9 @@ private:
                 }
                 return task_detail::callWith(fn, result).future();
             });
-        return Task<U>(nested.unwrap());
+        return Task<U>(m_worker, nested.unwrap());
     }
 
+    QObject* m_worker;
     QFuture<Result<T>> m_future;
 };
