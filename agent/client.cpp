@@ -16,6 +16,36 @@ namespace
 static const char* kJsonModelKey = "model";
 static const char* kJsonMessagesKey = "messages";
 static const char* kJsonToolsKey = "tools";
+
+QString classifyError(int httpStatus, const QByteArray& body)
+{
+    int code = httpStatus;
+    if (code == 0)
+    {
+        const QJsonObject errorObject =
+            QJsonDocument::fromJson(body).object().value(QStringLiteral("error")).toObject();
+        code = errorObject.value(QStringLiteral("code")).toInt();
+    }
+
+    switch (code)
+    {
+    case 401:
+    case 403:
+        return QStringLiteral("invalid_key");
+    case 402:
+        return QStringLiteral("insufficient_credits");
+    case 429:
+        return QStringLiteral("rate_limit");
+    default:
+        break;
+    }
+
+    if (code >= 500 && code <= 599)
+        return QStringLiteral("server_error");
+    if (httpStatus == 0)
+        return QStringLiteral("network_error");
+    return QStringLiteral("unknown_error");
+}
 }
 
 Client::Client()
@@ -108,10 +138,12 @@ Completion Client::parseReply(QNetworkReply* reply) const
     }
     else
     {
+        const int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         QString errorString = reply->errorString();
         QByteArray serverResponse = reply->readAll();
-        qCWarning(ClientLogic) << "Error occurred:" << errorString << "Server replied:" << QString(serverResponse);
-        completion.error = errorString;
+        qCWarning(ClientLogic) << "Error occurred:" << errorString << "HTTP status:" << httpStatus
+                               << "Server replied:" << QString(serverResponse);
+        completion.error = classifyError(httpStatus, serverResponse);
     }
     delete reply;
     return completion;

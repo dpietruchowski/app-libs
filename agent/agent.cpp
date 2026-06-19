@@ -200,7 +200,7 @@ void Agent::onCompletionReceived(const Client& client, const Completion& complet
     if (!completion.error.isEmpty() || completion.choices.size() == 0)
     {
         const QString error = completion.error.isEmpty()
-            ? QStringLiteral("Empty response from the model")
+            ? QStringLiteral("unknown_error")
             : completion.error;
         qCWarning(AgentLogic) << QStringLiteral("Completion failed:") << error;
         if (m_errorCallback)

@@ -76,7 +76,9 @@ struct Completion
     QString model;
     Usage usage;
     QVector<Choice> choices;
-    QString error; // non-empty when the request failed (network/HTTP/server)
+    QString error; // non-empty when the request failed; carries a category token
+                   // (invalid_key, insufficient_credits, rate_limit, server_error,
+                   // network_error, unknown_error), not raw server text
 
     QJsonObject toJsonObject() const;
     static Completion fromJsonObject(const QJsonObject& json);
