@@ -73,12 +73,12 @@ public:
                       "work passed to Task<T>::run must return Result<T>");
 
         auto promise = std::make_shared<QPromise<Result<T>>>();
+        promise->start();
         QFuture<Result<T>> future = promise->future();
 
         QMetaObject::invokeMethod(worker,
                                   [promise, work = std::move(work)]() mutable
                                   {
-                                      promise->start();
                                       promise->addResult(work());
                                       promise->finish();
                                   });
