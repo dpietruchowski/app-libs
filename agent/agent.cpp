@@ -145,14 +145,6 @@ void Agent::requestAsync(const Client& client, const QString& message, const Res
     createCompletionAsync(client);
 }
 
-QString Agent::request(const Client& client, const QString& message)
-{
-    m_messages.append(Message { .role = "user", .content = message });
-    m_toolCallsCount = 0;
-
-    return createCompletion(client);
-}
-
 void Agent::clear()
 {
     m_messages.clear();
@@ -191,10 +183,19 @@ void Agent::createCompletionAsync(const Client& client)
 {
     client.createCompletionAsync(m_model, m_messages, m_toolsMap,
                                  [this, &client](const Completion& completion)
-                                 { onCompletionReceived(client, completion, true); });
+                                 { onCompletionReceived(client, completion); });
 }
 
-QString Agent::onCompletionReceived(const Client& client, const Completion& completion, bool async)
+void Agent::deliverResponse(const QString& response)
+{
+    if (m_responseReceivedCallback)
+    {
+        m_responseReceivedCallback(response);
+        m_responseReceivedCallback = {};
+    }
+}
+
+void Agent::onCompletionReceived(const Client& client, const Completion& completion)
 {
     if (!completion.error.isEmpty() || completion.choices.size() == 0)
     {
@@ -206,76 +207,64 @@ QString Agent::onCompletionReceived(const Client& client, const Completion& comp
         {
             m_errorCallback(error);
         }
-        if (m_responseReceivedCallback)
-        {
-            m_responseReceivedCallback("");
-            m_responseReceivedCallback = {};
-        }
-        return "";
+        deliverResponse("");
+        return;
     }
 
     auto& choice = completion.choices.at(0);
     if (choice.finish_reason == "tool_calls")
     {
         m_messages.append(choice.message);
-        handleToolCalls(choice.message.tool_calls);
-        if (async)
-        {
-            createCompletionAsync(client);
-            if (m_responseReceivedCallback)
-            {
-                m_responseReceivedCallback("");
-            }
-            return "";
-        }
-        else
-        {
-            return createCompletion(client);
-        }
+        handleToolCallsAsync(client, choice.message.tool_calls, 0);
+        return;
     }
 
     auto response = choice.message.content;
     m_messages.append(Message { .role = "assistant", .content = response });
-    if (m_responseReceivedCallback)
-    {
-        m_responseReceivedCallback(response);
-        m_responseReceivedCallback = {};
-    }
-    return response;
+    deliverResponse(response);
 }
 
-QString Agent::createCompletion(const Client& client)
+void Agent::handleToolCallsAsync(const Client& client, QVector<ToolCall> toolCalls, int index)
 {
-    auto completion = client.createCompletion(m_model, m_messages, m_toolsMap);
-    return onCompletionReceived(client, completion, false);
-}
-
-void Agent::handleToolCalls(const QVector<ToolCall>& toolCalls)
-{
-    ++m_toolCallsCount;
-    if (m_toolCallsCount > kMaxToolCallsCount)
+    if (index == 0 && ++m_toolCallsCount > kMaxToolCallsCount)
     {
         qCWarning(AgentLogic) << "Too many tool calls count";
+        deliverResponse("");
         return;
     }
 
-    for (const auto& toolCall : toolCalls)
+    if (index >= toolCalls.size())
     {
-        qCInfo(AgentLogic) << "Tool call" << toolCall.name << toolCall.arguments << toolCall.id << toolCall.type;
-
-        if (!m_toolsMap.contains(toolCall.name))
+        if (m_responseReceivedCallback)
         {
-            qCWarning(AgentLogic) << QStringLiteral("Tool %1 doesn't exit").arg(toolCall.name);
-            continue;
+            m_responseReceivedCallback("");
         }
-
-        auto ret = m_toolsMap[toolCall.name].tool(toolCall.arguments);
-
-        QVariantMap map;
-        map["value"] = ret;
-        QJsonDocument doc = QJsonDocument::fromVariant(map);
-
-        m_messages.append(
-            Message { .role = "tool", .content = doc.toJson(QJsonDocument::Compact), .tool_call_id = toolCall.id });
+        createCompletionAsync(client);
+        return;
     }
+
+    const ToolCall toolCall = toolCalls.at(index);
+    qCInfo(AgentLogic) << "Tool call" << toolCall.name << toolCall.arguments << toolCall.id << toolCall.type;
+
+    if (!m_toolsMap.contains(toolCall.name))
+    {
+        qCWarning(AgentLogic) << QStringLiteral("Tool %1 doesn't exit").arg(toolCall.name);
+        handleToolCallsAsync(client, toolCalls, index + 1);
+        return;
+    }
+
+    m_toolsMap[toolCall.name].tool(
+        toolCall.arguments,
+        [this, &client, toolCalls, index, id = toolCall.id](QVariant ret)
+        {
+            QVariantMap map;
+            map["value"] = ret;
+            QJsonDocument doc = QJsonDocument::fromVariant(map);
+
+            m_messages.append(Message { .role = "tool",
+                                        .content = doc.toJson(QJsonDocument::Compact),
+                                        .tool_call_id = id });
+
+            handleToolCallsAsync(client, toolCalls, index + 1);
+        });
 }

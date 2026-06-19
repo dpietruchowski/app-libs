@@ -18,7 +18,6 @@ public:
     void addInitialMessage(const QString& message);
 
     void requestAsync(const Client& client, const QString& message, const ResponseReceivedCallback& callback);
-    QString request(const Client& client, const QString& message);
     void clear();
 
     const Messages& messages() const;
@@ -27,12 +26,12 @@ public:
     bool asynRequestInProgress() const;
 
 private:
-    QString onCompletionReceived(const Client& client, const Completion& completion, bool async = false);
+    void onCompletionReceived(const Client& client, const Completion& completion);
 
     void createCompletionAsync(const Client& client);
-    QString createCompletion(const Client& client);
 
-    void handleToolCalls(const QVector<ToolCall>& toolCalls);
+    void handleToolCallsAsync(const Client& client, QVector<ToolCall> toolCalls, int index);
+    void deliverResponse(const QString& response);
 
 private:
     QString m_model;

@@ -8,7 +8,8 @@
 #include <QVariantMap>
 #include <QVector>
 
-using Tool = std::function<QVariant(QVariantMap)>;
+using ToolDone = std::function<void(QVariant)>;
+using Tool = std::function<void(QVariantMap, ToolDone)>;
 
 struct ToolData
 {

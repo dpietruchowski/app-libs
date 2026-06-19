@@ -1,6 +1,9 @@
 #include <gtest/gtest.h>
 
 #include <QByteArray>
+#include <QCoreApplication>
+#include <QElapsedTimer>
+#include <QEventLoop>
 #include <QHostAddress>
 #include <QTcpServer>
 #include <QTcpSocket>
@@ -119,7 +122,22 @@ TEST_F(ClientIntegrationTest, Agent_RequestThroughRealClient_ReturnsContent)
     Client client(url(), "test-key");
 
     Agent agent("gpt-test", "system prompt");
-    QString response = agent.request(client, "hello");
+
+    QString response;
+    bool finished = false;
+    agent.requestAsync(client, "hello",
+                       [&](const QString& r)
+                       {
+                           response = r;
+                           finished = true;
+                       });
+
+    QElapsedTimer timer;
+    timer.start();
+    while (!finished && timer.elapsed() < 2000)
+    {
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+    }
 
     EXPECT_EQ(response, "mock reply");
 }

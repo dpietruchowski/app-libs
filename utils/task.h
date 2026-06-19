@@ -107,6 +107,13 @@ public:
         return *this;
     }
 
+    template <typename F> void finally(QObject* context, F&& handler)
+    {
+        m_future.then(context,
+                      [handler = std::forward<F>(handler)](Result<T> result) mutable
+                      { handler(std::move(result)); });
+    }
+
     QObject* worker() const { return m_worker; }
     QFuture<Result<T>> future() const { return m_future; }
 

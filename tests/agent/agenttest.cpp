@@ -71,6 +71,13 @@ const QString kAddToolDocstring = R"(@brief add_numbers
 @param a (number) the first number
 @param b (number) the second number
 @return the sum)";
+
+QString requestSync(Agent& agent, const Client& client, const QString& message)
+{
+    QString delivered;
+    agent.requestAsync(client, message, [&delivered](const QString& response) { delivered = response; });
+    return delivered;
+}
 }
 
 class AgentTest : public ::testing::Test
@@ -83,7 +90,7 @@ TEST_F(AgentTest, Request_WithoutTools_ReturnsAssistantContent)
     client.script = { contentCompletion("hi there") };
 
     Agent agent("gpt-test", "You are a coach.");
-    QString response = agent.request(client, "hello");
+    QString response = requestSync(agent, client, "hello");
 
     EXPECT_EQ(response, "hi there");
     EXPECT_EQ(client.calls, 1);
@@ -95,7 +102,7 @@ TEST_F(AgentTest, Request_BuildsSystemUserAssistantMessageSequence)
     client.script = { contentCompletion("reply") };
 
     Agent agent("gpt-test", "system prompt");
-    agent.request(client, "user says hi");
+    requestSync(agent, client, "user says hi");
 
     const Messages& messages = agent.messages();
     ASSERT_EQ(messages.size(), 3);
@@ -120,14 +127,14 @@ TEST_F(AgentTest, Request_WithToolCall_InvokesToolThenReturnsFinalContent)
     bool toolInvoked = false;
     QVariantMap receivedArgs;
     agent.addTool(kAddToolDocstring,
-                  [&](QVariantMap args) -> QVariant
+                  [&](QVariantMap args, ToolDone done)
                   {
                       toolInvoked = true;
                       receivedArgs = args;
-                      return args.value("a").toInt() + args.value("b").toInt();
+                      done(args.value("a").toInt() + args.value("b").toInt());
                   });
 
-    QString response = agent.request(client, "add 2 and 3");
+    QString response = requestSync(agent, client, "add 2 and 3");
 
     EXPECT_TRUE(toolInvoked);
     EXPECT_EQ(receivedArgs.value("a").toInt(), 2);
@@ -163,7 +170,7 @@ TEST_F(AgentTest, Clear_ResetsToSystemMessageOnly)
     client.script = { contentCompletion("reply") };
 
     Agent agent("gpt-test", "the system prompt");
-    agent.request(client, "hi");
+    requestSync(agent, client, "hi");
     ASSERT_GT(agent.messages().size(), 1);
 
     agent.clear();
@@ -182,7 +189,7 @@ TEST_F(AgentTest, UnknownToolName_IsSkippedAndConversationContinues)
     };
 
     Agent agent("gpt-test", "system");
-    QString response = agent.request(client, "go");
+    QString response = requestSync(agent, client, "go");
 
     EXPECT_EQ(response, "done anyway");
     EXPECT_EQ(client.calls, 2);
