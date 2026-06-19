@@ -23,6 +23,14 @@ template <typename U> struct is_task<Task<U>> : std::true_type
 };
 template <typename U> inline constexpr bool is_task_v = is_task<U>::value;
 
+template <typename> struct is_result : std::false_type
+{
+};
+template <typename U> struct is_result<Result<U>> : std::true_type
+{
+};
+template <typename U> inline constexpr bool is_result_v = is_result<U>::value;
+
 template <typename F, typename T> decltype(auto) callWith(F& fn, const Result<T>& result)
 {
     if constexpr (std::is_void_v<T>)
@@ -109,6 +117,21 @@ private:
         if constexpr (task_detail::is_task_v<Ret>)
         {
             return thenTaskOn(context, std::forward<F>(fn));
+        }
+        else if constexpr (task_detail::is_result_v<Ret>)
+        {
+            using U = typename Ret::value_type;
+            QFuture<Result<U>> next = m_future.then(
+                context,
+                [fn = std::forward<F>(fn)](Result<T> result) mutable -> Result<U>
+                {
+                    if (result.isFailure())
+                    {
+                        return task_detail::readyFailure<U>(result.error());
+                    }
+                    return task_detail::callWith(fn, result);
+                });
+            return Task<U>(m_worker, std::move(next));
         }
         else
         {
