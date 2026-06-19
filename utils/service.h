@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "utils/task.h"
+#include "utils/testing.h"
 
 class Service
 {
