@@ -7,12 +7,32 @@ Text {
 
     property string content: ""
     property bool centerAlign: true
+    property int maxLines: 0
+    property bool styled: false
 
-    textFormat: Text.RichText
+    textFormat: styled ? Text.StyledText : Text.RichText
     wrapMode: Text.WordWrap
+    maximumLineCount: maxLines > 0 ? maxLines : 1000000
+    elide: maxLines > 0 ? Text.ElideRight : Text.ElideNone
     color: Theme.colors.textPrimary
     horizontalAlignment: centerAlign ? Text.AlignHCenter : Text.AlignLeft
     verticalAlignment: Text.AlignVCenter
+
+    function buildStyled(content) {
+        var errorColor = Theme.colors.error
+        var successColor = Theme.colors.success
+        var primaryColor = Theme.colors.primary
+
+        return content
+            .replace(/<\/?(?:p|h2|div|body|head|html)[^>]*>/g, "")
+            .replace(/<span class="highlighted">([\s\S]*?)<\/span>/g,
+                     '<b><font color="' + primaryColor + '">$1</font></b>')
+            .replace(/<span class="correct">([\s\S]*?)<\/span>/g,
+                     '<font color="' + successColor + '">$1</font>')
+            .replace(/<span class="wrong">([\s\S]*?)<\/span>/g,
+                     '<font color="' + errorColor + '"><s>$1</s></font>')
+            .trim()
+    }
 
     function buildHtml(content) {
         var errorColor = Theme.colors.error
@@ -50,7 +70,7 @@ Text {
                 </html>`
     }
 
-    text: buildHtml(content)
+    text: styled ? buildStyled(content) : buildHtml(content)
 
-    onContentChanged: text = buildHtml(content)
+    onContentChanged: text = styled ? buildStyled(content) : buildHtml(content)
 }
