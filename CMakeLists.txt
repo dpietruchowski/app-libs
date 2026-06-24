@@ -23,6 +23,10 @@ add_subdirectory(utils)
 add_subdirectory(icons)
 add_subdirectory(agent)
 
+if(NOT ANDROID)
+    add_subdirectory(automation)
+endif()
+
 if(NOT QML_LIVE_ENABLED)
     add_subdirectory(qmlcomponents)
     add_subdirectory(appcomponents)
