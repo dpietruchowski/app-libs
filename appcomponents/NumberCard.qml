@@ -10,6 +10,14 @@ ThemedCard {
     property bool done: false
     property string text: title + ": " + number + (done ? " ✓" : "")
 
+    property real displayNumber: number
+    Behavior on displayNumber {
+        NumberAnimation {
+            duration: 600
+            easing.type: Easing.OutCubic
+        }
+    }
+
     clickable: true
     backgroundColor: Theme.colors.surface
 
@@ -26,7 +34,7 @@ ThemedCard {
             }
 
             Text {
-                text: root.number
+                text: Math.round(root.displayNumber)
                 font.pixelSize: Theme.fontSize.xxLarge
                 font.bold: true
                 color: Theme.colors.textPrimary
