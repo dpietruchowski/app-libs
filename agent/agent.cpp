@@ -117,11 +117,13 @@ QString getNameFromJson(QJsonObject json)
 }
 
 Agent::Agent(const QString& model, const QString& systemPrompt)
-    : m_model(model)
+    : m_config { .model = model }
     , m_systemPrompt(systemPrompt)
 {
     clear();
 }
+
+void Agent::setReasoningEffort(const QString& effort) { m_config.reasoningEffort = effort; }
 
 void Agent::setErrorCallback(ErrorReceivedCallback callback) { m_errorCallback = std::move(callback); }
 
@@ -181,7 +183,7 @@ bool Agent::asynRequestInProgress() const { return m_responseReceivedCallback !=
 
 void Agent::createCompletionAsync(const Client& client)
 {
-    client.createCompletionAsync(m_model, m_messages, m_toolsMap,
+    client.createCompletionAsync(m_config, m_messages, m_toolsMap,
                                  [this, &client](const Completion& completion)
                                  { onCompletionReceived(client, completion); });
 }

@@ -96,7 +96,8 @@ TEST_F(ClientIntegrationTest, CreateCompletion_ParsesServerReply)
     Messages messages;
     messages.append(Message { .role = "user", .content = "hi" });
 
-    Completion completion = client.createCompletion("gpt-test", messages, ToolsMap {});
+    Completion completion =
+        client.createCompletion(ModelConfig { .model = "gpt-test" }, messages, ToolsMap {});
 
     ASSERT_EQ(completion.choices.size(), 1);
     EXPECT_EQ(completion.choices[0].message.content, "mock reply");
@@ -110,7 +111,7 @@ TEST_F(ClientIntegrationTest, CreateCompletion_SendsModelAndMessagesInRequestBod
     Messages messages;
     messages.append(Message { .role = "user", .content = "ping" });
 
-    client.createCompletion("gpt-test", messages, ToolsMap {});
+    client.createCompletion(ModelConfig { .model = "gpt-test" }, messages, ToolsMap {});
 
     EXPECT_TRUE(lastRequest.contains("gpt-test"));
     EXPECT_TRUE(lastRequest.contains("ping"));

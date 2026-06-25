@@ -11,6 +11,12 @@
 using ToolDone = std::function<void(QVariant)>;
 using Tool = std::function<void(QVariantMap, ToolDone)>;
 
+struct ModelConfig
+{
+    QString model;
+    QString reasoningEffort;
+};
+
 struct ToolData
 {
     Tool tool;

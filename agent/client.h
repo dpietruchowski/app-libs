@@ -17,21 +17,22 @@ public:
     Client(const QString& url, const QString& apiKey);
     virtual ~Client();
 
-    virtual void createCompletionAsync(const QString& model, const Messages& messages, const ToolsMap& toolsMap,
+    virtual void createCompletionAsync(const ModelConfig& config, const Messages& messages,
+                                       const ToolsMap& toolsMap,
                                        const CompletionCreatedCallback& callback) const;
-    virtual Completion createCompletion(const QString& model, const Messages& messages,
+    virtual Completion createCompletion(const ModelConfig& config, const Messages& messages,
                                         const ToolsMap& toolsMap) const;
 
-    void setReasoningEffort(const QString& effort, bool nested);
+    void setReasoningNested(bool nested);
 
 private:
-    QNetworkReply* createRequest(const QString& model, const Messages& messages, const ToolsMap& toolsMap) const;
+    QNetworkReply* createRequest(const ModelConfig& config, const Messages& messages,
+                                 const ToolsMap& toolsMap) const;
     Completion parseReply(QNetworkReply* reply) const;
 
 private:
     QNetworkAccessManager* manager;
     QString m_url = "https://api.openai.com/v1/chat/completions";
     QString m_apiKey;
-    QString m_reasoningEffort;
     bool m_reasoningNested = false;
 };

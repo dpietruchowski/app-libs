@@ -69,16 +69,13 @@ Client::Client(const QString& url, const QString& apiKey)
 
 Client::~Client() { delete manager; }
 
-void Client::setReasoningEffort(const QString& effort, bool nested)
-{
-    m_reasoningEffort = effort;
-    m_reasoningNested = nested;
-}
+void Client::setReasoningNested(bool nested) { m_reasoningNested = nested; }
 
-void Client::createCompletionAsync(const QString& model, const Messages& messages, const ToolsMap& toolsMap,
+void Client::createCompletionAsync(const ModelConfig& config, const Messages& messages,
+                                   const ToolsMap& toolsMap,
                                    const CompletionCreatedCallback& callback) const
 {
-    QNetworkReply* reply = createRequest(model, messages, toolsMap);
+    QNetworkReply* reply = createRequest(config, messages, toolsMap);
     if (!reply)
     {
         return;
@@ -91,9 +88,10 @@ void Client::createCompletionAsync(const QString& model, const Messages& message
                      });
 }
 
-Completion Client::createCompletion(const QString& model, const Messages& messages, const ToolsMap& toolsMap) const
+Completion Client::createCompletion(const ModelConfig& config, const Messages& messages,
+                                    const ToolsMap& toolsMap) const
 {
-    auto* reply = createRequest(model, messages, toolsMap);
+    auto* reply = createRequest(config, messages, toolsMap);
     QEventLoop eventLoop;
     QObject::connect(reply, &QNetworkReply::finished, &eventLoop, &QEventLoop::quit);
     eventLoop.exec();
@@ -101,7 +99,8 @@ Completion Client::createCompletion(const QString& model, const Messages& messag
     return parseReply(reply);
 }
 
-QNetworkReply* Client::createRequest(const QString& model, const Messages& messages, const ToolsMap& toolsMap) const
+QNetworkReply* Client::createRequest(const ModelConfig& config, const Messages& messages,
+                                     const ToolsMap& toolsMap) const
 {
     if (m_apiKey.isEmpty())
     {
@@ -115,7 +114,7 @@ QNetworkReply* Client::createRequest(const QString& model, const Messages& messa
     request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());
 
     QJsonObject json;
-    json[kJsonModelKey] = model;
+    json[kJsonModelKey] = config.model;
     json[kJsonMessagesKey] = toJsonArray(messages);
 
     QJsonArray tools = toJsonArray(toolsMap);
@@ -124,17 +123,17 @@ QNetworkReply* Client::createRequest(const QString& model, const Messages& messa
         json[kJsonToolsKey] = tools;
     }
 
-    if (!m_reasoningEffort.isEmpty())
+    if (!config.reasoningEffort.isEmpty())
     {
         if (m_reasoningNested)
         {
             QJsonObject reasoning;
-            reasoning[kJsonEffortKey] = m_reasoningEffort;
+            reasoning[kJsonEffortKey] = config.reasoningEffort;
             json[kJsonReasoningKey] = reasoning;
         }
         else
         {
-            json[kJsonReasoningEffortKey] = m_reasoningEffort;
+            json[kJsonReasoningEffortKey] = config.reasoningEffort;
         }
     }
 

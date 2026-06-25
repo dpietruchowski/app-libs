@@ -11,6 +11,7 @@ class AgentController : public QObject
 public:
     AgentController(const QString& model, const QString& systemPrompt, QObject* parent = nullptr);
 
+    void setReasoningEffort(const QString& effort);
     void addTool(const QString docstring, const Tool& tool);
 
     Q_INVOKABLE void request(const Client& client, const QString& message);

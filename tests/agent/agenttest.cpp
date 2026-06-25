@@ -21,13 +21,13 @@ public:
     mutable int calls = 0;
     mutable Messages lastMessages;
 
-    Completion createCompletion(const QString&, const Messages& messages, const ToolsMap&) const override
+    Completion createCompletion(const ModelConfig&, const Messages& messages, const ToolsMap&) const override
     {
         lastMessages = messages;
         return script.at(calls++);
     }
 
-    void createCompletionAsync(const QString&, const Messages& messages, const ToolsMap&,
+    void createCompletionAsync(const ModelConfig&, const Messages& messages, const ToolsMap&,
                                const CompletionCreatedCallback& callback) const override
     {
         lastMessages = messages;
