@@ -22,6 +22,8 @@ public:
     virtual Completion createCompletion(const QString& model, const Messages& messages,
                                         const ToolsMap& toolsMap) const;
 
+    void setReasoningEffort(const QString& effort, bool nested);
+
 private:
     QNetworkReply* createRequest(const QString& model, const Messages& messages, const ToolsMap& toolsMap) const;
     Completion parseReply(QNetworkReply* reply) const;
@@ -30,4 +32,6 @@ private:
     QNetworkAccessManager* manager;
     QString m_url = "https://api.openai.com/v1/chat/completions";
     QString m_apiKey;
+    QString m_reasoningEffort;
+    bool m_reasoningNested = false;
 };

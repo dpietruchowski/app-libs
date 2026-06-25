@@ -16,6 +16,9 @@ namespace
 static const char* kJsonModelKey = "model";
 static const char* kJsonMessagesKey = "messages";
 static const char* kJsonToolsKey = "tools";
+static const char* kJsonReasoningEffortKey = "reasoning_effort";
+static const char* kJsonReasoningKey = "reasoning";
+static const char* kJsonEffortKey = "effort";
 
 QString classifyError(int httpStatus, const QByteArray& body)
 {
@@ -66,6 +69,12 @@ Client::Client(const QString& url, const QString& apiKey)
 
 Client::~Client() { delete manager; }
 
+void Client::setReasoningEffort(const QString& effort, bool nested)
+{
+    m_reasoningEffort = effort;
+    m_reasoningNested = nested;
+}
+
 void Client::createCompletionAsync(const QString& model, const Messages& messages, const ToolsMap& toolsMap,
                                    const CompletionCreatedCallback& callback) const
 {
@@ -113,6 +122,20 @@ QNetworkReply* Client::createRequest(const QString& model, const Messages& messa
     if (!tools.empty())
     {
         json[kJsonToolsKey] = tools;
+    }
+
+    if (!m_reasoningEffort.isEmpty())
+    {
+        if (m_reasoningNested)
+        {
+            QJsonObject reasoning;
+            reasoning[kJsonEffortKey] = m_reasoningEffort;
+            json[kJsonReasoningKey] = reasoning;
+        }
+        else
+        {
+            json[kJsonReasoningEffortKey] = m_reasoningEffort;
+        }
     }
 
     QJsonDocument doc(json);
