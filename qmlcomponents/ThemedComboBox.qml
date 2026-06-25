@@ -66,6 +66,7 @@ ComboBox {
     }
 
     delegate: ItemDelegate {
+        objectName: control.objectName ? control.objectName + "_item" + index : ""
         width: control.width
         contentItem: Text {
             text: control.textRole ? (Array.isArray(control.model) ? modelData[control.textRole] : model[control.textRole]) : modelData
