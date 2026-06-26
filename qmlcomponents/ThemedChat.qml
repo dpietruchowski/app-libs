@@ -86,7 +86,7 @@ Item {
                     Text {
                         id: messageText
                         anchors.centerIn: parent
-                        width: Math.min(messageMetrics.advanceWidth, bubble.maxTextWidth)
+                        width: Math.min(Math.ceil(messageMetrics.advanceWidth) + 1, bubble.maxTextWidth)
                         text: modelData.text
                         wrapMode: Text.Wrap
                         color: isUser ? Theme.colors.textInverse : Theme.colors.textPrimary
