@@ -63,7 +63,7 @@ Page {
         anchors.top: root.showBackButton ? backButton.bottom : parent.top
         anchors.bottom: parent.bottom
         anchors.topMargin: root.usePadding ? root.contentPadding : 0
-        anchors.bottomMargin: (root.usePadding ? root.contentPadding : 0) + root.keyboardOverlap
+        anchors.bottomMargin: (root.usePadding && !root.footer ? root.contentPadding : 0) + root.keyboardOverlap
         width: Math.min(parent.width - (root.usePadding ? root.contentPadding * 2 : 0), root.maxContentWidth)
 
         Behavior on anchors.bottomMargin {
