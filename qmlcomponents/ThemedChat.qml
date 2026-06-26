@@ -29,13 +29,22 @@ Item {
         root.sent(text)
     }
 
+    function updateKeyboardHeight() {
+        var kb = Qt.inputMethod.keyboardRectangle
+        if (!Qt.inputMethod.visible || kb.height <= 0) {
+            root.keyboardHeight = 0
+            return
+        }
+        var keyboardTop = kb.y / Screen.devicePixelRatio
+        var viewBottom = root.mapToItem(null, 0, root.height).y
+        root.keyboardHeight = Math.max(0, viewBottom - keyboardTop)
+    }
+
     Connections {
         target: Qt.inputMethod
 
-        function onKeyboardRectangleChanged() {
-            var rawHeight = Qt.inputMethod.keyboardRectangle.height
-            root.keyboardHeight = rawHeight > 0 ? rawHeight / Screen.devicePixelRatio : 0
-        }
+        function onKeyboardRectangleChanged() { root.updateKeyboardHeight() }
+        function onVisibleChanged() { root.updateKeyboardHeight() }
     }
 
     onKeyboardHeightChanged: chatList.positionViewAtEnd()
