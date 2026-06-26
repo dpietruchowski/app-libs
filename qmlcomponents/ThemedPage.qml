@@ -19,14 +19,14 @@ Page {
     signal backClicked()
 
     function updateKeyboardOverlap() {
-        if (!root.avoidKeyboard || !Qt.inputMethod.visible
-                || Qt.inputMethod.keyboardRectangle.height <= 0) {
+        var kb = Qt.inputMethod.keyboardRectangle
+        if (!root.avoidKeyboard || !Qt.inputMethod.visible || kb.height <= 0) {
             root.keyboardOverlap = 0
             return
         }
-        var keyboardTop = Qt.inputMethod.keyboardRectangle.y / Screen.devicePixelRatio
-        var viewBottom = root.mapToItem(null, 0, root.height).y
-        root.keyboardOverlap = Math.max(0, viewBottom - keyboardTop)
+        var keyboardTop = kb.y / Screen.devicePixelRatio
+        var contentBottom = contentArea.mapToItem(null, 0, contentArea.height).y + root.keyboardOverlap
+        root.keyboardOverlap = Math.max(0, contentBottom - keyboardTop)
     }
 
     onAvoidKeyboardChanged: updateKeyboardOverlap()

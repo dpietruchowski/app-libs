@@ -28,7 +28,7 @@ void SafeAreaProvider::refresh()
 
     int top = 0, bottom = 0, left = 0, right = 0;
     const int sdk = QJniObject::getStaticField<jint>("android/os/Build$VERSION", "SDK_INT");
-    if (sdk >= 30)
+    if (sdk >= 35)
     {
         const int systemBars = QJniObject::callStaticMethod<jint>("android/view/WindowInsets$Type",
                                                                   "systemBars", "()I");
@@ -47,10 +47,10 @@ void SafeAreaProvider::refresh()
     }
     else
     {
-        top = insets.callMethod<jint>("getSystemWindowInsetTop", "()I");
-        bottom = insets.callMethod<jint>("getSystemWindowInsetBottom", "()I");
-        left = insets.callMethod<jint>("getSystemWindowInsetLeft", "()I");
-        right = insets.callMethod<jint>("getSystemWindowInsetRight", "()I");
+        top = 0;
+        bottom = 0;
+        left = 0;
+        right = 0;
     }
 
     QScreen* screen = QGuiApplication::primaryScreen();
