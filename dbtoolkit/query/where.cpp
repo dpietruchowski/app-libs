@@ -63,7 +63,7 @@ Where& Where::like(const QString& pattern)
     {
         if (!m_condition.isEmpty())
             m_condition += " ";
-        m_condition += QString("%1 LIKE '%2'").arg(m_currentColumn, pattern);
+        m_condition += QString("%1 LIKE %2").arg(m_currentColumn, formatValue(pattern));
         m_currentColumn.clear();
     }
     return *this;
