@@ -105,7 +105,23 @@ QJsonObject describe(QObject* obj)
 
     const QVariant currentText = obj->property("currentText");
     if (currentText.isValid() && currentText.metaType().id() == QMetaType::QString)
+    {
         node["currentText"] = currentText.toString();
+
+        const QVariant currentIndex = obj->property("currentIndex");
+        if (currentIndex.isValid() && currentIndex.metaType().id() == QMetaType::Int)
+            node["currentIndex"] = currentIndex.toInt();
+
+        const QVariant model = obj->property("model");
+        if (model.canConvert<QVariantList>())
+        {
+            QJsonArray values;
+            for (const QVariant& entry : model.toList())
+                values.append(entry.toString());
+            if (!values.isEmpty())
+                node["values"] = values;
+        }
+    }
 
     const QVariant value = obj->property("value");
     if (value.isValid()
@@ -196,8 +212,8 @@ UiAutomationServer::UiAutomationServer(QQmlApplicationEngine* engine, quint16 po
     : QObject(parent), m_engine(engine), m_server(new QTcpServer(this))
 {
     connect(m_server, &QTcpServer::newConnection, this, &UiAutomationServer::onNewConnection);
-    if (m_server->listen(QHostAddress::LocalHost, port))
-        qInfo() << "UiAutomationServer listening on 127.0.0.1:" << m_server->serverPort();
+    if (m_server->listen(QHostAddress::AnyIPv4, port))
+        qInfo() << "UiAutomationServer listening on 0.0.0.0:" << m_server->serverPort();
     else
         qWarning() << "UiAutomationServer failed to listen on port" << port << ":"
                    << m_server->errorString();

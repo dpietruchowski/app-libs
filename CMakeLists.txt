@@ -23,7 +23,7 @@ add_subdirectory(utils)
 add_subdirectory(icons)
 add_subdirectory(agent)
 
-if(NOT ANDROID)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_subdirectory(automation)
 endif()
 
