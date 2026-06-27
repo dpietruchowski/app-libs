@@ -7,6 +7,8 @@ target_sources(app_utils PRIVATE
     androidnotificationscheduler.cpp
     securestorageandroid.h
     securestorageandroid.cpp
+    filesaverandroid.h
+    filesaverandroid.cpp
 )
 
 target_include_directories(app_utils PUBLIC
@@ -16,4 +18,5 @@ target_include_directories(app_utils PUBLIC
 
 target_link_libraries(app_utils PRIVATE
     Qt6::Core
+    Qt6::CorePrivate
 )

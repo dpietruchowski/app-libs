@@ -25,6 +25,18 @@ QString toString(android::Intent::Action action)
             return "android.intent.action.WEB_SEARCH";
         case android::Intent::Action::ProcessText:
             return "android.intent.action.PROCESS_TEXT";
+        case android::Intent::Action::CreateDocument:
+            return "android.intent.action.CREATE_DOCUMENT";
+    }
+    return {};
+}
+
+QString toString(android::Intent::Category category)
+{
+    switch (category)
+    {
+        case android::Intent::Category::Openable:
+            return "android.intent.category.OPENABLE";
     }
     return {};
 }
@@ -137,10 +149,19 @@ Intent& Intent::setPackage(const QString& packageName)
     return *this;
 }
 
-Intent& Intent::setType(MimeType mimeType)
+Intent& Intent::setType(MimeType mimeType) { return setType(toString(mimeType)); }
+
+Intent& Intent::setType(const QString& mimeType)
 {
     m_intent.callObjectMethod("setType", "(Ljava/lang/String;)Landroid/content/Intent;",
-                              QJniObject::fromString(toString(mimeType)).object<jstring>());
+                              QJniObject::fromString(mimeType).object<jstring>());
+    return *this;
+}
+
+Intent& Intent::addCategory(Category category)
+{
+    m_intent.callObjectMethod("addCategory", "(Ljava/lang/String;)Landroid/content/Intent;",
+                              QJniObject::fromString(toString(category)).object<jstring>());
     return *this;
 }
 
@@ -203,6 +224,11 @@ void Intent::start() const
     QJniObject activity(QNativeInterface::QAndroidApplication::context());
     activity.callMethod<void>("startActivity", "(Landroid/content/Intent;)V",
                               m_intent.object<jobject>());
+}
+
+QJniObject Intent::data() const
+{
+    return m_intent.callObjectMethod("getData", "()Landroid/net/Uri;");
 }
 
 QJniObject Intent::jniObject() const { return m_intent; }

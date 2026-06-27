@@ -18,10 +18,13 @@ add_library(${LIBRARY_NAME} STATIC ${SOURCES} ${HEADERS})
 
 if(ANDROID)
     add_subdirectory(android)
-elseif(LIBSECRET_AVAILABLE)
-    add_subdirectory(linux)
-    target_compile_definitions(${LIBRARY_NAME} PRIVATE HAVE_LIBSECRET)
-    target_link_libraries(${LIBRARY_NAME} PRIVATE app_securestorage_linux)
+else()
+    add_subdirectory(desktop)
+    if(LIBSECRET_AVAILABLE)
+        add_subdirectory(linux)
+        target_compile_definitions(${LIBRARY_NAME} PRIVATE HAVE_LIBSECRET)
+        target_link_libraries(${LIBRARY_NAME} PRIVATE app_securestorage_linux)
+    endif()
 endif()
 
 target_include_directories(${LIBRARY_NAME}

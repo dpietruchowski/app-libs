@@ -19,6 +19,12 @@ public:
         Search,
         WebSearch,
         ProcessText,
+        CreateDocument,
+    };
+
+    enum class Category
+    {
+        Openable,
     };
 
     enum class Extra
@@ -51,6 +57,8 @@ public:
     Intent& setAction(Action action);
     Intent& setData(const QString& uri);
     Intent& setType(MimeType mimeType);
+    Intent& setType(const QString& mimeType);
+    Intent& addCategory(Category category);
     Intent& setClassName(const QString& packageName, const QString& className);
     Intent& setPackage(const QString& packageName);
     Intent& putExtra(Extra key, const QString& value);
@@ -62,6 +70,7 @@ public:
 
     bool resolves() const;
     void start() const;
+    QJniObject data() const;
     QJniObject jniObject() const;
 
 private:
