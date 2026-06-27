@@ -27,8 +27,14 @@ QString toString(android::Intent::Action action)
             return "android.intent.action.PROCESS_TEXT";
         case android::Intent::Action::CreateDocument:
             return "android.intent.action.CREATE_DOCUMENT";
+        case android::Intent::Action::OpenDocument:
+            return "android.intent.action.OPEN_DOCUMENT";
+        case android::Intent::Action::GetContent:
+            return "android.intent.action.GET_CONTENT";
+        case android::Intent::Action::OpenDocumentTree:
+            return "android.intent.action.OPEN_DOCUMENT_TREE";
     }
-    return {};
+    return { };
 }
 
 QString toString(android::Intent::Category category)
@@ -38,7 +44,7 @@ QString toString(android::Intent::Category category)
         case android::Intent::Category::Openable:
             return "android.intent.category.OPENABLE";
     }
-    return {};
+    return { };
 }
 
 QString toString(android::Intent::Extra extra)
@@ -60,7 +66,7 @@ QString toString(android::Intent::Extra extra)
         case android::Intent::Extra::ProcessTextReadonly:
             return "android.intent.extra.PROCESS_TEXT_READONLY";
     }
-    return {};
+    return { };
 }
 
 QString toString(android::Intent::MimeType mimeType)
@@ -84,7 +90,7 @@ QString toString(android::Intent::MimeType mimeType)
         case android::Intent::MimeType::ApplicationPdf:
             return "application/pdf";
     }
-    return {};
+    return { };
 }
 
 }  // namespace
@@ -134,11 +140,10 @@ Intent& Intent::setData(const QString& uri)
 
 Intent& Intent::setClassName(const QString& packageName, const QString& className)
 {
-    m_intent.callObjectMethod(
-        "setClassName",
-        "(Ljava/lang/String;Ljava/lang/String;)Landroid/content/Intent;",
-        QJniObject::fromString(packageName).object<jstring>(),
-        QJniObject::fromString(className).object<jstring>());
+    m_intent.callObjectMethod("setClassName",
+                              "(Ljava/lang/String;Ljava/lang/String;)Landroid/content/Intent;",
+                              QJniObject::fromString(packageName).object<jstring>(),
+                              QJniObject::fromString(className).object<jstring>());
     return *this;
 }
 

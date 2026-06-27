@@ -7,25 +7,25 @@
 
 #include <QtCore/private/qandroidextras_p.h>
 
-class FileSaverAndroid final : public QAndroidActivityResultReceiver
+class FileOpenerAndroid final : public QAndroidActivityResultReceiver
 {
 public:
-    using SavedCallback = std::function<void(const QString&)>;
+    using OpenedCallback = std::function<void(const QString&, const QByteArray&)>;
     using CancelledCallback = std::function<void()>;
     using FailedCallback = std::function<void(const QString&)>;
 
-    FileSaverAndroid(SavedCallback onSaved, CancelledCallback onCancelled, FailedCallback onFailed);
+    FileOpenerAndroid(OpenedCallback onOpened, CancelledCallback onCancelled,
+                      FailedCallback onFailed);
 
-    static void setQmlEngine(class QQmlEngine*) {}
+    static void setQmlEngine(class QQmlEngine*) { }
 
-    void launch(const QString& suggestedName, const QString& mimeType, const QByteArray& data);
+    void launch(const QString& mimeType = QString());
 
     void handleActivityResult(int receiverRequestCode, int resultCode,
                               const QJniObject& data) override;
 
 private:
-    SavedCallback m_onSaved;
+    OpenedCallback m_onOpened;
     CancelledCallback m_onCancelled;
     FailedCallback m_onFailed;
-    QByteArray m_pending;
 };

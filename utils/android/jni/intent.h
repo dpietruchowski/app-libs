@@ -20,6 +20,9 @@ public:
         WebSearch,
         ProcessText,
         CreateDocument,
+        OpenDocument,
+        GetContent,
+        OpenDocumentTree
     };
 
     enum class Category

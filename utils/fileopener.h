@@ -8,20 +8,20 @@
 
 class QQmlEngine;
 
-class FileSaver final : public QObject
+class FileOpener final : public QObject
 {
     Q_OBJECT
 
 public:
-    explicit FileSaver(QObject* parent = nullptr);
-    ~FileSaver() override;
+    explicit FileOpener(QObject* parent = nullptr);
+    ~FileOpener() override;
 
     static void setQmlEngine(QQmlEngine* engine);
 
-    void save(const QString& suggestedName, const QString& mimeType, const QByteArray& data);
+    void open(const QString& mimeType = QString());
 
 signals:
-    void saved(const QString& location);
+    void opened(const QString& location, const QByteArray& data);
     void cancelled();
     void failed(const QString& message);
 

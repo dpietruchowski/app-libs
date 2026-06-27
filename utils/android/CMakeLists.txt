@@ -9,6 +9,8 @@ target_sources(app_utils PRIVATE
     securestorageandroid.cpp
     filesaverandroid.h
     filesaverandroid.cpp
+    fileopenerandroid.h
+    fileopenerandroid.cpp
 )
 
 target_include_directories(app_utils PUBLIC

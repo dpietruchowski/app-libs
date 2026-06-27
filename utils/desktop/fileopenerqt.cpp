@@ -1,4 +1,4 @@
-#include "filesaverqt.h"
+#include "fileopenerqt.h"
 
 #include <QFile>
 #include <QGuiApplication>
@@ -8,7 +8,7 @@
 #include <QQuickWindow>
 #include <QWindow>
 
-QQmlEngine* FileSaverQt::s_engine = nullptr;
+QQmlEngine* FileOpenerQt::s_engine = nullptr;
 
 namespace
 {
@@ -31,18 +31,17 @@ QQuickWindow* findQuickWindow()
 }
 }  // namespace
 
-void FileSaverQt::setQmlEngine(QQmlEngine* engine) { s_engine = engine; }
+void FileOpenerQt::setQmlEngine(QQmlEngine* engine) { s_engine = engine; }
 
-FileSaverQt::FileSaverQt(SavedCallback onSaved, CancelledCallback onCancelled,
-                         FailedCallback onFailed)
-    : m_onSaved(std::move(onSaved))
+FileOpenerQt::FileOpenerQt(OpenedCallback onOpened, CancelledCallback onCancelled,
+                           FailedCallback onFailed)
+    : m_onOpened(std::move(onOpened))
     , m_onCancelled(std::move(onCancelled))
     , m_onFailed(std::move(onFailed))
 {
 }
 
-void FileSaverQt::launch(const QString& suggestedName, const QString& mimeType,
-                         const QByteArray& data)
+void FileOpenerQt::launch(const QString& mimeType)
 {
     if (m_dialog)
         return;
@@ -63,7 +62,7 @@ void FileSaverQt::launch(const QString& suggestedName, const QString& mimeType,
     }
 
     QQmlComponent component(s_engine);
-    component.setData("import Themed.Components\nThemedFileSaveDialog {}", QUrl());
+    component.setData("import Themed.Components\nThemedFileDialog {}", QUrl());
     if (component.isError())
     {
         if (m_onFailed)
@@ -82,52 +81,44 @@ void FileSaverQt::launch(const QString& suggestedName, const QString& mimeType,
     dialog->setParent(window);
     dialog->setProperty("parent", QVariant::fromValue(window->contentItem()));
     dialog->setProperty("nameFilters", filtersForMimeType(mimeType));
-    dialog->setProperty("fileName", suggestedName);
 
-    m_pending = data;
-    m_accepted = false;
+    m_selected = false;
     m_dialog = dialog;
 
-    connect(dialog, SIGNAL(fileAccepted(QString)), this, SLOT(onFileAccepted(QString)));
+    connect(dialog, SIGNAL(fileSelected(QString)), this, SLOT(onFileSelected(QString)));
     connect(dialog, SIGNAL(closed()), this, SLOT(onDialogClosed()));
 
     QMetaObject::invokeMethod(dialog, "open");
 }
 
-void FileSaverQt::onFileAccepted(const QString& path)
+void FileOpenerQt::onFileSelected(const QString& path)
 {
-    m_accepted = true;
-    write(path);
+    m_selected = true;
+    read(path);
 }
 
-void FileSaverQt::onDialogClosed()
+void FileOpenerQt::onDialogClosed()
 {
-    if (!m_accepted && m_onCancelled)
+    if (!m_selected && m_onCancelled)
         m_onCancelled();
 
     if (m_dialog)
         m_dialog->deleteLater();
     m_dialog = nullptr;
-    m_accepted = false;
-    m_pending.clear();
+    m_selected = false;
 }
 
-void FileSaverQt::write(const QString& path)
+void FileOpenerQt::read(const QString& path)
 {
     QFile file(path);
-    if (!file.open(QIODevice::WriteOnly))
+    if (!file.open(QIODevice::ReadOnly))
     {
         if (m_onFailed)
             m_onFailed(file.errorString());
         return;
     }
-    if (file.write(m_pending) != m_pending.size())
-    {
-        if (m_onFailed)
-            m_onFailed(file.errorString());
-        return;
-    }
+    const QByteArray data = file.readAll();
     file.close();
-    if (m_onSaved)
-        m_onSaved(path);
+    if (m_onOpened)
+        m_onOpened(path, data);
 }

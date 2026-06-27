@@ -10,9 +10,11 @@ Control {
     property string description: ""
     property alias text: textArea.text
     property bool readOnly: true
+    property bool showLoadButton: false
 
     signal copyClicked()
     signal pasteClicked()
+    signal loadFileClicked()
 
     function copyToClipboard() {
         textArea.copyAll()
@@ -56,6 +58,15 @@ Control {
                     root.pasteFromClipboard()
                     root.pasteClicked()
                 }
+            }
+
+            ThemedButton {
+                text: qsTr("Load file")
+                buttonStyle: Theme.button.ghost
+                buttonSize: Theme.button.small
+                Layout.alignment: Qt.AlignTop
+                visible: root.showLoadButton && !root.readOnly
+                onClicked: root.loadFileClicked()
             }
         }
 

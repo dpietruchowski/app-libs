@@ -29,6 +29,8 @@ FileSaver::FileSaver(QObject* parent)
 
 FileSaver::~FileSaver() = default;
 
+void FileSaver::setQmlEngine(QQmlEngine* engine) { FileSaverBackend::setQmlEngine(engine); }
+
 void FileSaver::save(const QString& suggestedName, const QString& mimeType, const QByteArray& data)
 {
     m_impl->backend.launch(suggestedName, mimeType, data);

@@ -12,6 +12,9 @@ qt_add_qml_module(${LIBRARY_NAME}
     URI Themed.Components
     VERSION 1.0
     QML_FILES ${QML_FILES}
+    SOURCES
+        filelistmodel.h
+        filelistmodel.cpp
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Themed/Components
 )
 
