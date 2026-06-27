@@ -272,11 +272,6 @@ QObject* UiAutomationServer::findByObjectName(const QString& name) const
         if (QObject* found = findNamed(root, name, true))
             return found;
     }
-    for (QObject* root : m_engine->rootObjects())
-    {
-        if (QObject* found = findNamed(root, name, false))
-            return found;
-    }
     return nullptr;
 }
 
