@@ -18,7 +18,7 @@ public:
 
     static void setQmlEngine(QQmlEngine* engine);
 
-    void open(const QString& mimeType = QString());
+    void open(const QString& mimeType = QString(), qint64 maxBytes = 0);
 
 signals:
     void opened(const QString& location, const QByteArray& data);

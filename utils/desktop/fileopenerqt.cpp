@@ -41,10 +41,12 @@ FileOpenerQt::FileOpenerQt(OpenedCallback onOpened, CancelledCallback onCancelle
 {
 }
 
-void FileOpenerQt::launch(const QString& mimeType)
+void FileOpenerQt::launch(const QString& mimeType, qint64 maxBytes)
 {
     if (m_dialog)
         return;
+
+    m_maxBytes = maxBytes;
 
     if (!s_engine)
     {
@@ -115,6 +117,14 @@ void FileOpenerQt::read(const QString& path)
     {
         if (m_onFailed)
             m_onFailed(file.errorString());
+        return;
+    }
+    if (m_maxBytes > 0 && file.size() > m_maxBytes)
+    {
+        file.close();
+        if (m_onFailed)
+            m_onFailed(QStringLiteral("File is too large (limit %1 MB)")
+                           .arg(m_maxBytes / (1024 * 1024)));
         return;
     }
     const QByteArray data = file.readAll();

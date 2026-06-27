@@ -19,7 +19,7 @@ public:
 
     static void setQmlEngine(class QQmlEngine*) { }
 
-    void launch(const QString& mimeType = QString());
+    void launch(const QString& mimeType = QString(), qint64 maxBytes = 0);
 
     void handleActivityResult(int receiverRequestCode, int resultCode,
                               const QJniObject& data) override;
@@ -28,4 +28,5 @@ private:
     OpenedCallback m_onOpened;
     CancelledCallback m_onCancelled;
     FailedCallback m_onFailed;
+    qint64 m_maxBytes { 0 };
 };

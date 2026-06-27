@@ -10,7 +10,7 @@ namespace
 constexpr int kOpenDocumentRequestCode = 0x4F50454E;
 constexpr int kResultOk = -1;
 
-bool readFromUri(const QJniObject& uri, QByteArray& data, QString& error)
+bool readFromUri(const QJniObject& uri, qint64 maxBytes, QByteArray& data, QString& error)
 {
     QJniObject context(QNativeInterface::QAndroidApplication::context());
 
@@ -70,6 +70,14 @@ bool readFromUri(const QJniObject& uri, QByteArray& data, QString& error)
         result.append(reinterpret_cast<char*>(raw), bytesRead);
 
         env->ReleaseByteArrayElements(buffer, raw, JNI_ABORT);
+
+        if (maxBytes > 0 && result.size() > maxBytes)
+        {
+            env->DeleteLocalRef(buffer);
+            stream.callMethod<void>("close", "()V");
+            error = QStringLiteral("File is too large (limit %1 MB)").arg(maxBytes / (1024 * 1024));
+            return false;
+        }
     }
 
     stream.callMethod<void>("close", "()V");
@@ -90,9 +98,11 @@ FileOpenerAndroid::FileOpenerAndroid(OpenedCallback onOpened, CancelledCallback 
 {
 }
 
-void FileOpenerAndroid::launch(const QString& mimeType)
+void FileOpenerAndroid::launch(const QString& mimeType, qint64 maxBytes)
 {
     using android::Intent;
+
+    m_maxBytes = maxBytes;
 
     Intent intent(Intent::Action::OpenDocument);
 
@@ -135,7 +145,7 @@ void FileOpenerAndroid::handleActivityResult(int receiverRequestCode, int result
     QByteArray content;
     QString error;
 
-    if (readFromUri(uri, content, error))
+    if (readFromUri(uri, m_maxBytes, content, error))
     {
         if (m_onOpened)
         {

@@ -22,7 +22,7 @@ public:
 
     static void setQmlEngine(QQmlEngine* engine);
 
-    void launch(const QString& mimeType = QString());
+    void launch(const QString& mimeType = QString(), qint64 maxBytes = 0);
 
 private slots:
     void onFileSelected(const QString& path);
@@ -38,4 +38,5 @@ private:
     FailedCallback m_onFailed;
     QPointer<QObject> m_dialog;
     bool m_selected { false };
+    qint64 m_maxBytes { 0 };
 };

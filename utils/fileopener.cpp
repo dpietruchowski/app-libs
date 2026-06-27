@@ -31,4 +31,7 @@ FileOpener::~FileOpener() = default;
 
 void FileOpener::setQmlEngine(QQmlEngine* engine) { FileOpenerBackend::setQmlEngine(engine); }
 
-void FileOpener::open(const QString& mimeType) { m_impl->backend.launch(mimeType); }
+void FileOpener::open(const QString& mimeType, qint64 maxBytes)
+{
+    m_impl->backend.launch(mimeType, maxBytes);
+}

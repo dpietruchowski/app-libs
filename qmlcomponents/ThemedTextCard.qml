@@ -61,11 +61,12 @@ Control {
             }
 
             ThemedButton {
+                objectName: "loadFileButton"
                 text: qsTr("Load file")
                 buttonStyle: Theme.button.ghost
                 buttonSize: Theme.button.small
                 Layout.alignment: Qt.AlignTop
-                visible: root.showLoadButton && !root.readOnly
+                visible: root.showLoadButton
                 onClicked: root.loadFileClicked()
             }
         }
