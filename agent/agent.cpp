@@ -123,6 +123,8 @@ Agent::Agent(const QString& model, const QString& systemPrompt)
     clear();
 }
 
+void Agent::setModel(const QString& model) { m_config.model = model; }
+
 void Agent::setReasoningEffort(const QString& effort) { m_config.reasoningEffort = effort; }
 
 void Agent::setErrorCallback(ErrorReceivedCallback callback) { m_errorCallback = std::move(callback); }

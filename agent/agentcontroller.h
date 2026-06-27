@@ -11,6 +11,7 @@ class AgentController : public QObject
 public:
     AgentController(const QString& model, const QString& systemPrompt, QObject* parent = nullptr);
 
+    void setModel(const QString& model);
     void setReasoningEffort(const QString& effort);
     void addTool(const QString docstring, const Tool& tool);
 

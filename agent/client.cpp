@@ -109,6 +109,9 @@ QNetworkReply* Client::createRequest(const ModelConfig& config, const Messages& 
         return nullptr;
     }
 
+    qCInfo(ClientLogic) << "POST" << m_url << "model:" << config.model
+                        << "reasoningNested:" << m_reasoningNested;
+
     QNetworkRequest request(QUrl { m_url });
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     request.setRawHeader("Authorization", QString("Bearer %1").arg(m_apiKey).toUtf8());

@@ -13,6 +13,7 @@ public:
     using ErrorReceivedCallback = std::function<void(const QString& error)>;
     Agent(const QString& model, const QString& systemPrompt);
 
+    void setModel(const QString& model);
     void setReasoningEffort(const QString& effort);
     void setErrorCallback(ErrorReceivedCallback callback);
 

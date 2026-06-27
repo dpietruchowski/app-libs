@@ -12,6 +12,8 @@ AgentController::AgentController(const QString& model, const QString& systemProm
         });
 }
 
+void AgentController::setModel(const QString& model) { m_agent.setModel(model); }
+
 void AgentController::setReasoningEffort(const QString& effort) { m_agent.setReasoningEffort(effort); }
 
 void AgentController::addTool(const QString docstring, const Tool& tool) { m_agent.addTool(docstring, tool); }
