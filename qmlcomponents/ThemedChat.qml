@@ -77,20 +77,60 @@ Item {
             }
         }
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Theme.spacing.small
+        Rectangle {
+            id: typingBubble
+            Layout.alignment: Qt.AlignLeft
             visible: root.busy
+            implicitWidth: typingRow.width + Theme.padding.small * 2
+            implicitHeight: typingRow.height + Theme.padding.small * 2
+            radius: Theme.radius.large
+            color: Theme.colors.surface
 
-            BusyIndicator {
-                running: root.busy
-                implicitWidth: 24
-                implicitHeight: 24
-            }
-            Text {
-                text: root.typingText
-                color: Theme.colors.textSecondary
-                font.pixelSize: Theme.fontSize.small
+            RowLayout {
+                id: typingRow
+                anchors.centerIn: parent
+                spacing: Theme.spacing.small
+
+                Row {
+                    spacing: Theme.spacing.xSmall
+                    Layout.alignment: Qt.AlignVCenter
+
+                    Repeater {
+                        model: 3
+
+                        Rectangle {
+                            width: 6
+                            height: 6
+                            radius: 3
+                            color: Theme.colors.textSecondary
+
+                            SequentialAnimation on opacity {
+                                running: typingBubble.visible
+                                loops: Animation.Infinite
+                                PauseAnimation { duration: index * 160 }
+                                NumberAnimation { to: 1.0; duration: 300; easing.type: Easing.InOutQuad }
+                                NumberAnimation { to: 0.3; duration: 300; easing.type: Easing.InOutQuad }
+                                PauseAnimation { duration: (2 - index) * 160 }
+                            }
+
+                            SequentialAnimation on y {
+                                running: typingBubble.visible
+                                loops: Animation.Infinite
+                                PauseAnimation { duration: index * 160 }
+                                NumberAnimation { to: -3; duration: 300; easing.type: Easing.OutQuad }
+                                NumberAnimation { to: 0; duration: 300; easing.type: Easing.InQuad }
+                                PauseAnimation { duration: (2 - index) * 160 }
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    text: root.typingText
+                    color: Theme.colors.textSecondary
+                    font.pixelSize: Theme.fontSize.small
+                    Layout.alignment: Qt.AlignVCenter
+                }
             }
         }
 
