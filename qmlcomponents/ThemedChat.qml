@@ -144,6 +144,7 @@ Item {
                 Layout.fillWidth: true
                 placeholder: root.placeholderText
                 enabled: !root.busy
+                clearOnSubmit: true
                 horizontalAlignment: Text.AlignLeft
                 onSubmitted: function(text) {
                     root.send(text)

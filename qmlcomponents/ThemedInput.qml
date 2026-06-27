@@ -8,7 +8,7 @@ TextField {
 
     property string placeholder: "Type..."
     property int enterKeyType: Qt.EnterKeyDone
-    property bool clearOnSubmit: true
+    property bool clearOnSubmit: false
 
     signal submitted(string text)
 
