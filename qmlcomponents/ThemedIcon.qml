@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Window
 
 import Themed.Components
 
@@ -23,6 +24,8 @@ Item {
         source: provider.svgSource
         visible: provider.svgSource && provider.svgSource !== ""
         fillMode: Image.PreserveAspectFit
+        sourceSize.width: root.width * Screen.devicePixelRatio
+        sourceSize.height: root.height * Screen.devicePixelRatio
         smooth: true
     }
 }
