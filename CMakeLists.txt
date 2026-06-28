@@ -12,6 +12,9 @@ else()
 endif()
 
 find_package(Qt6 REQUIRED COMPONENTS Core Quick Qml Sql)
+if(ANDROID)
+    find_package(Qt6 REQUIRED COMPONENTS CorePrivate)
+endif()
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
