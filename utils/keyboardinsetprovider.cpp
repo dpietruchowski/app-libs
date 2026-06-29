@@ -3,6 +3,8 @@
 #include <QGuiApplication>
 #include <QScreen>
 
+#include <QTimer>
+
 #ifdef Q_OS_ANDROID
 #include <QFuture>
 #include <QInputMethod>
@@ -82,13 +84,18 @@ KeyboardInsetProvider::KeyboardInsetProvider(QObject* parent)
 
     if (usesNativeImeInset())
     {
+        m_imeDebounce = new QTimer(this);
+        m_imeDebounce->setSingleShot(true);
+        m_imeDebounce->setInterval(16);
+        connect(m_imeDebounce, &QTimer::timeout, this, &KeyboardInsetProvider::refreshImeInset);
+
         QInputMethod* inputMethod = QGuiApplication::inputMethod();
-        connect(inputMethod, &QInputMethod::visibleChanged, this,
-                &KeyboardInsetProvider::refreshImeInset);
-        connect(inputMethod, &QInputMethod::animatingChanged, this,
-                &KeyboardInsetProvider::refreshImeInset);
-        connect(inputMethod, &QInputMethod::keyboardRectangleChanged, this,
-                &KeyboardInsetProvider::refreshImeInset);
+        connect(inputMethod, &QInputMethod::visibleChanged, m_imeDebounce,
+                qOverload<>(&QTimer::start));
+        connect(inputMethod, &QInputMethod::animatingChanged, m_imeDebounce,
+                qOverload<>(&QTimer::start));
+        connect(inputMethod, &QInputMethod::keyboardRectangleChanged, m_imeDebounce,
+                qOverload<>(&QTimer::start));
     }
     else
     {

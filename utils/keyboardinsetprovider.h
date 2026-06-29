@@ -2,6 +2,8 @@
 
 #include <QObject>
 
+class QTimer;
+
 class KeyboardInsetProvider : public QObject
 {
     Q_OBJECT
@@ -23,4 +25,5 @@ private:
     void setBottom(int bottom);
 
     int m_bottom = 0;
+    QTimer* m_imeDebounce = nullptr;
 };
