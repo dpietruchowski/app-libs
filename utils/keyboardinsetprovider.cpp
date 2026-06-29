@@ -4,6 +4,7 @@
 #include <QScreen>
 
 #ifdef Q_OS_ANDROID
+#include <QFuture>
 #include <QInputMethod>
 #include <QJniObject>
 #include <jni.h>
@@ -17,9 +18,9 @@ bool usesNativeImeInset()
     return QJniObject::getStaticField<jint>("android/os/Build$VERSION", "SDK_INT") >= 30;
 }
 
-int readImeInsetPx()
+QFuture<QVariant> readImeInsetPx()
 {
-    auto future = QNativeInterface::QAndroidApplication::runOnAndroidMainThread([]() -> QVariant {
+    return QNativeInterface::QAndroidApplication::runOnAndroidMainThread([]() -> QVariant {
         QJniObject activity = QNativeInterface::QAndroidApplication::context();
         if (!activity.isValid())
         {
@@ -57,8 +58,6 @@ int readImeInsetPx()
 
         return imeBottom > navBottom ? imeBottom - navBottom : 0;
     });
-    future.waitForFinished();
-    return future.resultCount() > 0 ? future.result().toInt() : 0;
 }
 }
 
@@ -113,7 +112,7 @@ KeyboardInsetProvider::~KeyboardInsetProvider()
 void KeyboardInsetProvider::refreshImeInset()
 {
 #ifdef Q_OS_ANDROID
-    setBottomFromPx(readImeInsetPx());
+    readImeInsetPx().then(this, [this](const QVariant& px) { setBottomFromPx(px.toInt()); });
 #endif
 }
 
