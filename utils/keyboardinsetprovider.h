@@ -19,6 +19,7 @@ signals:
     void bottomChanged();
 
 private:
+    void refreshImeInset();
     void setBottom(int bottom);
 
     int m_bottom = 0;
