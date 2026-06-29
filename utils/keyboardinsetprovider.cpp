@@ -47,7 +47,15 @@ int readImeInsetPx()
         {
             return 0;
         }
-        return imeInsets.getField<jint>("bottom");
+        const jint imeBottom = imeInsets.getField<jint>("bottom");
+
+        const jint navType = QJniObject::callStaticMethod<jint>("android/view/WindowInsets$Type",
+                                                                "navigationBars", "()I");
+        QJniObject navInsets =
+            insets.callObjectMethod("getInsets", "(I)Landroid/graphics/Insets;", navType);
+        const jint navBottom = navInsets.isValid() ? navInsets.getField<jint>("bottom") : 0;
+
+        return imeBottom > navBottom ? imeBottom - navBottom : 0;
     });
     future.waitForFinished();
     return future.resultCount() > 0 ? future.result().toInt() : 0;
