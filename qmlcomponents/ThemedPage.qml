@@ -9,7 +9,7 @@ Page {
 
     property int contentPadding: Theme.padding.medium
     property bool usePadding: true
-    property int maxContentWidth: 400
+    property int maxContentWidth: Theme.contentMaxWidth
     property Component overlayContent: null
     property bool showBackButton: false
     property bool avoidKeyboard: true
