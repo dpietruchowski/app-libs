@@ -468,15 +468,20 @@ QJsonObject UiAutomationServer::handleCommand(const QJsonObject& request)
         {
             QVariant value = argsArray[i].toVariant();
             const QMetaType paramType(chosen.parameterType(i));
-            if (!value.convert(paramType))
+            if (paramType.id() != QMetaType::QVariant && !value.convert(paramType))
                 return makeError("cannot convert argument to " + QString::fromUtf8(paramType.name()));
             converted.append(value);
         }
 
         QGenericArgument args[10];
         for (int i = 0; i < converted.size(); ++i)
-            args[i] = QGenericArgument(
-                QMetaType(chosen.parameterType(i)).name(), converted.at(i).constData());
+        {
+            const QMetaType paramType(chosen.parameterType(i));
+            if (paramType.id() == QMetaType::QVariant)
+                args[i] = QGenericArgument("QVariant", &converted[i]);
+            else
+                args[i] = QGenericArgument(paramType.name(), converted.at(i).constData());
+        }
 
         const bool ok = chosen.invoke(target, Qt::DirectConnection, args[0], args[1], args[2],
             args[3], args[4], args[5], args[6], args[7], args[8], args[9]);
@@ -514,6 +519,91 @@ QJsonObject UiAutomationServer::handleCommand(const QJsonObject& request)
         const QString path = request["path"].toString();
         if (!image.save(path))
             return makeError("could not save screenshot to: " + path);
+        return makeOk();
+    }
+
+    if (cmd == "swipeword" || cmd == "accept")
+    {
+        if (m_engine->rootObjects().isEmpty())
+            return makeError("no root object");
+        auto* window = qobject_cast<QQuickWindow*>(m_engine->rootObjects().first());
+        if (!window)
+            return makeError("root is not a window");
+
+        QObject* input = findByObjectName(name);
+        if (!input)
+            return makeError("object not found: " + name);
+
+        QList<QQuickItem*> tiles;
+        QStringList pieces;
+        for (int i = 0;; ++i)
+        {
+            QObject* obj = findNamed(input, "letterTile" + QString::number(i), false);
+            auto* item = qobject_cast<QQuickItem*>(obj);
+            if (!item)
+                break;
+            tiles.append(item);
+            pieces.append(item->property("modelData").toString());
+        }
+        if (tiles.size() < 2)
+            return makeError("no tiles found under: " + name);
+
+        const int confirmIndex = tiles.size() - 1;
+
+        auto centerOf = [&](QQuickItem* item)
+        {
+            return item->mapToScene(QPointF(item->width() / 2.0, item->height() / 2.0));
+        };
+        auto sendMouse = [&](QEvent::Type type, const QPointF& scene, Qt::MouseButton button,
+                             Qt::MouseButtons buttons)
+        {
+            const QPointF global = QPointF(window->mapToGlobal(scene.toPoint()));
+            QMouseEvent event(type, scene, scene, global, button, buttons, Qt::NoModifier);
+            QGuiApplication::sendEvent(window, &event);
+        };
+
+        if (cmd == "accept")
+        {
+            const QPointF c = centerOf(tiles[confirmIndex]);
+            sendMouse(QEvent::MouseButtonPress, c, Qt::LeftButton, Qt::LeftButton);
+            sendMouse(QEvent::MouseButtonRelease, c, Qt::LeftButton, Qt::NoButton);
+            return makeOk();
+        }
+
+        const QString word = request["word"].toString().toLower();
+        QList<int> sequence;
+        QSet<int> used;
+        int pos = 0;
+        while (pos < word.length())
+        {
+            int found = -1;
+            int foundLength = 0;
+            for (int i = 0; i < confirmIndex; ++i)
+            {
+                if (used.contains(i))
+                    continue;
+                const QString piece = pieces[i].toLower();
+                if (piece.length() > foundLength && word.mid(pos, piece.length()) == piece)
+                {
+                    found = i;
+                    foundLength = piece.length();
+                }
+            }
+            if (found < 0)
+                return makeError("cannot form '" + word + "' from available tiles");
+            sequence.append(found);
+            used.insert(found);
+            pos += foundLength;
+        }
+
+        QList<QPointF> path;
+        for (int index : sequence)
+            path.append(centerOf(tiles[index]));
+
+        sendMouse(QEvent::MouseButtonPress, path.first(), Qt::LeftButton, Qt::LeftButton);
+        for (int i = 1; i < path.size(); ++i)
+            sendMouse(QEvent::MouseMove, path[i], Qt::NoButton, Qt::LeftButton);
+        sendMouse(QEvent::MouseButtonRelease, path.last(), Qt::LeftButton, Qt::NoButton);
         return makeOk();
     }
 
