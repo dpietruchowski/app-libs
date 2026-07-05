@@ -1,6 +1,5 @@
 #pragma once
 
-#include <QColor>
 #include <QObject>
 
 class SystemBarStyler : public QObject
@@ -12,8 +11,6 @@ public:
     explicit SystemBarStyler(QObject* parent = nullptr);
 
     bool systemDark() const;
-
-    Q_INVOKABLE void apply(bool darkTheme, const QColor& background);
 
 signals:
     void systemDarkChanged();
