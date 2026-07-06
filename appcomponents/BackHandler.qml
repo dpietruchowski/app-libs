@@ -14,29 +14,28 @@ FocusScope {
 
     focus: true
 
-    Keys.onBackPressed: function(event) {
-        event.accepted = true
-        root.handleBack()
-    }
     Keys.onEscapePressed: function(event) {
         event.accepted = true
-        root.handleBack()
+        if (root.shouldClose())
+            Qt.quit()
     }
 
-    function handleBack() {
+    function shouldClose() {
         if (root.navigateBack && root.navigateBack())
-            return
+            return false
 
         if (!root.quitOnBack)
-            return
+            return false
 
-        if (root._exitArmed) {
-            Qt.quit()
-            return
-        }
+        if (Qt.platform.os !== "android")
+            return true
+
+        if (root._exitArmed)
+            return true
 
         root._exitArmed = true
         exitTimer.restart()
+        return false
     }
 
     Item {
