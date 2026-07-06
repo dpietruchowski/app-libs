@@ -1,28 +1,30 @@
 #include "systembarstyler.h"
 
-#include <QEvent>
 #include <QGuiApplication>
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+#include <QStyleHints>
+#else
 #include <QPalette>
+#endif
 
 SystemBarStyler::SystemBarStyler(QObject* parent)
     : QObject(parent)
 {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
     if (qGuiApp)
     {
-        qGuiApp->installEventFilter(this);
+        connect(qGuiApp->styleHints(), &QStyleHints::colorSchemeChanged, this,
+                &SystemBarStyler::systemDarkChanged);
     }
+#endif
 }
 
 bool SystemBarStyler::systemDark() const
 {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+    return qGuiApp && qGuiApp->styleHints()->colorScheme() == Qt::ColorScheme::Dark;
+#else
     return qGuiApp && qGuiApp->palette().color(QPalette::Window).lightnessF() < 0.5;
-}
-
-bool SystemBarStyler::eventFilter(QObject* watched, QEvent* event)
-{
-    if (event->type() == QEvent::ApplicationPaletteChange || event->type() == QEvent::ThemeChange)
-    {
-        emit systemDarkChanged();
-    }
-    return QObject::eventFilter(watched, event);
+#endif
 }
