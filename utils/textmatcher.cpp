@@ -3,7 +3,7 @@
 #include <QDebug>
 #include <QStringList>
 
-const QString TextMatcher::kPunctuationCharacters = ",.!?:;\"'()-¡¿";
+const QString TextMatcher::kPunctuationCharacters = ",.!?:;\"()¡¿";
 
 QString TextMatcher::removePunctuation(const QString& text)
 {
@@ -15,8 +15,27 @@ QString TextMatcher::removePunctuation(const QString& text)
     return cleaned;
 }
 
-bool TextMatcher::compare(const QString& a, const QString& b)
+QString TextMatcher::foldAccents(const QString& text)
 {
+    QString decomposed = text.normalized(QString::NormalizationForm_D);
+    QString result;
+    result.reserve(decomposed.size());
+    for (QChar c : decomposed)
+    {
+        QChar::Category category = c.category();
+        if (category != QChar::Mark_NonSpacing && category != QChar::Mark_SpacingCombining
+            && category != QChar::Mark_Enclosing)
+        {
+            result.append(c);
+        }
+    }
+    return result;
+}
+
+bool TextMatcher::compare(const QString& a, const QString& b, bool ignoreAccents)
+{
+    if (ignoreAccents)
+        return foldAccents(a).compare(foldAccents(b), Qt::CaseInsensitive) == 0;
     return a.compare(b, Qt::CaseInsensitive) == 0;
 }
 
