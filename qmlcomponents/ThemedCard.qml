@@ -22,32 +22,51 @@ Control {
     }
     implicitHeight: Math.max(contentArea.implicitHeight, Theme.card.sizeSmall)
 
-    background: Rectangle {
-        color: backgroundColor
-        radius: Theme.radius.large
-        border.color: Theme.colors.cardBorder
-        border.width: Theme.border.thin
-
-        Behavior on color { ColorAnimation { duration: 120 } }
-
-        states: [
-            State {
-                name: "hovered"
-                when: clickable && mouseArea.containsMouse
-                PropertyChanges {
-                    target: control.background
-                    color: Theme.isNightMode ? Qt.lighter(backgroundColor, 1.3) : Qt.darker(backgroundColor, 1.1)
-                }
-            },
-            State {
-                name: "pressed"
-                when: clickable && mouseArea.pressed
-                PropertyChanges {
-                    target: control.background
-                    color: Theme.isNightMode ? Qt.lighter(backgroundColor, 1.15) : Qt.darker(backgroundColor, 1.2)
-                }
+    background: Item {
+        Repeater {
+            model: Theme.elevation.shadowSteps
+            Rectangle {
+                required property int index
+                property real grow: Theme.elevation.shadowBlur * ((index + 1) / Theme.elevation.shadowSteps)
+                x: face.x - grow
+                y: face.y - grow + Theme.elevation.shadowOffset
+                width: face.width + 2 * grow
+                height: face.height + 2 * grow
+                radius: face.radius + grow
+                color: Theme.elevation.shadowColor
+                opacity: Theme.elevation.shadowLayerOpacity * (1 - index / Theme.elevation.shadowSteps)
             }
-        ]
+        }
+
+        Rectangle {
+            id: face
+            anchors.fill: parent
+            color: backgroundColor
+            radius: Theme.radius.large
+            border.color: Theme.colors.cardBorder
+            border.width: Theme.border.thin
+
+            Behavior on color { ColorAnimation { duration: 120 } }
+
+            states: [
+                State {
+                    name: "hovered"
+                    when: clickable && mouseArea.containsMouse
+                    PropertyChanges {
+                        target: face
+                        color: Theme.isNightMode ? Qt.lighter(backgroundColor, 1.3) : Qt.darker(backgroundColor, 1.1)
+                    }
+                },
+                State {
+                    name: "pressed"
+                    when: clickable && mouseArea.pressed
+                    PropertyChanges {
+                        target: face
+                        color: Theme.isNightMode ? Qt.lighter(backgroundColor, 1.15) : Qt.darker(backgroundColor, 1.2)
+                    }
+                }
+            ]
+        }
     }
 
     Control {
