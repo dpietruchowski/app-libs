@@ -11,12 +11,13 @@ Button {
     property url iconSource: ""
     property bool circular: false
     property bool pill: false
+    property int radius: Theme.radius.medium
 
     implicitWidth: buttonSize.width
     implicitHeight: buttonSize.height
 
     background: Rectangle {
-        radius: circular ? Math.min(width, height) / 2 : pill ? height / 2 : Theme.radius.medium
+        radius: circular ? Math.min(width, height) / 2 : pill ? height / 2 : control.radius
         color: !control.enabled ? Theme.colors.surface :
                control.down ? buttonStyle.pressed :
                control.hovered ? buttonStyle.hovered :
