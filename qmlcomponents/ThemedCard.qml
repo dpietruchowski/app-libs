@@ -42,7 +42,7 @@ Control {
             id: face
             anchors.fill: parent
             color: backgroundColor
-            radius: Theme.radius.large
+            radius: Theme.radius.xLarge
             border.color: Theme.colors.cardBorder
             border.width: Theme.border.thin
 
