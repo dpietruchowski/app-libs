@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <title>Curved Arrow</title>
+  <path d="M4 15 C 8 7, 14 7, 19 13"></path>
+  <polyline points="13 13 19 13 19 7"></polyline>
+</svg>
