@@ -39,6 +39,13 @@ bool TextMatcher::compare(const QString& a, const QString& b, bool ignoreAccents
     return a.compare(b, Qt::CaseInsensitive) == 0;
 }
 
+bool TextMatcher::answersMatch(const QString& userAnswer, const QString& correctAnswer,
+                               bool ignoreAccents)
+{
+    return compare(removePunctuation(userAnswer).trimmed(),
+                   removePunctuation(correctAnswer).trimmed(), ignoreAccents);
+}
+
 bool TextMatcher::existsInSentence(const QString& text, const QString& sentenceText)
 {
     QStringList words = sentenceText.split(' ', Qt::SkipEmptyParts);

@@ -10,5 +10,7 @@ public:
     static QString removePunctuation(const QString& text);
     static QString foldAccents(const QString& text);
     static bool compare(const QString& a, const QString& b, bool ignoreAccents = false);
+    static bool answersMatch(const QString& userAnswer, const QString& correctAnswer,
+                             bool ignoreAccents = false);
     static bool existsInSentence(const QString& text, const QString& sentenceText);
 };
