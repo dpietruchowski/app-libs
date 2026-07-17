@@ -23,6 +23,7 @@ public:
     Where& greaterThanOrEquals(const QVariant& value);
     Where& greaterOrEqual(const QVariant& value);
     Where& like(const QString& pattern);
+    Where& glob(const QString& pattern);
     Where& in(const QVariantList& values);
     Where& in(const QStringList& values);
     Where& in(const QList<int>& values);

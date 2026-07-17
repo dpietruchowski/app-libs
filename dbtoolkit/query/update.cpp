@@ -28,6 +28,12 @@ Update& Update::set(const QString& column, const QVariant& value)
     return *this;
 }
 
+Update& Update::setRaw(const QString& column, const QString& rawExpression)
+{
+    m_rawValues.append({ column, rawExpression });
+    return *this;
+}
+
 Update& Update::where(const Where& condition)
 {
     m_where = condition.build();
@@ -75,31 +81,26 @@ QVariant Update::execute(QSqlDatabase& database) const
 
 QString Update::toSql() const
 {
-    if (m_table.isEmpty() || m_values.isEmpty())
+    if (m_table.isEmpty() || (m_values.isEmpty() && m_rawValues.isEmpty()))
     {
         return QString();
     }
-
-    QStringList columns = m_values.keys();
-
-    if (columns.isEmpty())
-    {
-        return QString();
-    }
-
-    QString whereClause = m_where;
 
     QStringList setParts;
-    for (const QString& column : columns)
+    for (const QString& column : m_values.keys())
     {
         setParts.append(column + " = ?");
     }
-
-    QString sql = QString("UPDATE %1 SET %2").arg(m_table).arg(setParts.join(", "));
-
-    if (!whereClause.isEmpty())
+    for (const auto& rawValue : m_rawValues)
     {
-        sql += " WHERE " + whereClause;
+        setParts.append(rawValue.first + " = " + rawValue.second);
+    }
+
+    QString sql = QString("UPDATE %1 SET %2").arg(m_table, setParts.join(", "));
+
+    if (!m_where.isEmpty())
+    {
+        sql += " WHERE " + m_where;
     }
 
     return sql;

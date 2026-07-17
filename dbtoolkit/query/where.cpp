@@ -69,6 +69,18 @@ Where& Where::like(const QString& pattern)
     return *this;
 }
 
+Where& Where::glob(const QString& pattern)
+{
+    if (!m_currentColumn.isEmpty())
+    {
+        if (!m_condition.isEmpty())
+            m_condition += " ";
+        m_condition += QString("%1 GLOB %2").arg(m_currentColumn, formatValue(pattern));
+        m_currentColumn.clear();
+    }
+    return *this;
+}
+
 Where& Where::in(const QVariantList& values)
 {
     if (!m_currentColumn.isEmpty() && !values.isEmpty())

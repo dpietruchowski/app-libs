@@ -5,6 +5,10 @@ set(QUERY_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/insert.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/update.h
     ${CMAKE_CURRENT_SOURCE_DIR}/update.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/case.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/case.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/cast.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/cast.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/delete.h
     ${CMAKE_CURRENT_SOURCE_DIR}/delete.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/createtable.h

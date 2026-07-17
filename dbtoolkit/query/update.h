@@ -1,4 +1,6 @@
 #pragma once
+#include <QList>
+#include <QPair>
 #include <QString>
 #include <QVariantMap>
 
@@ -14,6 +16,7 @@ public:
     Update& table(const QString& table);
     Update& set(const QVariantMap& values);
     Update& set(const QString& column, const QVariant& value);
+    Update& setRaw(const QString& column, const QString& rawExpression);
     Update& where(const Where& condition);
     Update& where(const QString& condition);
 
@@ -27,5 +30,6 @@ public:
 private:
     QString m_table;
     QVariantMap m_values;
+    QList<QPair<QString, QString>> m_rawValues;
     QString m_where;
 };
