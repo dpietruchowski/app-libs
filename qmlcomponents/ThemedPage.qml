@@ -25,8 +25,8 @@ Page {
         id: backButton
         objectName: "backButton"
         anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.margins: root.contentPadding
+        anchors.left: contentArea.left
+        anchors.topMargin: root.contentPadding
         text: qsTr("← Back")
         buttonSize: Theme.button.small
         buttonStyle: Theme.button.secondary
