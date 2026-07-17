@@ -15,4 +15,6 @@ target_sources(app_utils PRIVATE
     alarmmanager.cpp
     intent.h
     intent.cpp
+    androidpackage.h
+    androidpackage.cpp
 )
