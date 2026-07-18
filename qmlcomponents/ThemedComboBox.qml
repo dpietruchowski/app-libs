@@ -48,14 +48,16 @@ ComboBox {
         width: control.width
         padding: 1
 
+        readonly property Item overlayItem: control.Overlay.overlay
+        topMargin: (overlayItem?.SafeArea?.margins.top ?? 0) + Theme.spacing.medium
+        bottomMargin: (overlayItem?.SafeArea?.margins.bottom ?? 0) + Theme.spacing.medium
+
         readonly property real maxPopupHeight: {
-            var overlay = control.Overlay.overlay
-            if (!overlay)
+            if (!overlayItem)
                 return Number.MAX_VALUE
-            var safeBottom = control.SafeArea?.margins.bottom ?? 0
-            var topInOverlay = control.mapToItem(overlay, 0, control.height).y
+            var topInOverlay = control.mapToItem(overlayItem, 0, control.height).y
             return Math.max(Theme.navigation.barHeight,
-                            overlay.height - topInOverlay - safeBottom - Theme.spacing.medium)
+                            overlayItem.height - topInOverlay - bottomMargin)
         }
 
         height: Math.min(contentItem.implicitHeight + topPadding + bottomPadding, maxPopupHeight)
