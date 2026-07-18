@@ -43,10 +43,49 @@ ComboBox {
     }
 
     popup: Popup {
+        id: popup
         y: control.height
         width: control.width
-        implicitHeight: contentItem.implicitHeight
         padding: 1
+
+        readonly property real maxPopupHeight: {
+            var overlay = control.Overlay.overlay
+            if (!overlay)
+                return Number.MAX_VALUE
+            var safeBottom = control.SafeArea?.margins.bottom ?? 0
+            var topInOverlay = control.mapToItem(overlay, 0, control.height).y
+            return Math.max(Theme.navigation.barHeight,
+                            overlay.height - topInOverlay - safeBottom - Theme.spacing.medium)
+        }
+
+        height: Math.min(contentItem.implicitHeight + topPadding + bottomPadding, maxPopupHeight)
+
+        enter: Transition {
+            NumberAnimation {
+                property: "opacity"
+                from: 0.0
+                to: 1.0
+                duration: 140
+                easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+                property: "scale"
+                from: 0.92
+                to: 1.0
+                duration: 140
+                easing.type: Easing.OutCubic
+            }
+        }
+
+        exit: Transition {
+            NumberAnimation {
+                property: "opacity"
+                from: 1.0
+                to: 0.0
+                duration: 100
+                easing.type: Easing.InCubic
+            }
+        }
 
         contentItem: ListView {
             clip: true
