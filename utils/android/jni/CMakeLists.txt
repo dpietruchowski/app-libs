@@ -17,4 +17,6 @@ target_sources(app_utils PRIVATE
     intent.cpp
     androidpackage.h
     androidpackage.cpp
+    vibrator.h
+    vibrator.cpp
 )

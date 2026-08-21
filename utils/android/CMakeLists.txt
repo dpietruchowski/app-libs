@@ -11,6 +11,8 @@ target_sources(app_utils PRIVATE
     filesaverandroid.cpp
     fileopenerandroid.h
     fileopenerandroid.cpp
+    hapticsandroid.h
+    hapticsandroid.cpp
 )
 
 target_include_directories(app_utils PUBLIC
