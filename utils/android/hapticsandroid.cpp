@@ -2,6 +2,8 @@
 
 #include "jni/vibrator.h"
 
+#include <QList>
+
 namespace
 {
 
@@ -13,6 +15,11 @@ struct EffectDescription
 };
 
 constexpr int DefaultAmplitude = -1;
+constexpr int MaxAmplitude = 255;
+constexpr qint64 RewardFallbackDurationMs = 400;
+
+const QList<qint64> RewardTimings { 0, 70, 60, 90, 60, 220 };
+const QList<int> RewardAmplitudes { 0, 140, 0, 200, 0, MaxAmplitude };
 
 EffectDescription describe(Haptics::Effect effect)
 {
@@ -26,6 +33,8 @@ EffectDescription describe(Haptics::Effect effect)
             return { 1, 40, DefaultAmplitude };
         case Haptics::Effect::HeavyClick:
             return { 5, 60, DefaultAmplitude };
+        case Haptics::Effect::Reward:
+            return { 5, RewardFallbackDurationMs, MaxAmplitude };
     }
     return { 0, 20, DefaultAmplitude };
 }
@@ -41,6 +50,9 @@ void HapticsAndroid::play(Haptics::Effect effect)
         return;
 
     const EffectDescription description = describe(effect);
-    if (!vibrator.vibratePredefined(description.predefinedId))
+    const bool played = effect == Haptics::Effect::Reward
+        ? vibrator.vibrateWaveform(RewardTimings, RewardAmplitudes)
+        : vibrator.vibratePredefined(description.predefinedId);
+    if (!played)
         vibrator.vibrateOneShot(description.durationMs, description.amplitude);
 }

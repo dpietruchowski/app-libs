@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QJniObject>
+#include <QList>
 
 namespace android
 {
@@ -12,8 +13,10 @@ public:
 
     bool isValid() const;
     bool hasVibrator() const;
+    bool hasAmplitudeControl() const;
 
     bool vibratePredefined(int effectId) const;
+    bool vibrateWaveform(const QList<qint64>& timings, const QList<int>& amplitudes) const;
     void vibrateOneShot(qint64 milliseconds, int amplitude) const;
 
 private:
