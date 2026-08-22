@@ -27,8 +27,8 @@ Row {
                 height: 12
                 radius: 6
                 anchors.horizontalCenter: parent.horizontalCenter
-                color: filled ? Theme.colors.success : "transparent"
-                border.color: filled ? Theme.colors.success : Theme.colors.textSecondary
+                color: filled ? Theme.colors.primary : "transparent"
+                border.color: filled ? Theme.colors.primary : Theme.colors.textSecondary
                 border.width: Theme.border.thin
 
                 Component.onCompleted: animationReady = true
