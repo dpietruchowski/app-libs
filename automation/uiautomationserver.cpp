@@ -5,12 +5,15 @@
 
 #include <QDate>
 #include <QDateTime>
+#include <QFocusEvent>
 #include <QGuiApplication>
 #include <QHostAddress>
 #include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QKeyEvent>
+#include <QKeySequence>
 #include <QMetaMethod>
 #include <QMetaObject>
 #include <QMouseEvent>
@@ -504,6 +507,35 @@ QJsonObject UiAutomationServer::handleCommand(const QJsonObject& request)
         QGuiApplication::sendEvent(window, &press);
         QMouseEvent release(QEvent::MouseButtonRelease, scene, scene, global, Qt::LeftButton,
             Qt::NoButton, Qt::NoModifier);
+        QGuiApplication::sendEvent(window, &release);
+        return makeOk();
+    }
+
+    if (cmd == "key")
+    {
+        if (m_engine->rootObjects().isEmpty())
+            return makeError("no root object");
+        auto* window = qobject_cast<QQuickWindow*>(m_engine->rootObjects().first());
+        if (!window)
+            return makeError("root is not a window");
+
+        if (!window->activeFocusItem())
+        {
+            QFocusEvent focusIn(QEvent::FocusIn, Qt::OtherFocusReason);
+            QGuiApplication::sendEvent(window, &focusIn);
+        }
+
+        const QString name = request["name"].toString();
+        const QKeySequence sequence = QKeySequence::fromString(name, QKeySequence::PortableText);
+        if (sequence.count() != 1)
+            return makeError("unknown key: " + name);
+
+        const QKeyCombination combination = sequence[0];
+        const QString text = request["text"].toString();
+        QKeyEvent press(QEvent::KeyPress, combination.key(), combination.keyboardModifiers(), text);
+        QGuiApplication::sendEvent(window, &press);
+        QKeyEvent release(
+            QEvent::KeyRelease, combination.key(), combination.keyboardModifiers(), text);
         QGuiApplication::sendEvent(window, &release);
         return makeOk();
     }
