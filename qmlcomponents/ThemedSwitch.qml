@@ -6,6 +6,12 @@ import Themed.Components
 Switch {
     id: control
 
+    property bool keyNavigable: true
+
+    function keyActivate() {
+        control.toggle()
+    }
+
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
                             implicitContentWidth + leftPadding + rightPadding)
     implicitHeight: Math.max(implicitBackgroundHeight + topInset + bottomInset,

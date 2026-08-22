@@ -9,8 +9,13 @@ TextField {
     property string placeholder: "Type..."
     property int enterKeyType: Qt.EnterKeyDone
     property bool clearOnSubmit: false
+    property bool keyNavigable: true
 
     signal submitted(string text)
+
+    function keyActivate() {
+        control.forceActiveFocus()
+    }
 
     function submit() {
         if (text.trim() !== "") {

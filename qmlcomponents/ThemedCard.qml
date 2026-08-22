@@ -11,7 +11,12 @@ Control {
     property int margins: 0
     property color backgroundColor: Theme.colors.cardBackground
     property real maxImplicitWidth: -1
+    property bool keyNavigable: clickable
     signal clicked()
+
+    function keyActivate() {
+        control.clicked()
+    }
 
     implicitWidth: {
         var baseWidth = Math.max(contentArea.implicitWidth, Theme.card.sizeSmall);

@@ -12,6 +12,13 @@ Button {
     property bool circular: false
     property bool pill: false
     property int radius: Theme.radius.medium
+    property bool keyNavigable: true
+
+    function keyActivate() {
+        if (control.checkable)
+            control.toggle()
+        control.clicked()
+    }
 
     implicitWidth: buttonSize.width
     implicitHeight: buttonSize.height

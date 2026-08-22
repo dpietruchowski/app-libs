@@ -12,6 +12,23 @@ Rectangle {
     property int bottomInset: 0
     signal itemSelected(int index)
 
+    function select(index) {
+        if (index < 0 || index >= model.length)
+            return
+        bottomNav.currentIndex = index
+        bottomNav.itemSelected(index)
+        if (model[index].screen && stackView)
+            stackView.replace(null, model[index].screen)
+    }
+
+    function selectNext() {
+        select((bottomNav.currentIndex + 1) % model.length)
+    }
+
+    function selectPrevious() {
+        select((bottomNav.currentIndex + model.length - 1) % model.length)
+    }
+
     Rectangle {
         width: parent.width
         height: Theme.border.thin
@@ -62,13 +79,7 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        bottomNav.currentIndex = index
-                        bottomNav.itemSelected(index)
-                        if (modelData.screen && stackView) {
-                            stackView.replace(null, modelData.screen)
-                        }
-                    }
+                    onClicked: bottomNav.select(index)
                 }
             }
         }

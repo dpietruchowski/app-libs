@@ -6,6 +6,12 @@ import Themed.Components
 CheckBox {
     id: control
 
+    property bool keyNavigable: true
+
+    function keyActivate() {
+        control.toggle()
+    }
+
     implicitWidth: contentItem.implicitWidth + indicator.width + Theme.spacing.medium
     implicitHeight: Math.max(contentItem.implicitHeight, indicator.height)
 

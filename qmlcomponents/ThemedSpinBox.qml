@@ -6,6 +6,12 @@ import Themed.Components
 SpinBox {
     id: control
 
+    property bool keyNavigable: true
+
+    function keyActivate() {
+        control.forceActiveFocus()
+    }
+
     font.pixelSize: Theme.fontSize.medium
     editable: true
     implicitHeight: 44

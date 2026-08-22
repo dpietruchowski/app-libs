@@ -19,6 +19,11 @@ Item {
     property color textColor: Theme.colors.textPrimary
     property color cursorColor: Theme.colors.primary
     property color scrollBarColor: Theme.colors.border
+    property bool keyNavigable: true
+
+    function keyActivate() {
+        textArea.forceActiveFocus()
+    }
 
     function copyAll() {
         textArea.selectAll()

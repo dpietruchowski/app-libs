@@ -6,6 +6,13 @@ import Themed.Components
 ComboBox {
     id: control
 
+    property bool keyNavigable: true
+
+    function keyActivate() {
+        control.forceActiveFocus()
+        control.popup.open()
+    }
+
     font.pixelSize: Theme.fontSize.medium
     implicitHeight: 44
     implicitWidth: Math.max(background.implicitWidth, contentItem.implicitWidth + leftPadding + rightPadding + indicator.width)
