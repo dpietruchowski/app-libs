@@ -13,6 +13,7 @@ Button {
     property bool pill: false
     property int radius: Theme.radius.medium
     property bool keyNavigable: true
+    property bool keyDefault: false
 
     function keyActivate() {
         if (control.checkable)
