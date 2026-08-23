@@ -1,5 +1,7 @@
 #include "where.h"
 
+#include "select.h"
+
 Where::Where() { }
 
 Where::Where(const QString& column)
@@ -134,6 +136,23 @@ Where& Where::in(const QList<int>& values)
 
         m_condition += QString("%1 IN (%2)").arg(m_currentColumn, formattedValues.join(", "));
         m_currentColumn.clear();
+    }
+    return *this;
+}
+
+Where& Where::in(const Select& subquery)
+{
+    if (!m_currentColumn.isEmpty())
+    {
+        const QString sql = subquery.toSql();
+        if (!sql.isEmpty())
+        {
+            if (!m_condition.isEmpty())
+                m_condition += " ";
+
+            m_condition += QString("%1 IN (%2)").arg(m_currentColumn, sql);
+            m_currentColumn.clear();
+        }
     }
     return *this;
 }

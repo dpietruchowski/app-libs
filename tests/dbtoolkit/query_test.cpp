@@ -323,6 +323,56 @@ TEST_F(WhereQueryTest, In_GeneratesCorrectSQL)
     EXPECT_TRUE(sql.contains("id IN (1, 2, 3)"));
 }
 
+TEST_F(WhereQueryTest, InSubquery_GeneratesCorrectSQL)
+{
+    Select subquery(QStringList { "user_id" });
+    subquery.from("orders").where(Where("total").greaterThan(100));
+
+    Where where("id");
+    where.in(subquery);
+
+    QString sql = where.build();
+
+    EXPECT_EQ(sql, "id IN (SELECT user_id FROM orders WHERE total > 100)");
+}
+
+TEST_F(WhereQueryTest, InSubquery_CombinedWithOtherConditions_GeneratesCorrectSQL)
+{
+    Select subquery(QStringList { "user_id" });
+    subquery.from("orders");
+
+    Where where("active");
+    where.equals(1).or_("id").in(subquery);
+
+    QString sql = where.build();
+
+    EXPECT_EQ(sql, "active = 1 OR id IN (SELECT user_id FROM orders)");
+}
+
+TEST_F(WhereQueryTest, InSubquery_WithTableAlias_GeneratesCorrectSQL)
+{
+    Select subquery(QStringList { "user_id" });
+    subquery.from("orders");
+
+    Where where(TableAlias("u"), "id");
+    where.in(subquery);
+
+    QString sql = where.build();
+
+    EXPECT_EQ(sql, "u.id IN (SELECT user_id FROM orders)");
+}
+
+TEST_F(WhereQueryTest, InSubquery_WithoutColumn_IsIgnored)
+{
+    Select subquery(QStringList { "user_id" });
+    subquery.from("orders");
+
+    Where where;
+    where.in(subquery);
+
+    EXPECT_TRUE(where.isEmpty());
+}
+
 class OrderQueryTest : public ::testing::Test
 {
 };

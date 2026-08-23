@@ -1,10 +1,12 @@
 #pragma once
-#include <QString>
-#include <QVariant>
-#include <QStringList>
 #include <QList>
+#include <QString>
+#include <QStringList>
+#include <QVariant>
 
 #include "alias.h"
+
+class Select;
 
 class Where
 {
@@ -27,6 +29,7 @@ public:
     Where& in(const QVariantList& values);
     Where& in(const QStringList& values);
     Where& in(const QList<int>& values);
+    Where& in(const Select& subquery);
     Where& between(const QVariant& min, const QVariant& max);
     Where& isNull();
     Where& isNotNull();
