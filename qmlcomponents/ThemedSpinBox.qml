@@ -20,7 +20,7 @@ SpinBox {
         color: Theme.colors.surface
         border.color: Theme.colors.cardBorder
         border.width: Theme.border.thin
-        radius: Theme.radius.small
+        radius: Theme.radius.xLarge
     }
 
     contentItem: TextInput {
@@ -40,9 +40,8 @@ SpinBox {
         x: control.mirrored ? 0 : parent.width - width
         height: parent.height
         implicitWidth: 35
-        color: control.up.pressed ? Theme.colors.cardBackground : Theme.colors.surface
-        border.color: Theme.colors.cardBorder
-        border.width: Theme.border.thin
+        color: control.up.pressed ? Theme.colors.cardBackground : "transparent"
+        radius: Theme.radius.xLarge
 
         Text {
             text: "+"
@@ -56,9 +55,8 @@ SpinBox {
         x: control.mirrored ? parent.width - width : 0
         height: parent.height
         implicitWidth: 35
-        color: control.down.pressed ? Theme.colors.cardBackground : Theme.colors.surface
-        border.color: Theme.colors.cardBorder
-        border.width: Theme.border.thin
+        color: control.down.pressed ? Theme.colors.cardBackground : "transparent"
+        radius: Theme.radius.xLarge
 
         Text {
             text: "-"

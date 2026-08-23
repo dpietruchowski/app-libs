@@ -45,7 +45,7 @@ Item {
         color: root.backgroundColor
         border.color: textArea.activeFocus ? root.cursorColor : Theme.colors.border
         border.width: textArea.activeFocus ? Theme.border.medium : Theme.border.thin
-        radius: Theme.radius.medium
+        radius: Theme.radius.xLarge
 
         Behavior on border.color { ColorAnimation { duration: 150 } }
         Behavior on border.width { NumberAnimation { duration: 150 } }

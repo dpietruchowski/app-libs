@@ -42,7 +42,7 @@ TextField {
 
     background: Rectangle {
         color: Theme.colors.surface
-        radius: Theme.radius.medium
+        radius: Theme.radius.xLarge
         border.width: control.activeFocus ? Theme.border.medium : Theme.border.thin
         border.color: control.activeFocus ? Theme.colors.primary : Theme.colors.border
 

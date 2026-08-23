@@ -36,7 +36,7 @@ ComboBox {
         color: Theme.colors.surface
         border.color: Theme.colors.cardBorder
         border.width: Theme.border.thin
-        radius: Theme.radius.small
+        radius: Theme.radius.xLarge
     }
 
     contentItem: Text {
@@ -109,7 +109,7 @@ ComboBox {
             color: Theme.colors.surface
             border.color: Theme.colors.cardBorder
             border.width: Theme.border.thin
-            radius: Theme.radius.small
+            radius: Theme.radius.xLarge
         }
     }
 
