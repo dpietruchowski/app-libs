@@ -21,15 +21,11 @@ Page {
         color: Theme.colors.background
     }
 
-    ThemedButton {
+    ThemedBackButton {
         id: backButton
-        objectName: "backButton"
         anchors.top: parent.top
         anchors.left: contentArea.left
         anchors.topMargin: root.contentPadding
-        text: qsTr("← Back")
-        buttonSize: Theme.button.small
-        buttonStyle: Theme.button.secondary
         visible: root.showBackButton
         onClicked: {
             root.backClicked()

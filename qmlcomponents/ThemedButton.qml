@@ -11,7 +11,7 @@ Button {
     property url iconSource: ""
     property bool circular: false
     property bool pill: false
-    property int radius: Theme.radius.medium
+    property int radius: Theme.button.radius
     property bool keyNavigable: true
     property bool keyDefault: false
 
