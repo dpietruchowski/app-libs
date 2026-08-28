@@ -134,16 +134,77 @@ QJsonObject describe(QObject* obj)
     return node;
 }
 
-QObject* findFlickable(QObject* obj)
+bool isScrollable(QObject* obj)
 {
-    if (obj->property("contentY").isValid())
+    if (!obj->property("contentY").isValid())
+        return false;
+    auto* item = qobject_cast<QQuickItem*>(obj);
+    if (!item)
+        return false;
+    return obj->property("contentHeight").toDouble() > item->height()
+        || obj->property("contentWidth").toDouble() > item->width();
+}
+
+QObject* findFlickable(QObject* obj, bool scrollableOnly)
+{
+    if (scrollableOnly ? isScrollable(obj) : obj->property("contentY").isValid())
         return obj;
     for (QObject* child : childObjects(obj))
     {
-        if (QObject* found = findFlickable(child))
+        if (QObject* found = findFlickable(child, scrollableOnly))
             return found;
     }
     return nullptr;
+}
+
+QObject* findFlickable(QObject* obj)
+{
+    if (QObject* scrollable = findFlickable(obj, true))
+        return scrollable;
+    return findFlickable(obj, false);
+}
+
+QQuickItem* scrollableAncestor(QQuickItem* item)
+{
+    for (QQuickItem* parent = item->parentItem(); parent; parent = parent->parentItem())
+    {
+        if (isScrollable(parent))
+            return parent;
+    }
+    return nullptr;
+}
+
+bool scrollIntoView(QQuickItem* item)
+{
+    QQuickItem* flickable = scrollableAncestor(item);
+    if (!flickable)
+        return false;
+
+    const auto applyAxis = [&](const char* posKey, const char* contentKey, double viewport,
+                               double itemStart, double itemSize)
+    {
+        const double maxPos = std::max(0.0, flickable->property(contentKey).toDouble() - viewport);
+        if (maxPos <= 0.0)
+            return;
+
+        constexpr double margin = 8.0;
+        double delta = 0.0;
+        if (itemStart < margin)
+            delta = itemStart - margin;
+        else if (itemStart + itemSize > viewport - margin)
+            delta = itemStart + itemSize - viewport + margin;
+        if (delta == 0.0)
+            return;
+
+        const double pos = flickable->property(posKey).toDouble();
+        flickable->setProperty(posKey, std::clamp(pos + delta, 0.0, maxPos));
+    };
+
+    const QPointF inViewport = item->mapToItem(flickable, QPointF(0.0, 0.0));
+    applyAxis("contentY", "contentHeight", flickable->height(), inViewport.y(), item->height());
+    applyAxis("contentX", "contentWidth", flickable->width(), inViewport.x(), item->width());
+
+    return true;
 }
 
 void collectNamed(QObject* obj, QJsonArray& out, QSet<QObject*>& visited)
@@ -374,6 +435,8 @@ QJsonObject UiAutomationServer::handleCommand(const QJsonObject& request)
         if (!window)
             return makeError("object has no window: " + name);
 
+        scrollIntoView(item);
+
         const QPointF center = item->mapToScene(QPointF(item->width() / 2.0, item->height() / 2.0));
         const QPointF global = QPointF(window->mapToGlobal(center.toPoint()));
 
@@ -384,6 +447,24 @@ QJsonObject UiAutomationServer::handleCommand(const QJsonObject& request)
             Qt::NoButton, Qt::NoModifier);
         QGuiApplication::sendEvent(window, &release);
         return makeOk();
+    }
+
+    if (cmd == "scrollto")
+    {
+        QObject* target = findByObjectName(name);
+        if (!target)
+            return makeError("object not found: " + name);
+        auto* item = qobject_cast<QQuickItem*>(target);
+        if (!item)
+            return makeError("object is not a visual item: " + name);
+        if (!scrollIntoView(item))
+            return makeError("no scrollable ancestor for: " + name);
+
+        const QPointF topLeft = item->mapToScene(QPointF(0.0, 0.0));
+        QJsonObject response = makeOk();
+        response["x"] = topLeft.x();
+        response["y"] = topLeft.y();
+        return response;
     }
 
     if (cmd == "scroll")
