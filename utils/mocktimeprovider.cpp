@@ -10,6 +10,18 @@ void MockTimeProvider::setCurrentDate(const QDate& date)
     m_currentDateTime = QDateTime(date, m_currentDateTime.time());
 }
 
+void MockTimeProvider::advanceSeconds(int seconds)
+{
+    if (m_currentDateTime.isValid())
+    {
+        m_currentDateTime = m_currentDateTime.addSecs(seconds);
+    }
+    else
+    {
+        m_currentDateTime = QDateTime::currentDateTime().addSecs(seconds);
+    }
+}
+
 void MockTimeProvider::advanceDays(int days)
 {
     if (m_currentDateTime.isValid())

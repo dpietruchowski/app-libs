@@ -10,6 +10,7 @@ public:
     void setCurrentDateTime(const QDateTime& dateTime);
     void setCurrentDate(const QDate& date);
 
+    void advanceSeconds(int seconds);
     void advanceDays(int days);
     void advanceDate(const QDate& targetDate);
 
