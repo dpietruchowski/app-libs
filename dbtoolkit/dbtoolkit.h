@@ -13,4 +13,5 @@
 #include "query/order.h"
 #include "query/pragma.h"
 #include "query/select.h"
+#include "query/vacuum.h"
 #include "query/where.h"

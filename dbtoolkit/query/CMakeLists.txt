@@ -31,5 +31,7 @@ set(QUERY_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/column.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pragma.h
     ${CMAKE_CURRENT_SOURCE_DIR}/pragma.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/vacuum.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/vacuum.cpp
     PARENT_SCOPE
 )
