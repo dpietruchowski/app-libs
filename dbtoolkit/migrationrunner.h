@@ -30,6 +30,10 @@ public:
 
     int currentVersion() const;
 
+    // The version the registered migrations bring the database up to. Zero when
+    // nothing is registered. Does not touch the database.
+    int targetVersion() const;
+
 private:
     struct Migration
     {

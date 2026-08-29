@@ -29,6 +29,16 @@ int MigrationRunner::currentVersion() const
     return rows.first().value("user_version").toInt();
 }
 
+int MigrationRunner::targetVersion() const
+{
+    int target = 0;
+    for (const Migration& migration : m_migrations)
+    {
+        target = std::max(target, migration.version);
+    }
+    return target;
+}
+
 bool MigrationRunner::setVersion(int version)
 {
     if (!Pragma("user_version").set(version).execute(m_storage.database()).toBool())
