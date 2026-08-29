@@ -16,15 +16,22 @@ struct EffectDescription
 
 constexpr int DefaultAmplitude = -1;
 constexpr int MaxAmplitude = 255;
+constexpr qint64 MasteryFallbackDurationMs = 520;
 constexpr qint64 RewardFallbackDurationMs = 400;
-constexpr qint64 LevelUpFallbackDurationMs = 160;
-constexpr int LevelUpFallbackAmplitude = 200;
+constexpr qint64 LevelUpFallbackDurationMs = 110;
+constexpr int LevelUpFallbackAmplitude = 170;
+constexpr int MasteryTailAmplitude = 90;
+
+const QList<qint64> MasteryTimings { 0, 45, 45, 55, 45, 70, 45, 200, 45, 110 };
+const QList<int> MasteryAmplitudes {
+    0, 110, 0, 155, 0, 200, 0, MaxAmplitude, 0, MasteryTailAmplitude
+};
 
 const QList<qint64> RewardTimings { 0, 70, 60, 90, 60, 220 };
 const QList<int> RewardAmplitudes { 0, 140, 0, 200, 0, MaxAmplitude };
 
-const QList<qint64> LevelUpTimings { 0, 55, 55, 150 };
-const QList<int> LevelUpAmplitudes { 0, 150, 0, 215 };
+const QList<qint64> LevelUpTimings { 0, 40, 45, 100 };
+const QList<int> LevelUpAmplitudes { 0, 120, 0, 180 };
 
 struct Waveform
 {
@@ -45,6 +52,8 @@ Waveform describeWaveform(Haptics::Effect effect)
             return { &LevelUpTimings, &LevelUpAmplitudes };
         case Haptics::Effect::Reward:
             return { &RewardTimings, &RewardAmplitudes };
+        case Haptics::Effect::Mastery:
+            return { &MasteryTimings, &MasteryAmplitudes };
     }
     return { nullptr, nullptr };
 }
@@ -65,6 +74,8 @@ EffectDescription describe(Haptics::Effect effect)
             return { 5, LevelUpFallbackDurationMs, LevelUpFallbackAmplitude };
         case Haptics::Effect::Reward:
             return { 5, RewardFallbackDurationMs, MaxAmplitude };
+        case Haptics::Effect::Mastery:
+            return { 5, MasteryFallbackDurationMs, MaxAmplitude };
     }
     return { 0, 20, DefaultAmplitude };
 }
