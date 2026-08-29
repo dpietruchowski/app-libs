@@ -16,6 +16,8 @@ QStringList filtersForMimeType(const QString& mimeType)
 {
     if (mimeType == QStringLiteral("application/json"))
         return { QStringLiteral("*.json") };
+    if (mimeType == QStringLiteral("text/plain"))
+        return { QStringLiteral("*.txt") };
     return { };
 }
 
