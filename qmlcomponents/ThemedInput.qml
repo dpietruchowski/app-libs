@@ -7,6 +7,7 @@ TextField {
     id: control
 
     property string placeholder: "Type..."
+    property color backgroundColor: Theme.colors.surface
     property int enterKeyType: Qt.EnterKeyDone
     property bool clearOnSubmit: false
     property bool keyNavigable: true
@@ -41,7 +42,7 @@ TextField {
     EnterKey.type: control.enterKeyType
 
     background: Rectangle {
-        color: Theme.colors.surface
+        color: control.backgroundColor
         radius: Theme.radius.xLarge
         border.width: control.activeFocus ? Theme.border.medium : Theme.border.thin
         border.color: control.activeFocus ? Theme.colors.primary : Theme.colors.border
