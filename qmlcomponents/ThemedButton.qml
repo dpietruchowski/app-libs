@@ -9,6 +9,7 @@ Button {
     property var buttonSize: Theme.button.medium
     property var buttonStyle: Theme.button.primary
     property url iconSource: ""
+    property int iconSize: buttonSize.iconSize
     property bool circular: false
     property bool pill: false
     property int radius: Theme.button.radius
@@ -48,8 +49,8 @@ Button {
                 visible: iconSource.toString() !== ""
                 svgSource: iconSource
                 color: !control.enabled ? Theme.colors.textDisabled : buttonStyle.text
-                width: buttonSize.iconSize
-                height: buttonSize.iconSize
+                width: control.iconSize
+                height: control.iconSize
                 anchors.verticalCenter: parent.verticalCenter
             }
 
