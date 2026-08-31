@@ -13,6 +13,9 @@ Dialog {
     property string acceptText: qsTr("OK")
     property string rejectText: qsTr("Cancel")
     property bool showRejectButton: false
+    property bool acceptCloses: true
+    property int titleAlignment: Text.AlignHCenter
+    property Component headerAction: null
     property Item customContent: null
 
     title: dialogTitle
@@ -32,19 +35,33 @@ Dialog {
     }
 
     header: Item {
-        visible: control.title !== ""
-        implicitHeight: visible ? headerText.implicitHeight + Theme.padding.large * 2 : 0
+        visible: control.title !== "" || control.headerAction
+        implicitHeight: visible
+            ? Math.max(headerText.implicitHeight, headerActionLoader.implicitHeight)
+                + control.padding * 2
+            : 0
 
         Text {
             id: headerText
-            anchors.centerIn: parent
-            width: parent.width - Theme.padding.large * 2
+            anchors.left: parent.left
+            anchors.leftMargin: control.leftPadding
+            anchors.right: control.headerAction ? headerActionLoader.left : parent.right
+            anchors.rightMargin: control.rightPadding
+            anchors.verticalCenter: parent.verticalCenter
             text: control.title
             font.pixelSize: Theme.fontSize.large
             font.bold: true
             color: Theme.colors.textPrimary
-            horizontalAlignment: Text.AlignHCenter
+            horizontalAlignment: control.titleAlignment
             wrapMode: Text.WordWrap
+        }
+
+        Loader {
+            id: headerActionLoader
+            anchors.right: parent.right
+            anchors.rightMargin: control.rightPadding
+            anchors.verticalCenter: headerText.verticalCenter
+            sourceComponent: control.headerAction
         }
     }
 
@@ -70,7 +87,7 @@ Dialog {
     }
 
     footer: Item {
-        implicitHeight: footerRow.implicitHeight + Theme.padding.large * 2
+        implicitHeight: footerRow.implicitHeight + control.padding * 2
 
         RowLayout {
             id: footerRow
@@ -91,7 +108,7 @@ Dialog {
                 text: control.acceptText
                 buttonSize: Theme.button.medium
                 buttonStyle: control.getButtonStyle()
-                onClicked: control.accept()
+                onClicked: control.acceptCloses ? control.accept() : control.accepted()
             }
         }
     }
