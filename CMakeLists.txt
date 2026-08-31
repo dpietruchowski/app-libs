@@ -28,6 +28,7 @@ add_subdirectory(agent)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_subdirectory(automation)
+    add_subdirectory(crashhandler)
 endif()
 
 if(NOT QML_LIVE_ENABLED)
