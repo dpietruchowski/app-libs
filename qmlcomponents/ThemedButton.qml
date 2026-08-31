@@ -10,9 +10,12 @@ Button {
     property var buttonStyle: Theme.button.primary
     property url iconSource: ""
     property int iconSize: buttonSize.iconSize
+    property color iconColor: buttonStyle.text
     property bool circular: false
     property bool pill: false
     property int radius: Theme.button.radius
+    property int contentAlignment: Qt.AlignHCenter
+    property int contentPadding: Theme.padding.medium
     property bool keyNavigable: true
     property bool keyDefault: false
 
@@ -38,17 +41,29 @@ Button {
     }
 
     contentItem: Item {
+        id: content
+
         anchors.fill: parent
 
+        readonly property bool hasIcon: control.iconSource.toString() !== ""
+        readonly property bool leftAligned: control.contentAlignment === Qt.AlignLeft
+        readonly property real availableTextWidth: width - 2 * control.contentPadding
+                                                   - (hasIcon ? control.iconSize + row.spacing : 0)
+
         Row {
+            id: row
+
             spacing: Theme.spacing.small
-            anchors.centerIn: parent
             height: parent.height
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.horizontalCenter: content.leftAligned ? undefined : parent.horizontalCenter
+            anchors.left: content.leftAligned ? parent.left : undefined
+            anchors.leftMargin: content.leftAligned ? control.contentPadding : 0
 
             ThemedIcon {
-                visible: iconSource.toString() !== ""
+                visible: content.hasIcon
                 svgSource: iconSource
-                color: !control.enabled ? Theme.colors.textDisabled : buttonStyle.text
+                color: !control.enabled ? Theme.colors.textDisabled : control.iconColor
                 width: control.iconSize
                 height: control.iconSize
                 anchors.verticalCenter: parent.verticalCenter
@@ -57,10 +72,12 @@ Button {
             Text {
                 visible: control.text !== ""
                 text: control.text
+                width: content.leftAligned ? Math.min(implicitWidth, content.availableTextWidth) : implicitWidth
+                elide: Text.ElideRight
                 font.pixelSize: buttonSize.fontSize
                 color: !control.enabled ? Theme.colors.textDisabled : buttonStyle.text
                 verticalAlignment: Text.AlignVCenter
-                horizontalAlignment: Text.AlignHCenter
+                horizontalAlignment: content.leftAligned ? Text.AlignLeft : Text.AlignHCenter
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
