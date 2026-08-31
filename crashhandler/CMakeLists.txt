@@ -40,6 +40,7 @@ target_include_directories(${LIBRARY_NAME}
 target_link_libraries(${LIBRARY_NAME}
     PUBLIC
         Qt6::Core
+        ${CMAKE_DL_LIBS}
 )
 
 if(STACKTRACE_LIBRARY)
