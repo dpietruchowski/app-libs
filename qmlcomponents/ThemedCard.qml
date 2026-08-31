@@ -10,6 +10,7 @@ Control {
     property bool clickable: false
     property int margins: 0
     property color backgroundColor: Theme.colors.cardBackground
+    property color borderColor: Theme.colors.cardBorder
     property real maxImplicitWidth: -1
     property bool keyNavigable: clickable
     signal clicked()
@@ -48,7 +49,7 @@ Control {
             anchors.fill: parent
             color: backgroundColor
             radius: Theme.radius.xLarge
-            border.color: Theme.colors.cardBorder
+            border.color: control.borderColor
             border.width: Theme.border.thin
 
             Behavior on color { ColorAnimation { duration: 120 } }
