@@ -11,6 +11,7 @@ Drawer {
     property string panelTitle: ""
     property string panelMessage: ""
     property bool handleVisible: true
+    property int contentSpacing: Theme.spacing.large
     property real maxHeightRatio: Theme.panel.maxHeightRatio
 
     readonly property real maxHeight: (parent ? parent.height : Theme.applicationHeight) * maxHeightRatio
@@ -19,8 +20,11 @@ Drawer {
     dragMargin: 0
     parent: Overlay.overlay
     width: parent ? parent.width : Theme.applicationWidth
-    height: Math.min(panelLayout.implicitHeight + Theme.padding.small + Theme.padding.large, maxHeight)
-    padding: 0
+    height: Math.min(Math.ceil(panelLayout.implicitHeight) + topPadding + bottomPadding, maxHeight)
+    topPadding: Theme.padding.small
+    bottomPadding: Theme.padding.large
+    leftPadding: Theme.padding.large
+    rightPadding: Theme.padding.large
     modal: true
     dim: true
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
@@ -40,13 +44,8 @@ Drawer {
         color: Theme.colors.overlayLight
     }
 
-    ColumnLayout {
+    contentItem: ColumnLayout {
         id: panelLayout
-        anchors.fill: parent
-        anchors.topMargin: Theme.padding.small
-        anchors.bottomMargin: Theme.padding.large
-        anchors.leftMargin: Theme.padding.large
-        anchors.rightMargin: Theme.padding.large
         spacing: Theme.spacing.large
 
         Rectangle {
@@ -61,6 +60,8 @@ Drawer {
 
         Text {
             Layout.fillWidth: true
+            Layout.preferredHeight: contentHeight
+            width: panelLayout.width
             visible: control.panelTitle !== ""
             text: control.panelTitle
             color: Theme.colors.textPrimary
@@ -71,6 +72,8 @@ Drawer {
 
         Text {
             Layout.fillWidth: true
+            Layout.preferredHeight: contentHeight
+            width: panelLayout.width
             visible: control.panelMessage !== ""
             text: control.panelMessage
             color: Theme.colors.textSecondary
@@ -78,23 +81,11 @@ Drawer {
             wrapMode: Text.WordWrap
         }
 
-        Flickable {
-            id: contentFlickable
+        ColumnLayout {
+            id: contentColumn
             Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.preferredHeight: contentColumn.implicitHeight
-            Layout.maximumHeight: contentColumn.implicitHeight
             visible: contentColumn.children.length > 0
-            contentWidth: width
-            contentHeight: contentColumn.implicitHeight
-            boundsBehavior: Flickable.StopAtBounds
-            clip: true
-
-            ColumnLayout {
-                id: contentColumn
-                width: contentFlickable.width
-                spacing: Theme.spacing.large
-            }
+            spacing: control.contentSpacing
         }
     }
 }
