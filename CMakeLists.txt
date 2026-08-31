@@ -26,8 +26,11 @@ add_subdirectory(utils)
 add_subdirectory(icons)
 add_subdirectory(agent)
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+if(FILLIN_AUTOMATION)
     add_subdirectory(automation)
+endif()
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_subdirectory(crashhandler)
 endif()
 
