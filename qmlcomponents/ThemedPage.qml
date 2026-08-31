@@ -12,6 +12,7 @@ Page {
     property int maxContentWidth: Theme.contentMaxWidth
     property Component overlayContent: null
     property bool showBackButton: false
+    property Component headerAction: null
     property bool avoidKeyboard: true
     default property alias content: contentArea.data
 
@@ -33,10 +34,17 @@ Page {
         }
     }
 
+    Loader {
+        id: headerActionLoader
+        anchors.top: backButton.top
+        anchors.right: contentArea.right
+        sourceComponent: root.headerAction
+    }
+
     Item {
         id: contentArea
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: root.showBackButton ? backButton.bottom : parent.top
+        anchors.top: root.showBackButton || root.headerAction ? backButton.bottom : parent.top
         anchors.bottom: parent.bottom
         anchors.topMargin: root.usePadding ? root.contentPadding : 0
         anchors.bottomMargin: root.usePadding && !root.footer ? root.contentPadding : 0
