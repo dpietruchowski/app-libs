@@ -151,9 +151,10 @@ Item {
                 }
             }
 
-            ThemedIconButton {
+            ThemedButton {
                 objectName: "chatSendButton"
                 Layout.alignment: Qt.AlignVCenter
+                buttonSize: Theme.button.icon
                 iconSource: root.sendIcon
                 enabled: !root.busy && input.text.trim() !== ""
                 onClicked: {

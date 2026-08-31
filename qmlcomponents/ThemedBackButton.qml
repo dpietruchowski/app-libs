@@ -3,8 +3,9 @@ import QtQuick.Controls
 
 import Themed.Components
 
-ThemedIconButton {
+ThemedButton {
     objectName: "backButton"
     iconSource: Theme.icons.back
+    buttonSize: Theme.button.icon
     buttonStyle: Theme.button.ghost
 }
