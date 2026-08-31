@@ -16,14 +16,14 @@
 #ifdef CRASH_HANDLER_STD_STACKTRACE
 #include <stacktrace>
 #include <string>
-#else
+#elif !defined(__ANDROID__)
 #include <execinfo.h>
 #endif
 
 namespace
 {
 constexpr size_t kAlternateStackSize = 256 * 1024;
-constexpr int kMaxFrames = 64;
+[[maybe_unused]] constexpr int kMaxFrames = 64;
 
 int crashLogFd = -1;
 int probeFd[2] = { -1, -1 };
@@ -59,6 +59,8 @@ void reportStackTrace()
 #ifdef CRASH_HANDLER_STD_STACKTRACE
     report(std::to_string(std::stacktrace::current(2)).c_str());
     report("\n");
+#elif defined(__ANDROID__)
+    report("stack trace unavailable (no execinfo on bionic)\n");
 #else
     void* frames[kMaxFrames];
     const int count = ::backtrace(frames, kMaxFrames);
@@ -70,7 +72,7 @@ void reportStackTrace()
 #endif
 }
 
-bool readable(const void* address)
+[[maybe_unused]] bool readable(const void* address)
 {
     if (probeFd[1] < 0 || address == nullptr)
     {
