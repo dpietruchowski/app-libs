@@ -9,3 +9,6 @@ compile_commands.json
 CMakeLists.txt.user
 cmake-build-*/
 .DS_Store
+
+# ui_session.py imports ui_driver.py as a module.
+__pycache__/
