@@ -14,7 +14,12 @@ Drawer {
     property int contentSpacing: Theme.spacing.large
     property real maxHeightRatio: Theme.panel.maxHeightRatio
 
-    readonly property real maxHeight: (parent ? parent.height : Theme.applicationHeight) * maxHeightRatio
+    readonly property Item overlayItem: control.Overlay.overlay
+    readonly property real safeBottomMargin: overlayItem?.SafeArea?.margins.bottom ?? 0
+    readonly property real safeLeftMargin: overlayItem?.SafeArea?.margins.left ?? 0
+    readonly property real safeRightMargin: overlayItem?.SafeArea?.margins.right ?? 0
+
+    readonly property real maxHeight: (parent ? parent.height : Theme.applicationHeight) * maxHeightRatio + safeBottomMargin
 
     edge: Qt.BottomEdge
     dragMargin: 0
@@ -22,9 +27,9 @@ Drawer {
     width: parent ? parent.width : Theme.applicationWidth
     height: Math.min(Math.ceil(panelLayout.implicitHeight) + topPadding + bottomPadding, maxHeight)
     topPadding: Theme.padding.small
-    bottomPadding: Theme.padding.large
-    leftPadding: Theme.padding.large
-    rightPadding: Theme.padding.large
+    bottomPadding: Theme.padding.large + safeBottomMargin
+    leftPadding: Theme.padding.large + safeLeftMargin
+    rightPadding: Theme.padding.large + safeRightMargin
     modal: true
     dim: true
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
