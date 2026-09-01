@@ -15,18 +15,32 @@ Rectangle {
     function select(index) {
         if (index < 0 || index >= model.length)
             return
+        if (model[index].action) {
+            model[index].action()
+            return
+        }
         bottomNav.currentIndex = index
         bottomNav.itemSelected(index)
         if (model[index].screen && stackView)
             stackView.replace(null, model[index].screen)
     }
 
+    function selectable(step) {
+        let index = bottomNav.currentIndex
+        for (let i = 0; i < model.length; ++i) {
+            index = (index + step + model.length) % model.length
+            if (!model[index].action)
+                return index
+        }
+        return bottomNav.currentIndex
+    }
+
     function selectNext() {
-        select((bottomNav.currentIndex + 1) % model.length)
+        select(selectable(1))
     }
 
     function selectPrevious() {
-        select((bottomNav.currentIndex + model.length - 1) % model.length)
+        select(selectable(-1))
     }
 
     Rectangle {
