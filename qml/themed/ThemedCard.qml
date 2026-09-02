@@ -75,12 +75,6 @@ Control {
         }
     }
 
-    Control {
-        id: contentArea
-        anchors.fill: parent
-        anchors.margins: control.margins
-    }
-
     MouseArea {
         id: mouseArea
         anchors.fill: parent
@@ -88,5 +82,11 @@ Control {
         hoverEnabled: clickable
         cursorShape: clickable ? Qt.PointingHandCursor : Qt.ArrowCursor
         onClicked: control.clicked()
+    }
+
+    Control {
+        id: contentArea
+        anchors.fill: parent
+        anchors.margins: control.margins
     }
 }
