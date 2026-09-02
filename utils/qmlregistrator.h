@@ -15,6 +15,8 @@ public:
     QmlRegistrator(QQmlApplicationEngine& engine, const QString& uiRootDir,
                    const QString& moduleName);
 
+    template <typename Type>
+    void registerSingletonInstance(const char* moduleName, const char* name, Type* value);
     template <typename Type> void registerSingletonInstance(const char* name, Type* value);
     template <typename Type> void registerType(const char* moduleName, const char* name);
     template <typename Type> void registerType(const char* name);
@@ -37,14 +39,22 @@ private:
 };
 
 template <typename Type>
-void QmlRegistrator::registerSingletonInstance(const char* name, Type* value)
+void QmlRegistrator::registerSingletonInstance(const char* moduleName, const char* name,
+                                               Type* value)
 {
 #ifdef QML_LIVE_ENABLED
+    Q_UNUSED(moduleName)
     QQmlContext* ctx = m_engine.rootContext();
     ctx->setContextProperty(name, value);
 #else
-    qmlRegisterSingletonInstance<Type>(m_moduleName.toUtf8().constData(), 1, 0, name, value);
+    qmlRegisterSingletonInstance<Type>(moduleName, 1, 0, name, value);
 #endif
+}
+
+template <typename Type>
+void QmlRegistrator::registerSingletonInstance(const char* name, Type* value)
+{
+    registerSingletonInstance<Type>(m_moduleName.toUtf8().constData(), name, value);
 }
 
 template <typename Type> void QmlRegistrator::registerType(const char* moduleName, const char* name)
