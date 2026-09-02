@@ -25,9 +25,9 @@ Drawer {
         NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
     }
 
-    readonly property real availableHeight: parent ? parent.height : Theme.applicationHeight
+    readonly property real parentHeight: parent ? parent.height : Theme.applicationHeight
     readonly property real maxHeight: Math.min(
-        availableHeight * maxHeightRatio + safeBottomMargin + keyboardInset, availableHeight)
+        parentHeight * maxHeightRatio + safeBottomMargin + keyboardInset, parentHeight)
 
     edge: Qt.BottomEdge
     dragMargin: 0
