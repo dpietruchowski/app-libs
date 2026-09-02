@@ -41,10 +41,26 @@ Page {
         sourceComponent: root.headerAction
     }
 
+    ThemedText {
+        id: titleLabel
+        anchors.verticalCenter: backButton.verticalCenter
+        anchors.left: root.showBackButton ? backButton.right : contentArea.left
+        anchors.leftMargin: root.showBackButton ? Theme.spacing.small : 0
+        anchors.right: headerActionLoader.left
+        anchors.rightMargin: Theme.spacing.small
+        visible: root.title !== ""
+        text: root.title
+        textStyle: Theme.page.title
+        elide: Text.ElideRight
+        maximumLineCount: 1
+        verticalAlignment: Text.AlignVCenter
+    }
+
     Item {
         id: contentArea
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: root.showBackButton || root.headerAction ? backButton.bottom : parent.top
+        anchors.top: root.showBackButton || root.headerAction || root.title !== ""
+                     ? backButton.bottom : parent.top
         anchors.bottom: parent.bottom
         anchors.topMargin: root.usePadding ? root.contentPadding : 0
         anchors.bottomMargin: root.usePadding && !root.footer ? root.contentPadding : 0
