@@ -1,0 +1,5 @@
+{
+  "binary": ["build-desktop/src/app__APP_ID__", "build-release/src/app__APP_ID__"],
+  "port": 49200,
+  "port_env": "APP_AUTOMATION_PORT"
+}
