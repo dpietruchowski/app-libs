@@ -22,6 +22,8 @@ python3 libs/tools/ui_session.py start --platform offscreen   # headless run
 
 Session state and the app log live in `tmp/ui_session/` inside the repo, so nothing lands in a system temp directory. Pass `--platform` instead of exporting `QT_QPA_PLATFORM`, so the command stays a single simple call.
 
+When `.ui_automation.json` carries a `sandbox` section, the app runs in that directory (seeded with copies of the listed files, with the listed env vars pointing inside it) instead of the repo root, so driving it never touches the real user data. `--run-dir PATH` picks a different one.
+
 It checks the configured port first: if the app already answers there it adopts that instance and does nothing. Otherwise it launches the configured Debug binary detached and waits until it responds. Idempotent, so run it before every driving session.
 
 ### Then drive it

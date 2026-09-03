@@ -18,6 +18,7 @@ public:
     void setErrorCallback(ErrorReceivedCallback callback);
 
     void addInitialMessage(const QString& message);
+    void addMessage(const QString& role, const QString& content);
 
     void requestAsync(const Client& client, const QString& message, const ResponseReceivedCallback& callback);
     void clear();
