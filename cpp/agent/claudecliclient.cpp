@@ -225,24 +225,51 @@ Completion completionFromOutput(const QByteArray& output)
     return completionFromAnswer(answer);
 }
 
-QStringList arguments(const Messages& messages, const ToolsMap& toolsMap)
+QString modelOf(const ModelConfig& config)
 {
-    return { QStringLiteral("-p"),
-             QStringLiteral("--output-format"),
-             QStringLiteral("json"),
-             QStringLiteral("--model"),
-             QStringLiteral("haiku"),
-             QStringLiteral("--safe-mode"),
-             QStringLiteral("--no-session-persistence"),
-             QStringLiteral("--system-prompt"),
-             systemPrompt(messages, toolsMap),
-             QStringLiteral("--tools"),
-             QString() };
+    static const QStringList aliases { QStringLiteral("haiku"), QStringLiteral("sonnet"),
+                                       QStringLiteral("opus"), QStringLiteral("fable"),
+                                       QStringLiteral("default"), QStringLiteral("sonnet[1m]"),
+                                       QStringLiteral("opus[1m]") };
+    const QString model = config.model.toLower();
+    if (aliases.contains(model) || model.startsWith(QStringLiteral("claude")))
+        return model;
+    return QStringLiteral("haiku");
 }
 
-void ask(QProcess& process, const Messages& messages, const ToolsMap& toolsMap)
+QString effortOf(const ModelConfig& config)
 {
-    process.start(ClaudeCliClient::executable(), arguments(messages, toolsMap));
+    static const QStringList levels { QStringLiteral("low"), QStringLiteral("medium"),
+                                      QStringLiteral("high"), QStringLiteral("xhigh"),
+                                      QStringLiteral("max") };
+    const QString effort = config.reasoningEffort.toLower();
+    return levels.contains(effort) ? effort : QString();
+}
+
+QStringList arguments(const ModelConfig& config, const Messages& messages,
+                      const ToolsMap& toolsMap)
+{
+    QStringList args { QStringLiteral("-p"),
+                       QStringLiteral("--output-format"),
+                       QStringLiteral("json"),
+                       QStringLiteral("--model"),
+                       modelOf(config),
+                       QStringLiteral("--safe-mode"),
+                       QStringLiteral("--no-session-persistence") };
+
+    const QString effort = effortOf(config);
+    if (!effort.isEmpty())
+        args << QStringLiteral("--effort") << effort;
+
+    args << QStringLiteral("--system-prompt") << systemPrompt(messages, toolsMap)
+         << QStringLiteral("--tools") << QString();
+    return args;
+}
+
+void ask(QProcess& process, const ModelConfig& config, const Messages& messages,
+         const ToolsMap& toolsMap)
+{
+    process.start(ClaudeCliClient::executable(), arguments(config, messages, toolsMap));
     process.write(conversation(messages).toUtf8());
     process.closeWriteChannel();
 }
@@ -260,7 +287,7 @@ QString ClaudeCliClient::executable()
 
 bool ClaudeCliClient::isAvailable() { return !executable().isEmpty(); }
 
-void ClaudeCliClient::createCompletionAsync(const ModelConfig&, const Messages& messages,
+void ClaudeCliClient::createCompletionAsync(const ModelConfig& config, const Messages& messages,
                                             const ToolsMap& toolsMap,
                                             const CompletionCreatedCallback& callback) const
 {
@@ -297,17 +324,17 @@ void ClaudeCliClient::createCompletionAsync(const ModelConfig&, const Messages& 
                          process->deleteLater();
                      });
 
-    ask(*process, messages, toolsMap);
+    ask(*process, config, messages, toolsMap);
 }
 
-Completion ClaudeCliClient::createCompletion(const ModelConfig&, const Messages& messages,
+Completion ClaudeCliClient::createCompletion(const ModelConfig& config, const Messages& messages,
                                              const ToolsMap& toolsMap) const
 {
     if (!isAvailable())
         return failure(QStringLiteral("network_error"));
 
     QProcess process;
-    ask(process, messages, toolsMap);
+    ask(process, config, messages, toolsMap);
 
     if (!process.waitForFinished(kTimeoutMs))
         return failure(QStringLiteral("server_error"));
