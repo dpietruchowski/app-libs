@@ -21,10 +21,21 @@ own short-lived connection to it.
 started by hand) it adopts it and does nothing.
 
 Which binary and which port env var to use come from `.ui_automation.json` at
-the consuming repo's root — see ui_driver.py. The child is always started in the
-repo root, so any file it opens relative to the working directory lands there,
-no matter where you run this script from. Session state and the app log go to
-tmp/ui_session/ inside the repo, never to a system temp directory.
+the consuming repo's root — see ui_driver.py. Session state and the app log go
+to tmp/ui_session/ inside the repo, never to a system temp directory.
+
+By default the child is started in the repo root, so any file it opens relative
+to the working directory lands there. An app whose real user data sits in the
+repo (a database next to the sources, a per-user directory under XDG_DATA_HOME)
+can ask for a sandbox instead, so driving it never mutates that data:
+
+    "sandbox": {
+      "dir": "tmp/run",              # working directory, relative to the repo
+      "copy": ["liftplanner.db"],    # seeded into it once, from the repo root
+      "env": {"XDG_DATA_HOME": "data"}   # dirs created inside the sandbox
+    }
+
+`--run-dir PATH` picks a different sandbox for one run.
 
 Drive the running instance with ui_driver.py, e.g.:
   ui_driver.py dump
@@ -37,6 +48,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -80,6 +92,35 @@ def _clear_state():
         os.remove(STATE_PATH)
     except OSError:
         pass
+
+
+def _prepare_sandbox(config, run_dir=None):
+    """Working directory and extra environment the app should be launched with.
+
+    Without a "sandbox" section the app runs in the repo root with no extra
+    environment, which is what an app that keeps no data in the repo wants.
+    """
+    sandbox = config.get("sandbox") or {}
+    if not sandbox and not run_dir:
+        return REPO_ROOT, {}
+
+    directory = run_dir or sandbox.get("dir") or os.path.join("tmp", "run")
+    directory = os.path.abspath(os.path.join(REPO_ROOT, directory))
+    os.makedirs(directory, exist_ok=True)
+
+    for name in sandbox.get("copy") or []:
+        source = os.path.join(REPO_ROOT, name)
+        target = os.path.join(directory, os.path.basename(name))
+        if os.path.isfile(source) and not os.path.exists(target):
+            shutil.copy2(source, target)
+
+    env = {}
+    for key, value in (sandbox.get("env") or {}).items():
+        path = value if os.path.isabs(value) else os.path.join(directory, value)
+        os.makedirs(path, exist_ok=True)
+        env[key] = path
+
+    return directory, env
 
 
 def _pid_alive(pid):
@@ -134,7 +175,10 @@ def cmd_start(opts):
         )
         return 1
 
+    work_dir, sandbox_env = _prepare_sandbox(opts.config, opts.run_dir)
+
     child_env = os.environ.copy()
+    child_env.update(sandbox_env)
     child_env[opts.port_env] = str(opts.port)
     if opts.platform:
         child_env["QT_QPA_PLATFORM"] = opts.platform
@@ -143,7 +187,7 @@ def cmd_start(opts):
     log = open(LOG_PATH, "wb")
     proc = subprocess.Popen(
         [binary],
-        cwd=REPO_ROOT,
+        cwd=work_dir,
         env=child_env,
         stdout=log,
         stderr=subprocess.STDOUT,
@@ -161,7 +205,10 @@ def cmd_start(opts):
             return 1
         if _responds(opts.port):
             _save_state({"pid": proc.pid, "port": opts.port, "log": LOG_PATH})
-            print(f"started: pid {proc.pid} on 127.0.0.1:{opts.port} (log: {LOG_PATH})")
+            print(
+                f"started: pid {proc.pid} on 127.0.0.1:{opts.port} "
+                f"(run dir: {work_dir}, log: {LOG_PATH})"
+            )
             return 0
         time.sleep(0.25)
 
@@ -238,6 +285,11 @@ def main(argv=None):
             "--platform",
             default=None,
             help="Qt platform plugin for the launched app, e.g. offscreen",
+        )
+        p.add_argument(
+            "--run-dir",
+            default=None,
+            help="working directory to sandbox the app in (default: .ui_automation.json)",
         )
 
     for name in ("status", "stop"):

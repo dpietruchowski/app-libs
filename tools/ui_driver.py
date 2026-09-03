@@ -15,7 +15,9 @@ Which env var and which binary differ per app, so this script reads them from a
 `binary` may be one path or a list tried in order; every path is relative to the
 repo root. Without the file the defaults are port 49200, env var
 UI_AUTOMATION_PORT, and no binary (so `launch`/`shell` need --binary). Anything
-in the file can be overridden by a CLI flag.
+in the file can be overridden by a CLI flag. An optional "sandbox" section tells
+ui_session.py to launch the app in a throwaway working directory instead of the
+repo root — see its docstring.
 
 Why a server and not a standalone PySide script: the app is a compiled C++ Qt
 binary. Its QObject/QML tree lives in that process's memory, so QObject.findChild
