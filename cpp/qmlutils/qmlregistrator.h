@@ -6,6 +6,8 @@
 #include <QUrl>
 #include <memory>
 
+#include "qmlutils/qmlsandbox.h"
+
 #ifdef QML_LIVE_ENABLED
 #include "qmllive/qmlsourceinterceptor.h"
 #endif
@@ -28,6 +30,7 @@ public:
                                const QString& name);
     void registerSingletonType(const QString& qmlFile, const QString& name);
     void enableSourceReload(const QString& moduleSpec);
+    void enableSandbox(const QString& moduleName, const QString& defaultDirectory);
     QUrl getMainQmlUrl();
 
 private:
@@ -36,6 +39,7 @@ private:
     QQmlApplicationEngine& m_engine;
     QString m_uiRootDir;
     QString m_moduleName;
+    QmlSandbox* m_sandbox = nullptr;
 #ifdef QML_LIVE_ENABLED
     std::unique_ptr<QmlSourceInterceptor> m_interceptor;
 #endif

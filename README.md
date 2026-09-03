@@ -47,3 +47,15 @@ file, so it is safe to re-run to pick up files added later.
 | `LIBS_BUILD_TESTS` | ON standalone, OFF as a submodule | Build the libs' own tests |
 | `LIBS_AUTOMATION` | ON for Debug | Build `app_automation` and define `LIBS_AUTOMATION` for consumers |
 | `QML_LIVE_ENABLED` | OFF (forced OFF on Android) | Load QML from the source tree instead of the compiled resource, via `app_qmllive` — edit a `.qml`, restart the app, no rebuild. Declare the module→directory map with `app_qml_live_map(<target> URI dir …)` and call `QmlRegistrator::enableSourceReload(APP_QML_LIVE_MAP)` |
+
+### QML sandbox
+
+`app_qml_live_map()` also bakes `APP_QML_SANDBOX_DIR` (`<source root>/sandbox`). Pass it to
+`QmlRegistrator::enableSandbox(<module uri>, APP_QML_SANDBOX_DIR)` and the app gains a
+`QmlSandbox` singleton in that module. When the `APP_QML_SANDBOX` environment variable is
+set, the app should load `SandboxHost` (`libs/qml/app`) instead of its normal root: it
+lists the `.qml` files in that directory, instantiates the selected one by file path — so
+labs are never module types and never need a rebuild — and watches both the sandbox and
+every mapped QML source tree, calling `clearComponentCache()` on a change. That makes edits
+to real app components visible without a restart. QML singletons (`Theme.qml`) are the
+exception: the cache does not re-create them, so a theme edit needs a restart.

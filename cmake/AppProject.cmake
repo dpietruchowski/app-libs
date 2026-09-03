@@ -144,7 +144,10 @@ function(app_qml_live_map TARGET)
         string(APPEND SPEC "${URI}=${SOURCE_DIR}|")
     endforeach()
 
-    target_compile_definitions(${TARGET} PRIVATE APP_QML_LIVE_MAP="${SPEC}")
+    target_compile_definitions(${TARGET} PRIVATE
+        APP_QML_LIVE_MAP="${SPEC}"
+        APP_QML_SANDBOX_DIR="${CMAKE_SOURCE_DIR}/sandbox"
+    )
     message(STATUS "QML live source map for ${TARGET}: ${SPEC}")
 endfunction()
 

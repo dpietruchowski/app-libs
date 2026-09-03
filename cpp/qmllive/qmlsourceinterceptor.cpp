@@ -55,6 +55,16 @@ void QmlSourceInterceptor::addModules(const QString& spec)
 
 bool QmlSourceInterceptor::isEmpty() const { return m_modules.isEmpty(); }
 
+QStringList QmlSourceInterceptor::sourceDirs() const
+{
+    QStringList dirs;
+    for (const Module& module : m_modules)
+    {
+        dirs.append(module.sourceDir);
+    }
+    return dirs;
+}
+
 QUrl QmlSourceInterceptor::mapUrl(const QUrl& url) const
 {
     const QString path = resourcePath(url);

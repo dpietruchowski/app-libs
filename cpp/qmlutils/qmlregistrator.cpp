@@ -1,4 +1,5 @@
 #include "qmlregistrator.h"
+#include <QFileInfo>
 #include <QQmlContext>
 #include <QQmlEngine>
 
@@ -72,6 +73,40 @@ void QmlRegistrator::enableSourceReload(const QString& moduleSpec)
 #else
     Q_UNUSED(moduleSpec)
 #endif
+}
+
+void QmlRegistrator::enableSandbox(const QString& moduleName, const QString& defaultDirectory)
+{
+    const QString request = QString::fromLocal8Bit(qgetenv("APP_QML_SANDBOX"));
+
+    QString directory;
+    QString startFile;
+
+    if (!request.isEmpty())
+    {
+        directory = defaultDirectory;
+        if (QFileInfo(request).isDir())
+        {
+            directory = request;
+        }
+        else if (request.endsWith(QLatin1String(".qml")))
+        {
+            startFile = request;
+        }
+    }
+
+    QStringList watchedDirs;
+#ifdef QML_LIVE_ENABLED
+    if (m_interceptor)
+    {
+        watchedDirs = m_interceptor->sourceDirs();
+    }
+#endif
+
+    m_sandbox = new QmlSandbox(m_engine, directory, watchedDirs, &m_engine);
+    m_sandbox->setCurrentFile(startFile);
+
+    registerSingletonInstance<QmlSandbox>(moduleName.toUtf8().constData(), "QmlSandbox", m_sandbox);
 }
 
 QUrl QmlRegistrator::getMainQmlUrl() { return resolveUrl("Main.qml"); }

@@ -3,6 +3,7 @@
 #include <QList>
 #include <QQmlAbstractUrlInterceptor>
 #include <QString>
+#include <QStringList>
 #include <QUrl>
 
 class QmlSourceInterceptor : public QQmlAbstractUrlInterceptor
@@ -12,6 +13,7 @@ public:
     void addModules(const QString& spec);
 
     bool isEmpty() const;
+    QStringList sourceDirs() const;
     QUrl mapUrl(const QUrl& url) const;
 
     QUrl intercept(const QUrl& url, DataType type) override;
