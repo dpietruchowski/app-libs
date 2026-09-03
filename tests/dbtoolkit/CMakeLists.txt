@@ -10,7 +10,7 @@ target_link_libraries(dbtoolkit_tests
         Qt6::Test
         gtest
         gtest_main
-        dbtoolkit
+        app_dbtoolkit
 )
 
 add_test(NAME dbtoolkit_tests COMMAND dbtoolkit_tests)

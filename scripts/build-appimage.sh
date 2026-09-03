@@ -101,14 +101,14 @@ export LD_LIBRARY_PATH="$QT_DIR/lib:$LD_LIBRARY_PATH"
 echo -e "${GREEN}Generating AppImage...${NC}"
 export OUTPUT="${APP_ID}-${VERSION_NAME}-x86_64.AppImage"
 LIBS_BUILD_DIR="$PROJECT_DIR/$BUILD_DIR/libs"
-export LD_LIBRARY_PATH="$LIBS_BUILD_DIR/dbtoolkit:$LIBS_BUILD_DIR/qmllive:$LIBS_BUILD_DIR/qmlcomponents:$LIBS_BUILD_DIR/appcomponents:$QML_LIB_DIR:$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH="$LIBS_BUILD_DIR/cpp/dbtoolkit:$LIBS_BUILD_DIR/cpp/qmllive:$LIBS_BUILD_DIR/qml/themed:$LIBS_BUILD_DIR/qml/app:$QML_LIB_DIR:$LD_LIBRARY_PATH"
 "$LINUXDEPLOY" \
     --appdir "$APPDIR" \
     --executable "$APPDIR/usr/bin/$APP_TARGET" \
-    --library "$LIBS_BUILD_DIR/dbtoolkit/libdbtoolkit.so" \
-    --library "$LIBS_BUILD_DIR/qmllive/libqmllive.so" \
-    --library "$LIBS_BUILD_DIR/qmlcomponents/libthemed_components_qml.so" \
-    --library "$LIBS_BUILD_DIR/appcomponents/libapp_components_qml.so" \
+    --library "$LIBS_BUILD_DIR/cpp/dbtoolkit/libapp_dbtoolkit.so" \
+    --library "$LIBS_BUILD_DIR/cpp/qmllive/libapp_qmllive.so" \
+    --library "$LIBS_BUILD_DIR/qml/themed/libapp_themed_qml.so" \
+    --library "$LIBS_BUILD_DIR/qml/app/libapp_components_qml.so" \
     --library "$QML_LIB_DIR/lib${APP_QML_TARGET}.so" \
     --plugin qt \
     --output appimage
