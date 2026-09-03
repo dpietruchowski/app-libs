@@ -1,6 +1,7 @@
 #include "claudecliclient.h"
 
 #include <memory>
+#include <optional>
 
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -36,14 +37,32 @@ QString systemPrompt(const Messages& messages, const ToolsMap& toolsMap)
         const QJsonDocument tools(toJsonArray(toolsMap));
         prompt += QStringLiteral(
                       "Tools you may call:\n%1\n"
-                      "To call one, reply with a single JSON object and nothing else:\n"
+                      "To call one, your ENTIRE reply is one JSON object and nothing else:\n"
                       "{\"tool\": \"<name>\", \"arguments\": {...}}\n"
-                      "Write the app yourself and pass it in the arguments. "
-                      "Otherwise reply with plain text.\n")
+                      "No words before or after it, no markdown, no tags, no list, no state "
+                      "name, no plan: anything outside the object is shown to the user and the "
+                      "call is lost. One call per reply. Write the app yourself and pass it in "
+                      "the arguments. When you are not calling a tool, reply with plain text.\n")
                       .arg(QString::fromUtf8(tools.toJson(QJsonDocument::Compact)));
     }
 
     return prompt.trimmed();
+}
+
+QString messageText(const Message& message)
+{
+    if (message.tool_calls.isEmpty())
+        return message.content;
+
+    QStringList calls;
+    for (const ToolCall& call : message.tool_calls)
+    {
+        const QJsonObject object { { QStringLiteral("tool"), call.name },
+                                   { QStringLiteral("arguments"),
+                                     QJsonObject::fromVariantMap(call.arguments) } };
+        calls.append(QString::fromUtf8(QJsonDocument(object).toJson(QJsonDocument::Compact)));
+    }
+    return calls.join(QLatin1Char('\n'));
 }
 
 QString conversation(const Messages& messages)
@@ -53,7 +72,7 @@ QString conversation(const Messages& messages)
     {
         if (message.role == QStringLiteral("system"))
             continue;
-        prompt += roleLabel(message) + QLatin1Char(' ') + message.content + QLatin1Char('\n');
+        prompt += roleLabel(message) + QLatin1Char(' ') + messageText(message) + QLatin1Char('\n');
     }
     return prompt;
 }
@@ -81,26 +100,106 @@ Completion failure(const QString& error)
     return completion;
 }
 
+int objectEnd(const QString& text, int start)
+{
+    int depth = 0;
+    bool inString = false;
+    for (int i = start; i < text.size(); ++i)
+    {
+        const QChar c = text.at(i);
+        if (inString)
+        {
+            if (c == QLatin1Char('\\'))
+                ++i;
+            else if (c == QLatin1Char('"'))
+                inString = false;
+        }
+        else if (c == QLatin1Char('"'))
+            inString = true;
+        else if (c == QLatin1Char('{'))
+            ++depth;
+        else if (c == QLatin1Char('}') && --depth == 0)
+            return i;
+    }
+    return -1;
+}
+
+QVariantMap argumentsOf(const QJsonObject& object)
+{
+    for (const char* key : { "arguments", "parameters", "input" })
+    {
+        const QJsonValue value = object.value(QLatin1String(key));
+        if (value.isObject())
+            return value.toObject().toVariantMap();
+        if (value.isString())
+            return QJsonDocument::fromJson(value.toString().toUtf8()).object().toVariantMap();
+    }
+    return QVariantMap();
+}
+
+std::optional<ToolCall> toolCallFrom(const QJsonObject& object)
+{
+    QString name = object.value(QStringLiteral("tool")).toString();
+    QVariantMap arguments = argumentsOf(object);
+
+    const QJsonValue function = object.value(QStringLiteral("function"));
+    if (name.isEmpty() && function.isObject())
+    {
+        name = function.toObject().value(QStringLiteral("name")).toString();
+        if (arguments.isEmpty())
+            arguments = argumentsOf(function.toObject());
+    }
+    if (name.isEmpty() && function.isString())
+        name = function.toString();
+    if (name.isEmpty() && !argumentsOf(object).isEmpty())
+        name = object.value(QStringLiteral("name")).toString();
+
+    if (name.isEmpty())
+        return std::nullopt;
+    return ToolCall { .id = QString(),
+                      .name = name,
+                      .arguments = arguments,
+                      .type = QStringLiteral("function") };
+}
+
+QVector<ToolCall> toolCallsIn(const QString& answer)
+{
+    QVector<ToolCall> calls;
+    const QString text = stripFence(answer);
+    int start = text.indexOf(QLatin1Char('{'));
+    while (start >= 0)
+    {
+        const int end = objectEnd(text, start);
+        if (end < 0)
+            break;
+        const QJsonObject object
+            = QJsonDocument::fromJson(text.mid(start, end - start + 1).toUtf8()).object();
+        if (std::optional<ToolCall> call = toolCallFrom(object))
+        {
+            call->id = QStringLiteral("cli-%1-%2").arg(call->name).arg(calls.size() + 1);
+            calls.append(*call);
+            start = text.indexOf(QLatin1Char('{'), end + 1);
+        }
+        else
+        {
+            start = text.indexOf(QLatin1Char('{'), start + 1);
+        }
+    }
+    return calls;
+}
+
 Completion completionFromAnswer(const QString& answer)
 {
     Completion completion;
     Choice choice;
     choice.index = 0;
 
-    const QJsonObject object = QJsonDocument::fromJson(stripFence(answer).toUtf8()).object();
-    const QString tool = object.value(QStringLiteral("tool")).toString();
-
-    if (!tool.isEmpty())
+    const QVector<ToolCall> calls = toolCallsIn(answer);
+    if (!calls.isEmpty())
     {
-        ToolCall call;
-        call.id = QStringLiteral("cli-%1").arg(tool);
-        call.name = tool;
-        call.type = QStringLiteral("function");
-        call.arguments = object.value(QStringLiteral("arguments")).toObject().toVariantMap();
-
         choice.finish_reason = QStringLiteral("tool_calls");
         choice.message = Message { .role = QStringLiteral("assistant"), .content = QString() };
-        choice.message.tool_calls.append(call);
+        choice.message.tool_calls = calls;
     }
     else
     {

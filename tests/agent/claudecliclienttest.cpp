@@ -105,6 +105,27 @@ TEST_F(ClaudeCliClientTest, TheConversationReachesTheBinaryOnStdin)
     EXPECT_FALSE(sent.contains(QStringLiteral("be brief"))) << sent.toStdString();
 }
 
+TEST_F(ClaudeCliClientTest, EarlierToolCallsAreShownAsTheJsonTheModelEmitted)
+{
+    answerWith(R"({"result":"ok"})");
+    Messages messages = conversation();
+    Message call { .role = "assistant", .content = QString() };
+    call.tool_calls.append(ToolCall { .id = "cli-create_app",
+                                      .name = "create_app",
+                                      .arguments = QVariantMap { { "id", "notes" } },
+                                      .type = "function" });
+    messages.append(call);
+    messages.append(Message { .role = "tool", .content = "ok", .tool_call_id = "cli-create_app" });
+
+    ClaudeCliClient().createCompletion(config, messages, {});
+
+    const QString sent = prompt();
+    EXPECT_TRUE(sent.contains(
+        QStringLiteral("[assistant] {\"arguments\":{\"id\":\"notes\"},\"tool\":\"create_app\"}")))
+        << sent.toStdString();
+    EXPECT_TRUE(sent.contains(QStringLiteral("[tool result] ok"))) << sent.toStdString();
+}
+
 TEST_F(ClaudeCliClientTest, OurInstructionsReplaceTheSystemPromptOfTheBinary)
 {
     answerWith(R"({"result":"ok"})");
@@ -180,6 +201,65 @@ TEST_F(ClaudeCliClientTest, AFencedJsonAnswerIsStillAToolCall)
 
     ASSERT_EQ(completion.choices.size(), 1);
     EXPECT_EQ(completion.choices.at(0).finish_reason, "tool_calls");
+}
+
+TEST_F(ClaudeCliClientTest, AToolCallWrappedInProseTagsAndAListIsStillAToolCall)
+{
+    answerWith(R"({"result":"STATE: DESIGN\n\nid: notes\n\n**B1**\n<function_calls>\n[{\"tool\": \"create_app\", \"arguments\": {\"id\": \"notes\", \"qml\": \"Page { title: \\\"{a}\\\" }\"}}]\n</function_calls>"})");
+
+    const Completion completion = ClaudeCliClient().createCompletion(config, conversation(), {});
+
+    ASSERT_EQ(completion.choices.size(), 1);
+    EXPECT_EQ(completion.choices.at(0).finish_reason, "tool_calls");
+    ASSERT_EQ(completion.choices.at(0).message.tool_calls.size(), 1);
+    const ToolCall& call = completion.choices.at(0).message.tool_calls.at(0);
+    EXPECT_EQ(call.name, "create_app");
+    EXPECT_EQ(call.arguments.value("id").toString(), "notes");
+    EXPECT_EQ(call.arguments.value("qml").toString(), "Page { title: \"{a}\" }");
+}
+
+TEST_F(ClaudeCliClientTest, SeveralCallsInAnthropicShapeAllBecomeToolCallsInOrder)
+{
+    answerWith(R"({"result":"<function_calls>\n[{\"function\": {\"name\": \"describe_app\", \"parameters\": {\"app\": \"notes\"}}}]\n</function_calls>\nNow the edit.\n<function_calls>\n[{\"function\": {\"name\": \"edit_file\", \"parameters\": {\"app\": \"notes\", \"path\": \"Data.qml\", \"before\": \"a\", \"after\": \"b\"}}}]\n</function_calls>\n<function_calls>\n[{\"function\": \"read_log\", \"parameters\": {\"app\": \"notes\"}}]\n</function_calls>\nGotowe."})");
+
+    const Completion completion = ClaudeCliClient().createCompletion(config, conversation(), {});
+
+    ASSERT_EQ(completion.choices.size(), 1);
+    EXPECT_EQ(completion.choices.at(0).finish_reason, "tool_calls");
+    EXPECT_TRUE(completion.choices.at(0).message.content.isEmpty());
+    const QVector<ToolCall>& calls = completion.choices.at(0).message.tool_calls;
+    ASSERT_EQ(calls.size(), 3);
+    EXPECT_EQ(calls.at(0).name, "describe_app");
+    EXPECT_EQ(calls.at(0).arguments.value("app").toString(), "notes");
+    EXPECT_EQ(calls.at(1).name, "edit_file");
+    EXPECT_EQ(calls.at(1).arguments.value("after").toString(), "b");
+    EXPECT_EQ(calls.at(2).name, "read_log");
+    EXPECT_EQ(calls.at(2).arguments.value("app").toString(), "notes");
+    EXPECT_NE(calls.at(0).id, calls.at(1).id);
+}
+
+TEST_F(ClaudeCliClientTest, ArgumentsPassedAsAJsonStringAreDecoded)
+{
+    answerWith(R"({"result":"{\"name\": \"read_file\", \"arguments\": \"{\\\"app\\\": \\\"notes\\\", \\\"path\\\": \\\"Main.qml\\\"}\"}"})");
+
+    const Completion completion = ClaudeCliClient().createCompletion(config, conversation(), {});
+
+    ASSERT_EQ(completion.choices.size(), 1);
+    ASSERT_EQ(completion.choices.at(0).message.tool_calls.size(), 1);
+    const ToolCall& call = completion.choices.at(0).message.tool_calls.at(0);
+    EXPECT_EQ(call.name, "read_file");
+    EXPECT_EQ(call.arguments.value("path").toString(), "Main.qml");
+}
+
+TEST_F(ClaudeCliClientTest, BracesInProseDoNotMakeAToolCall)
+{
+    answerWith(R"({"result":"Use { and } in QML, like Item { }."})");
+
+    const Completion completion = ClaudeCliClient().createCompletion(config, conversation(), {});
+
+    ASSERT_EQ(completion.choices.size(), 1);
+    EXPECT_EQ(completion.choices.at(0).finish_reason, "stop");
+    EXPECT_EQ(completion.choices.at(0).message.content, "Use { and } in QML, like Item { }.");
 }
 
 TEST_F(ClaudeCliClientTest, AnEmptyAnswerIsAnError)
