@@ -264,6 +264,20 @@ class UiDriver:
         """
         return self.rpc(cmd="key", name=name, text=text)
 
+    def swipeword(self, name, word):
+        """Assemble `word` on a circular tile input by a real swipe gesture.
+
+        Presses on the first letter tile and drags through the tiles that spell
+        `word` (longest-match, each tile used once), releasing on the last one.
+        This drives the actual MouseArea/hit-detection/gesture path — it does not
+        submit; call `accept` to confirm. `name` is the input's objectName.
+        """
+        return self.rpc(cmd="swipeword", name=name, word=word)
+
+    def accept(self, name):
+        """Confirm the assembled word by tapping the input's confirm tile."""
+        return self.rpc(cmd="accept", name=name)
+
     def scrollto(self, name):
         """Scroll the nearest scrollable ancestor until the item is in view.
 
@@ -393,6 +407,12 @@ def dispatch(driver, cmd, args):
         print("ok")
     elif cmd == "key":
         driver.key(args[0], args[1] if len(args) > 1 else "")
+        print("ok")
+    elif cmd == "swipeword":
+        driver.swipeword(args[0], args[1])
+        print("ok")
+    elif cmd == "accept":
+        driver.accept(args[0])
         print("ok")
     elif cmd == "scrollto":
         result = driver.scrollto(args[0])
