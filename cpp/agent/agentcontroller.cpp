@@ -47,7 +47,22 @@ void AgentController::request(const Client& client, const QString& message)
 void AgentController::clear(const QString& initMessage)
 {
     m_agent.clear();
-    m_agent.addInitialMessage(initMessage);
+    if (!initMessage.isEmpty())
+    {
+        m_agent.addInitialMessage(initMessage);
+    }
+    m_lastResponse = "";
+    emit messagesChanged();
+}
+
+void AgentController::restore(const QVariantList& messages)
+{
+    m_agent.clear();
+    for (const QVariant& entry : messages)
+    {
+        const QVariantMap message = entry.toMap();
+        m_agent.addMessage(message.value("sender").toString(), message.value("text").toString());
+    }
     m_lastResponse = "";
     emit messagesChanged();
 }

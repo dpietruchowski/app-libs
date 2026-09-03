@@ -134,6 +134,11 @@ void Agent::addInitialMessage(const QString& message)
     m_messages.append(Message { .role = "assistant", .content = message });
 }
 
+void Agent::addMessage(const QString& role, const QString& content)
+{
+    m_messages.append(Message { .role = role, .content = content });
+}
+
 void Agent::requestAsync(const Client& client, const QString& message, const ResponseReceivedCallback& callback)
 {
     if (m_responseReceivedCallback)

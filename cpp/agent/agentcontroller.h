@@ -2,6 +2,7 @@
 
 #include "agent.h"
 #include <QObject>
+#include <QVariantList>
 
 class AgentController : public QObject
 {
@@ -17,6 +18,7 @@ public:
 
     Q_INVOKABLE void request(const Client& client, const QString& message);
     Q_INVOKABLE void clear(const QString& initMessage);
+    void restore(const QVariantList& messages);
 
     QString lastResponse() const;
 
