@@ -19,7 +19,7 @@ QString roleLabel(const Message& message)
     return QStringLiteral("[%1]").arg(message.role);
 }
 
-QString buildPrompt(const Messages& messages, const ToolsMap& toolsMap)
+QString systemPrompt(const Messages& messages, const ToolsMap& toolsMap)
 {
     QString prompt = QStringLiteral(
         "You stand in for a chat completions API. Answer as the assistant would, with the next "
@@ -28,31 +28,33 @@ QString buildPrompt(const Messages& messages, const ToolsMap& toolsMap)
     for (const Message& message : messages)
     {
         if (message.role == QStringLiteral("system"))
-        {
             prompt += message.content + QStringLiteral("\n\n");
-        }
-    }
-
-    prompt += QStringLiteral("Conversation so far:\n");
-    for (const Message& message : messages)
-    {
-        if (message.role == QStringLiteral("system"))
-            continue;
-        prompt += roleLabel(message) + QLatin1Char(' ') + message.content + QLatin1Char('\n');
     }
 
     if (!toolsMap.isEmpty())
     {
         const QJsonDocument tools(toJsonArray(toolsMap));
         prompt += QStringLiteral(
-                      "\nTools you may call:\n%1\n"
+                      "Tools you may call:\n%1\n"
                       "To call one, reply with a single JSON object and nothing else:\n"
                       "{\"tool\": \"<name>\", \"arguments\": {...}}\n"
-                      "Write the app yourself and pass it in the arguments; do not use your own "
-                      "file tools. Otherwise reply with plain text.\n")
+                      "Write the app yourself and pass it in the arguments. "
+                      "Otherwise reply with plain text.\n")
                       .arg(QString::fromUtf8(tools.toJson(QJsonDocument::Compact)));
     }
 
+    return prompt.trimmed();
+}
+
+QString conversation(const Messages& messages)
+{
+    QString prompt = QStringLiteral("Conversation so far:\n");
+    for (const Message& message : messages)
+    {
+        if (message.role == QStringLiteral("system"))
+            continue;
+        prompt += roleLabel(message) + QLatin1Char(' ') + message.content + QLatin1Char('\n');
+    }
     return prompt;
 }
 
@@ -124,9 +126,26 @@ Completion completionFromOutput(const QByteArray& output)
     return completionFromAnswer(answer);
 }
 
-QStringList arguments()
+QStringList arguments(const Messages& messages, const ToolsMap& toolsMap)
 {
-    return { QStringLiteral("-p"), QStringLiteral("--output-format"), QStringLiteral("json") };
+    return { QStringLiteral("-p"),
+             QStringLiteral("--output-format"),
+             QStringLiteral("json"),
+             QStringLiteral("--model"),
+             QStringLiteral("haiku"),
+             QStringLiteral("--safe-mode"),
+             QStringLiteral("--no-session-persistence"),
+             QStringLiteral("--system-prompt"),
+             systemPrompt(messages, toolsMap),
+             QStringLiteral("--tools"),
+             QString() };
+}
+
+void ask(QProcess& process, const Messages& messages, const ToolsMap& toolsMap)
+{
+    process.start(ClaudeCliClient::executable(), arguments(messages, toolsMap));
+    process.write(conversation(messages).toUtf8());
+    process.closeWriteChannel();
 }
 }
 
@@ -146,8 +165,7 @@ void ClaudeCliClient::createCompletionAsync(const ModelConfig&, const Messages& 
                                             const ToolsMap& toolsMap,
                                             const CompletionCreatedCallback& callback) const
 {
-    const QString program = executable();
-    if (program.isEmpty())
+    if (!isAvailable())
     {
         Completion completion = failure(QStringLiteral("network_error"));
         callback(completion);
@@ -180,22 +198,17 @@ void ClaudeCliClient::createCompletionAsync(const ModelConfig&, const Messages& 
                          process->deleteLater();
                      });
 
-    process->start(program, arguments());
-    process->write(buildPrompt(messages, toolsMap).toUtf8());
-    process->closeWriteChannel();
+    ask(*process, messages, toolsMap);
 }
 
 Completion ClaudeCliClient::createCompletion(const ModelConfig&, const Messages& messages,
                                              const ToolsMap& toolsMap) const
 {
-    const QString program = executable();
-    if (program.isEmpty())
+    if (!isAvailable())
         return failure(QStringLiteral("network_error"));
 
     QProcess process;
-    process.start(program, arguments());
-    process.write(buildPrompt(messages, toolsMap).toUtf8());
-    process.closeWriteChannel();
+    ask(process, messages, toolsMap);
 
     if (!process.waitForFinished(kTimeoutMs))
         return failure(QStringLiteral("server_error"));

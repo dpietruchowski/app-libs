@@ -2,6 +2,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QJsonObject>
 #include <QTemporaryDir>
 
 #include "agent/claudecliclient.h"
@@ -10,6 +11,7 @@ namespace
 {
 const char* kScript = R"(#!/bin/sh
 cat > "$FAKE_CLAUDE_PROMPT"
+printf '%s\036' "$@" > "$FAKE_CLAUDE_ARGS"
 printf '%s' "$FAKE_CLAUDE_OUTPUT"
 )";
 
@@ -33,9 +35,11 @@ protected:
         ASSERT_TRUE(file.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
 
         promptPath = dir.path() + QStringLiteral("/prompt.txt");
+        argsPath = dir.path() + QStringLiteral("/args.txt");
         originalPath = qgetenv("PATH");
         qputenv("PATH", dir.path().toLocal8Bit() + ':' + originalPath);
         qputenv("FAKE_CLAUDE_PROMPT", promptPath.toLocal8Bit());
+        qputenv("FAKE_CLAUDE_ARGS", argsPath.toLocal8Bit());
     }
 
     void TearDown() override
@@ -43,20 +47,31 @@ protected:
         qputenv("PATH", originalPath);
         qunsetenv("FAKE_CLAUDE_OUTPUT");
         qunsetenv("FAKE_CLAUDE_PROMPT");
+        qunsetenv("FAKE_CLAUDE_ARGS");
     }
 
     void answerWith(const QByteArray& output) { qputenv("FAKE_CLAUDE_OUTPUT", output); }
 
-    QString prompt() const
+    static QString readAll(const QString& path)
     {
-        QFile file(promptPath);
+        QFile file(path);
         if (!file.open(QIODevice::ReadOnly))
             return QString();
         return QString::fromUtf8(file.readAll());
     }
 
+    QString prompt() const { return readAll(promptPath); }
+
+    QStringList arguments() const
+    {
+        QStringList arguments = readAll(argsPath).split(QChar(0x1e));
+        arguments.removeLast();
+        return arguments;
+    }
+
     QTemporaryDir dir;
     QString promptPath;
+    QString argsPath;
     QByteArray originalPath;
     ModelConfig config { .model = "ignored", .reasoningEffort = "" };
 };
@@ -79,15 +94,65 @@ TEST_F(ClaudeCliClientTest, PlainAnswerBecomesAnAssistantMessage)
     EXPECT_EQ(completion.choices.at(0).message.content, "Here you go.");
 }
 
-TEST_F(ClaudeCliClientTest, TheConversationReachesTheBinary)
+TEST_F(ClaudeCliClientTest, TheConversationReachesTheBinaryOnStdin)
 {
     answerWith(R"({"result":"ok"})");
 
     ClaudeCliClient().createCompletion(config, conversation(), {});
 
     const QString sent = prompt();
-    EXPECT_TRUE(sent.contains(QStringLiteral("be brief"))) << sent.toStdString();
     EXPECT_TRUE(sent.contains(QStringLiteral("[user] make me a counter"))) << sent.toStdString();
+    EXPECT_FALSE(sent.contains(QStringLiteral("be brief"))) << sent.toStdString();
+}
+
+TEST_F(ClaudeCliClientTest, OurInstructionsReplaceTheSystemPromptOfTheBinary)
+{
+    answerWith(R"({"result":"ok"})");
+
+    ClaudeCliClient().createCompletion(config, conversation(), {});
+
+    const QStringList sent = arguments();
+    const int systemPrompt = sent.indexOf(QStringLiteral("--system-prompt"));
+    ASSERT_GE(systemPrompt, 0);
+    ASSERT_LT(systemPrompt + 1, sent.size());
+    EXPECT_TRUE(sent.at(systemPrompt + 1).contains(QStringLiteral("be brief")));
+    EXPECT_FALSE(sent.at(systemPrompt + 1).contains(QStringLiteral("make me a counter")));
+}
+
+TEST_F(ClaudeCliClientTest, RunsHaikuWithNothingOfTheUsersSetup)
+{
+    answerWith(R"({"result":"ok"})");
+
+    ClaudeCliClient().createCompletion(config, conversation(), {});
+
+    const QStringList sent = arguments();
+    const int model = sent.indexOf(QStringLiteral("--model"));
+    ASSERT_GE(model, 0);
+    EXPECT_EQ(sent.value(model + 1), QStringLiteral("haiku"));
+    EXPECT_TRUE(sent.contains(QStringLiteral("--safe-mode")));
+    EXPECT_TRUE(sent.contains(QStringLiteral("--no-session-persistence")));
+    const int tools = sent.indexOf(QStringLiteral("--tools"));
+    ASSERT_GE(tools, 0);
+    ASSERT_LT(tools + 1, sent.size());
+    EXPECT_TRUE(sent.at(tools + 1).isEmpty());
+}
+
+TEST_F(ClaudeCliClientTest, ToolsAreDescribedInTheSystemPrompt)
+{
+    answerWith(R"({"result":"ok"})");
+    ToolsMap tools;
+    tools.insert(QStringLiteral("create_app"),
+                 ToolData { .tool = {},
+                            .json = QJsonObject { { QStringLiteral("name"),
+                                                    QStringLiteral("create_app") } } });
+
+    ClaudeCliClient().createCompletion(config, conversation(), tools);
+
+    const QStringList sent = arguments();
+    const int systemPrompt = sent.indexOf(QStringLiteral("--system-prompt"));
+    ASSERT_GE(systemPrompt, 0);
+    EXPECT_TRUE(sent.value(systemPrompt + 1).contains(QStringLiteral("create_app")));
+    EXPECT_FALSE(prompt().contains(QStringLiteral("create_app")));
 }
 
 TEST_F(ClaudeCliClientTest, AJsonAnswerBecomesAToolCall)
