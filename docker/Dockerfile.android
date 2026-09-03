@@ -1,0 +1,23 @@
+# Extends the stateoftheartio Qt6 Android image with a newer Android SDK
+# platform + build-tools so we can target API levels above the base image's
+# bundled level (34). Used by build.sh.
+
+FROM stateoftheartio/qt6:6.10-android-aqt@sha256:f7a8147df6f1fad099eb685bd20bcb3ef6d4ec4d5ed3bdeeb373edd3dc948710
+
+ARG SDK_API=36
+ARG SDK_BUILD_TOOLS=36.0.0
+
+# sdkmanager writes into /opt/android-sdk (owned by root in the base image),
+# so install as root, then drop back to an unprivileged build user.
+USER root
+
+RUN yes | sdkmanager --licenses > /dev/null 2>&1 || true && \
+    sdkmanager "platforms;android-${SDK_API}" "build-tools;${SDK_BUILD_TOOLS}"
+
+# The 6.10 base image renamed the bundled uid-1000 build account from `user`
+# (6.8) to `ubuntu` with home /home/ubuntu. Rename it back so build.sh keeps
+# mounting into /home/user and artifacts stay owned by the host uid 1000.
+RUN usermod -l user -d /home/user -m ubuntu && \
+    groupmod -n user ubuntu
+
+USER user
