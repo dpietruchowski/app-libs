@@ -73,7 +73,7 @@ if [ ! -e "$PROJECT_DIR/.clang-format" ]; then
     CREATED=$((CREATED + 1))
 fi
 
-for skill in format-code commit todo bump-android-version; do
+for skill in format-code commit todo bump-android-version ui-session; do
     target="$PROJECT_DIR/.claude/skills/$skill"
     if [ ! -e "$target" ]; then
         mkdir -p "$PROJECT_DIR/.claude/skills"

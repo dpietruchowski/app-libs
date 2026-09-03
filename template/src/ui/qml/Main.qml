@@ -1,5 +1,7 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
+import Themed.Components
 import App.Components
 
 ApplicationWindow {
@@ -9,43 +11,57 @@ ApplicationWindow {
     height: 683
     visible: true
     title: qsTr("__APP_NAME__")
+    color: Theme.systemBarBackground
 
     property int clickCount: 0
 
+    Component.onCompleted: {
+        Theme.applicationWidth = appWindow.width
+        Theme.applicationHeight = appWindow.height
+    }
+
     AppView {
         anchors.fill: parent
-        backgroundColor: "#f5f5f5"
+        systemBarColor: Theme.systemBarBackground
+        backgroundColor: Theme.colors.background
 
         BackHandler {
             id: backHandler
             objectName: "backHandler"
             anchors.fill: parent
+            exitMessage: qsTr("Press back again to exit")
 
-            Column {
-                anchors.centerIn: parent
-                spacing: 24
+            ThemedPage {
+                anchors.fill: parent
+                title: qsTr("__APP_NAME__")
 
-                Text {
-                    objectName: "greetingText"
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: appWindow.clickCount === 0
-                          ? qsTr("__APP_NAME__ is running")
-                          : qsTr("Clicked %1 times").arg(appWindow.clickCount)
-                    font.pixelSize: 20
-                }
+                ColumnLayout {
+                    anchors.centerIn: parent
+                    width: Math.min(parent.width, Theme.contentMaxWidth)
+                    spacing: Theme.spacing.large
 
-                Button {
-                    objectName: "primaryButton"
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: qsTr("Click me")
-                    onClicked: appWindow.clickCount++
-                }
+                    ThemedText {
+                        objectName: "greetingText"
+                        Layout.alignment: Qt.AlignHCenter
+                        textStyle: Theme.text.subtitle
+                        text: appWindow.clickCount === 0
+                              ? qsTr("__APP_NAME__ is running")
+                              : qsTr("Clicked %1 times").arg(appWindow.clickCount)
+                    }
 
-                Text {
-                    objectName: "versionText"
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: qsTr("version %1 (%2)").arg(appVersion).arg(appVersionCode)
-                    opacity: 0.6
+                    ThemedButton {
+                        objectName: "primaryButton"
+                        Layout.alignment: Qt.AlignHCenter
+                        text: qsTr("Click me")
+                        onClicked: appWindow.clickCount++
+                    }
+
+                    ThemedText {
+                        objectName: "versionText"
+                        Layout.alignment: Qt.AlignHCenter
+                        textStyle: Theme.text.caption
+                        text: qsTr("version %1 (%2)").arg(appVersion).arg(appVersionCode)
+                    }
                 }
             }
         }

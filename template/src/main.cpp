@@ -3,6 +3,9 @@
 #include <QQmlContext>
 #include <QQuickStyle>
 
+#include "platform/keyboardinsetprovider.h"
+#include "platform/systembarstyler.h"
+#include "qmlutils/coloredsvgprovider.h"
 #include "qmlutils/qmlregistrator.h"
 
 #ifdef LIBS_AUTOMATION
@@ -21,7 +24,15 @@ int main(int argc, char* argv[])
     engine.rootContext()->setContextProperty("appVersion", app.applicationVersion());
     engine.rootContext()->setContextProperty("appVersionCode", QStringLiteral(APP_VERSION_CODE));
 
+    KeyboardInsetProvider keyboardInsetProvider;
+    SystemBarStyler systemBarStyler;
+
     QmlRegistrator registrator(engine, "qrc:/" APP_QML_URI "/", APP_QML_URI);
+    registrator.registerSingletonInstance("SystemBars", &systemBarStyler);
+    registrator.registerSingletonInstance("Themed.Components", "KeyboardInset",
+                                          &keyboardInsetProvider);
+    registrator.registerSingletonType("Themed.Components", "Theme.qml", "Theme");
+    registrator.registerType<ColoredSvgProvider>("Themed.Components", "ColoredSvgProvider");
 
     engine.load(registrator.getMainQmlUrl());
 
