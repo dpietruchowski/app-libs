@@ -12,6 +12,7 @@ Page {
     property int maxContentWidth: Theme.contentMaxWidth
     property Component overlayContent: null
     property bool showBackButton: false
+    property bool showTitle: false
     property Component headerAction: null
     property bool avoidKeyboard: true
     default property alias content: contentArea.data
@@ -48,7 +49,7 @@ Page {
         anchors.leftMargin: root.showBackButton ? Theme.spacing.small : 0
         anchors.right: headerActionLoader.left
         anchors.rightMargin: Theme.spacing.small
-        visible: root.title !== ""
+        visible: root.showTitle && root.title !== ""
         text: root.title
         textStyle: Theme.page.title
         elide: Text.ElideRight
@@ -59,7 +60,7 @@ Page {
     Item {
         id: contentArea
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: root.showBackButton || root.headerAction || root.title !== ""
+        anchors.top: root.showBackButton || root.headerAction || titleLabel.visible
                      ? backButton.bottom : parent.top
         anchors.bottom: parent.bottom
         anchors.topMargin: root.usePadding ? root.contentPadding : 0
