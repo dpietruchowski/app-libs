@@ -6,9 +6,11 @@ Item {
     id: control
 
     property bool running: true
+    property int size: Theme.busy.size
+    property int dotSize: Theme.busy.dotSize
 
-    implicitWidth: Theme.busy.size
-    implicitHeight: Theme.busy.size
+    implicitWidth: control.size
+    implicitHeight: control.size
     visible: control.running
 
     Item {
@@ -22,8 +24,8 @@ Item {
             Rectangle {
                 required property int index
 
-                width: Theme.busy.dotSize
-                height: Theme.busy.dotSize
+                width: control.dotSize
+                height: control.dotSize
                 radius: width / 2
                 color: Theme.busy.color
                 opacity: 1 - index / Theme.busy.dotCount
