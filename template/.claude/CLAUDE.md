@@ -9,8 +9,9 @@ Qt6/QML application built on the `libs` submodule. Builds on Linux (AppImage) an
 ```
 src/main.cpp        Entry point: engine, QmlRegistrator, singletons, automation server
 src/ui/qml/         QML module, URI __APP_QML_URI__ — Main.qml, Theme.qml
+tests/              GoogleTest suite (BUILD_TESTING=ON)
 libs/cpp            async, utils, platform, qmlutils, dbtoolkit, eventbus, agent
-libs/qml            themed (Themed.Components), app (App.Components), icons
+libs/qml            theme (Themed.Theme), themed (Themed.Components), app (App.Components), icons
 ```
 
 `libs/cpp` is the include root, so headers are reached by concern: `#include "async/task.h"`,
@@ -32,6 +33,10 @@ cmake --build build-desktop -j$(nproc)
 ./libs/scripts/build-appimage.sh
 ```
 
+Tests live in `tests/` (`app_add_test`) and need the libs' bundled GoogleTest, so `git submodule
+update --init --recursive` once, then configure with `-DBUILD_TESTING=ON` and run `ctest` from the
+build directory.
+
 The root `CMakeLists.txt` is composed from the helpers in `libs/cmake/AppProject.cmake`:
 `app_project_setup`, `app_add_module`, `app_add_qml_module`, `app_add_test`, `app_configure_android`.
 Formatting runs through the `format` / `format_check` targets; the style is `libs/.clang-format`
@@ -48,14 +53,14 @@ time, so a new file is invisible (and AUTOMOC silently skips it) until the tree 
 registrator.registerSingletonType("Themed.Components", "Theme.qml", "Theme");
 ```
 
-`src/ui/qml/Theme.qml` derives from `DefaultTheme` (shipped by `libs/qml/themed`), which carries the
+`src/ui/qml/Theme.qml` derives from `DefaultTheme` (shipped by `libs/qml/theme`, URI `Themed.Theme`), which carries the
 whole contract those components expect — colors, fontSize, spacing, padding, radius, border,
 elevation, text/page styles, button sizes and variants, list/scroll/slider/busy/empty groups, icons.
 Override only what differs:
 
 ```qml
 pragma Singleton
-import Themed.Components
+import Themed.Theme
 
 DefaultTheme {
     isNightMode: true

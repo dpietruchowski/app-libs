@@ -17,6 +17,17 @@ Android APK and the Linux AppImage come from the shared scripts, which read ever
 ./libs/scripts/build-appimage.sh
 ```
 
+## Tests
+
+`tests/` holds the app's GoogleTest suite, wired with `app_add_test`. It is off unless asked for, and it needs the libs' bundled GoogleTest, so init the submodule recursively:
+
+```bash
+git submodule update --init --recursive
+cmake -B build-desktop -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+cmake --build build-desktop -j$(nproc)
+cd build-desktop && ctest
+```
+
 ## Layout
 
 | Path | Role |
@@ -25,6 +36,7 @@ Android APK and the Linux AppImage come from the shared scripts, which read ever
 | `CMakeLists.txt` | Composed from `libs/cmake/AppProject.cmake` helpers |
 | `src/main.cpp` | Entry point: engine, `QmlRegistrator`, optional automation server |
 | `src/ui/qml/` | The QML module, URI `__APP_QML_URI__` |
+| `tests/` | GoogleTest suite, built when `BUILD_TESTING=ON` |
 | `libs/` | The shared submodule — C++ under `libs/cpp/`, QML under `libs/qml/`, tooling under `libs/scripts/` and `libs/tools/` |
 
 ## UI automation
@@ -42,10 +54,10 @@ python3 libs/tools/ui_session.py stop
 
 ## Using Themed.Components
 
-`App.Components` items `AppView` and `BackHandler` work as-is. Every other component in `App.Components` and all of `Themed.Components` read a `Theme` singleton that the **app** provides:
+Every component in `Themed.Components`, and most of `App.Components`, reads a `Theme` singleton that the **app** provides. `new-app.sh` already wires it: `src/ui/qml/Theme.qml` derives from `DefaultTheme` (module `Themed.Theme`) and `main.cpp` registers it:
 
 ```cpp
 registrator.registerSingletonType("Themed.Components", "Theme.qml", "Theme");
 ```
 
-Add a `Theme.qml` to your QML module with the colors, spacing and control styles those components expect before importing them.
+Override only the knobs that differ (`isNightMode`, the palette, spacing) instead of restating the whole contract.

@@ -11,7 +11,7 @@ An app consumes it as a submodule at `libs/` and keeps only its own domain code.
 | Path | Contents |
 |------|----------|
 | `cpp/` | C++ libraries; this directory is the include root, so headers are reached as `async/task.h`, `dbtoolkit/dbtoolkit.h`, … |
-| `qml/` | QML modules: `themed` (URI `Themed.Components`), `app` (URI `App.Components`), `icons` |
+| `qml/` | QML modules: `theme` (URI `Themed.Theme`, the `DefaultTheme` base), `themed` (URI `Themed.Components`), `app` (URI `App.Components`), `icons` |
 | `cmake/` | `AppProject.cmake` — `app_load_env`, `app_project_setup`, `app_add_module`, `app_add_qml_module`, `app_add_test`, `app_configure_android` |
 | `scripts/` | `build-android.sh`, `build-appimage.sh`, `sign-apk.sh`, `sign-aab.sh`, `generate-keystore.sh`, `new-app.sh` — all parametrized by the consuming repo's `app.env` |
 | `docker/` | The Android build image |

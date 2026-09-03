@@ -165,6 +165,8 @@ endfunction()
 function(app_add_test NAME)
     cmake_parse_arguments(ARG "OWN_MAIN" "" "SOURCES;DEPS;DEFINITIONS" ${ARGN})
 
+    find_package(Qt6 REQUIRED COMPONENTS Core Test)
+
     if(NOT ARG_SOURCES)
         file(GLOB_RECURSE ARG_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
     endif()
