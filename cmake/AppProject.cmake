@@ -23,7 +23,19 @@ function(_app_add_format_targets)
         return()
     endif()
 
-    string(REPLACE ";" " " DIRS_STRING "${ARGN}")
+    set(EXISTING_DIRS "")
+    foreach(dir IN LISTS ARGN)
+        if(IS_DIRECTORY ${CMAKE_SOURCE_DIR}/${dir})
+            list(APPEND EXISTING_DIRS ${dir})
+        endif()
+    endforeach()
+
+    if(NOT EXISTING_DIRS)
+        message(WARNING "Clang-format: none of the requested directories exist: ${ARGN}")
+        return()
+    endif()
+
+    string(REPLACE ";" " " DIRS_STRING "${EXISTING_DIRS}")
     set(FORMAT_FIND_EXPR
         "${DIRS_STRING} -type d -name third_party -prune -o -type f '(' -name '*.cpp' -o -name '*.h' -o -name '*.hpp' ')'"
     )

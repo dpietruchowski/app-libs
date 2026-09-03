@@ -52,6 +52,7 @@ endif()
 
 add_subdirectory(qml/icons)
 if(NOT QML_LIVE_ENABLED)
+    add_subdirectory(qml/theme)
     add_subdirectory(qml/themed)
     add_subdirectory(qml/app)
 endif()
