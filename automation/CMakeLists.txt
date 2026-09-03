@@ -14,6 +14,8 @@ target_include_directories(${LIBRARY_NAME}
     ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
 
+target_compile_definitions(${LIBRARY_NAME} INTERFACE LIBS_AUTOMATION)
+
 target_link_libraries(${LIBRARY_NAME}
     PUBLIC
         Qt6::Core
