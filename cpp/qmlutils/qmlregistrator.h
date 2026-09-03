@@ -4,9 +4,10 @@
 #include <QQmlContext>
 #include <QString>
 #include <QUrl>
+#include <memory>
 
 #ifdef QML_LIVE_ENABLED
-#include "qmllive/filewatcher.h"
+#include "qmllive/qmlsourceinterceptor.h"
 #endif
 
 class QmlRegistrator
@@ -14,6 +15,7 @@ class QmlRegistrator
 public:
     QmlRegistrator(QQmlApplicationEngine& engine, const QString& uiRootDir,
                    const QString& moduleName);
+    ~QmlRegistrator();
 
     template <typename Type>
     void registerSingletonInstance(const char* moduleName, const char* name, Type* value);
@@ -25,16 +27,17 @@ public:
     void registerSingletonType(const QString& moduleName, const QString& qmlFile,
                                const QString& name);
     void registerSingletonType(const QString& qmlFile, const QString& name);
-    void setupLiveReload();
+    void enableSourceReload(const QString& moduleSpec);
     QUrl getMainQmlUrl();
 
 private:
+    QUrl resolveUrl(const QString& relativePath) const;
+
     QQmlApplicationEngine& m_engine;
     QString m_uiRootDir;
     QString m_moduleName;
 #ifdef QML_LIVE_ENABLED
-    std::unique_ptr<FileWatcher> m_watcher;
-    void generateQmlDir();
+    std::unique_ptr<QmlSourceInterceptor> m_interceptor;
 #endif
 };
 
@@ -42,13 +45,7 @@ template <typename Type>
 void QmlRegistrator::registerSingletonInstance(const char* moduleName, const char* name,
                                                Type* value)
 {
-#ifdef QML_LIVE_ENABLED
-    Q_UNUSED(moduleName)
-    QQmlContext* ctx = m_engine.rootContext();
-    ctx->setContextProperty(name, value);
-#else
     qmlRegisterSingletonInstance<Type>(moduleName, 1, 0, name, value);
-#endif
 }
 
 template <typename Type>

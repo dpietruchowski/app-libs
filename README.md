@@ -46,4 +46,4 @@ file, so it is safe to re-run to pick up files added later.
 |--------|---------|--------|
 | `LIBS_BUILD_TESTS` | ON standalone, OFF as a submodule | Build the libs' own tests |
 | `LIBS_AUTOMATION` | ON for Debug | Build `app_automation` and define `LIBS_AUTOMATION` for consumers |
-| `QML_LIVE_ENABLED` | OFF (forced OFF on Android) | QML hot-reload through `app_qmllive` |
+| `QML_LIVE_ENABLED` | OFF (forced OFF on Android) | Load QML from the source tree instead of the compiled resource, via `app_qmllive` — edit a `.qml`, restart the app, no rebuild. Declare the module→directory map with `app_qml_live_map(<target> URI dir …)` and call `QmlRegistrator::enableSourceReload(APP_QML_LIVE_MAP)` |

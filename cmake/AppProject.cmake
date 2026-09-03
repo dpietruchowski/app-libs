@@ -121,6 +121,33 @@ function(app_add_module NAME)
     endif()
 endfunction()
 
+function(app_qml_live_map TARGET)
+    if(NOT QML_LIVE_ENABLED)
+        return()
+    endif()
+
+    list(LENGTH ARGN PAIR_COUNT)
+    math(EXPR REMAINDER "${PAIR_COUNT} % 2")
+    if(NOT REMAINDER EQUAL 0)
+        message(FATAL_ERROR "app_qml_live_map expects URI/source-directory pairs")
+    endif()
+
+    set(SPEC "")
+    math(EXPR LAST "${PAIR_COUNT} - 1")
+    foreach(index RANGE 0 ${LAST} 2)
+        list(GET ARGN ${index} URI)
+        math(EXPR VALUE_INDEX "${index} + 1")
+        list(GET ARGN ${VALUE_INDEX} SOURCE_DIR)
+        if(NOT IS_DIRECTORY "${SOURCE_DIR}")
+            message(FATAL_ERROR "app_qml_live_map: no such directory for ${URI}: ${SOURCE_DIR}")
+        endif()
+        string(APPEND SPEC "${URI}=${SOURCE_DIR}|")
+    endforeach()
+
+    target_compile_definitions(${TARGET} PRIVATE APP_QML_LIVE_MAP="${SPEC}")
+    message(STATUS "QML live source map for ${TARGET}: ${SPEC}")
+endfunction()
+
 function(app_add_qml_module NAME)
     cmake_parse_arguments(ARG "" "URI" "EXCLUDE_REGEX" ${ARGN})
 
