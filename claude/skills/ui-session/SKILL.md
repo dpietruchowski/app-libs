@@ -17,7 +17,10 @@ Two scripts under `libs/tools/`, both configured by `.ui_automation.json` in the
 
 ```bash
 python3 libs/tools/ui_session.py start
+python3 libs/tools/ui_session.py start --platform offscreen   # headless run
 ```
+
+Session state and the app log live in `tmp/ui_session/` inside the repo, so nothing lands in a system temp directory. Pass `--platform` instead of exporting `QT_QPA_PLATFORM`, so the command stays a single simple call.
 
 It checks the configured port first: if the app already answers there it adopts that instance and does nothing. Otherwise it launches the configured Debug binary detached and waits until it responds. Idempotent, so run it before every driving session.
 
@@ -50,11 +53,12 @@ python3 libs/tools/ui_driver.py reset_time
 
 ### Rules
 
-- Batch independent calls into one Bash call: `D="python3 libs/tools/ui_driver.py"; $D click X; sleep 1; $D get Y text`.
+- One driver command per Bash call — chaining with `;` or `&&`, or a `D=...` variable, turns it into a shape the permission rules cannot match. For a longer sequence write `tmp/drive.py`, import `ui_driver`, and run it once.
 - Only objects with an `objectName` are reachable. If a control cannot be found, add the `objectName` in QML, rebuild, and `ui_session.py restart`.
 - A modal dialog blocks everything behind it — close it before driving the page below.
 - After changing C++ or QML, rebuild and `restart`; a running instance keeps the old code.
 - Stop the instance when finished: `python3 libs/tools/ui_session.py stop`.
+- Read the app's output with `python3 libs/tools/ui_session.py logs -n 40` (or open `tmp/ui_session/app.log`).
 
 ### Requirements
 

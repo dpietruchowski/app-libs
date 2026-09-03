@@ -11,10 +11,10 @@ kills it on exit. Here the app is launched detached with its port env var set;
 its TCP server keeps listening, and every later `ui_driver.py <cmd>` opens its
 own short-lived connection to it.
 
-  ui_session.py start [--binary PATH] [--port N]   # use running, else launch
+  ui_session.py start [--binary PATH] [--port N] [--platform offscreen]
   ui_session.py status                             # running? pid / port
   ui_session.py stop                               # kill the instance
-  ui_session.py restart [--binary PATH] [--port N]
+  ui_session.py restart [--binary PATH] [--port N] [--platform NAME]
   ui_session.py logs [-n N]                        # tail the launched app log
 
 `start` is idempotent: if the app already answers on the port (even one you
@@ -23,7 +23,8 @@ started by hand) it adopts it and does nothing.
 Which binary and which port env var to use come from `.ui_automation.json` at
 the consuming repo's root — see ui_driver.py. The child is always started in the
 repo root, so any file it opens relative to the working directory lands there,
-no matter where you run this script from.
+no matter where you run this script from. Session state and the app log go to
+tmp/ui_session/ inside the repo, never to a system temp directory.
 
 Drive the running instance with ui_driver.py, e.g.:
   ui_driver.py dump
@@ -33,14 +34,12 @@ Drive the running instance with ui_driver.py, e.g.:
 """
 
 import argparse
-import hashlib
 import json
 import os
 import re
 import signal
 import subprocess
 import sys
-import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -55,14 +54,11 @@ from ui_driver import (  # noqa: E402
     load_config,
 )
 
-# State and log are per repo checkout, so sessions for two apps never collide.
-_SLUG = (
-    os.path.basename(REPO_ROOT)
-    + "-"
-    + hashlib.sha1(REPO_ROOT.encode("utf-8")).hexdigest()[:8]
-)
-STATE_PATH = os.path.join(tempfile.gettempdir(), f"ui_session_{_SLUG}.json")
-LOG_PATH = os.path.join(tempfile.gettempdir(), f"ui_session_{_SLUG}.log")
+# State and log stay inside the repo (gitignored tmp/), so nothing the session
+# writes lands outside the project directory.
+SESSION_DIR = os.path.join(REPO_ROOT, "tmp", "ui_session")
+STATE_PATH = os.path.join(SESSION_DIR, "session.json")
+LOG_PATH = os.path.join(SESSION_DIR, "app.log")
 
 
 def _load_state():
@@ -74,6 +70,7 @@ def _load_state():
 
 
 def _save_state(state):
+    os.makedirs(SESSION_DIR, exist_ok=True)
     with open(STATE_PATH, "w", encoding="utf-8") as handle:
         json.dump(state, handle)
 
@@ -139,6 +136,10 @@ def cmd_start(opts):
 
     child_env = os.environ.copy()
     child_env[opts.port_env] = str(opts.port)
+    if opts.platform:
+        child_env["QT_QPA_PLATFORM"] = opts.platform
+
+    os.makedirs(SESSION_DIR, exist_ok=True)
     log = open(LOG_PATH, "wb")
     proc = subprocess.Popen(
         [binary],
@@ -233,6 +234,11 @@ def main(argv=None):
         p = sub.add_parser(name)
         add_common_arguments(p)
         p.add_argument("--timeout", type=float, default=20.0)
+        p.add_argument(
+            "--platform",
+            default=None,
+            help="Qt platform plugin for the launched app, e.g. offscreen",
+        )
 
     for name in ("status", "stop"):
         add_common_arguments(sub.add_parser(name))

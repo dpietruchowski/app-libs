@@ -84,6 +84,23 @@ python3 libs/tools/ui_session.py stop
 
 Give every interactive QML control an `objectName` — an item without one is invisible to the driver.
 
+## Shell discipline
+
+Permission rules match one simple command at a time, so a command's *shape* decides whether it runs
+unattended. Keep to this form and nothing interrupts the run:
+
+- **One simple command per call.** No `&&`, `;`, `|`, no `for`/`while` loops. Every segment has to match
+  a rule on its own, and a loop matches nothing.
+- **`env VAR=x cmd`**, never `VAR=x cmd` — a leading assignment stops the rule from matching. For the
+  app itself use `ui_session.py start --platform offscreen` instead of exporting `QT_QPA_PLATFORM`.
+- **No `$` in arguments.** Substitutions read as unsafe; if a command needs variables, it belongs in a
+  script.
+- **Read and edit files with the Read/Edit/Write tools**, not `cat`, `sed -i` or here-docs.
+- **Stay inside the project directory.** Nothing writes to `/tmp` or another repo; scratch files,
+  logs and session state go to the gitignored `tmp/`.
+- **Anything more complex becomes a script**: write `tmp/task.sh` (or `tmp/task.py`) with the file
+  tools, then run `bash tmp/task.sh`. One call, one rule, full freedom inside the script.
+
 ## Conventions
 
 - **No comments in code** (C++ and QML). The code must be self-explanatory: name things properly
