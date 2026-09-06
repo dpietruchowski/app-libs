@@ -29,7 +29,7 @@ struct ForeignKeyDefinition
 struct UniqueConstraint
 {
     QStringList columns;
-    
+
     QString toSql() const;
 };
 
@@ -37,7 +37,7 @@ class CreateTable : public SqlCommand
 {
 public:
     explicit CreateTable(const QString& tableName);
-    
+
     CreateTable& column(const Column& col);
     CreateTable& ifNotExists();
 
@@ -45,14 +45,16 @@ public:
                             const QString& referencedColumn,
                             OnDeleteAction onDelete = OnDeleteAction::NoAction);
     CreateTable& uniqueConstraint(const QStringList& columns);
+    CreateTable& primaryKey(const QStringList& columns);
 
-    QVariant execute(QSqlDatabase &database) const override;
+    QVariant execute(QSqlDatabase& database) const override;
     QString toSql() const override;
     QString build() const override;
 
 private:
     QString m_tableName;
     QList<ColumnDefinition> m_columns;
+    QStringList m_primaryKey;
     QList<ForeignKeyDefinition> m_foreignKeys;
     QList<UniqueConstraint> m_uniqueConstraints;
     bool m_ifNotExists = false;

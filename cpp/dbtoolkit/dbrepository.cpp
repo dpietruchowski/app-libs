@@ -69,31 +69,44 @@ QVector<QVariantMap> DbRepository::select(const Where& condition, const Order& o
 
 QVector<QVariant> DbRepository::batchInsert(const QVector<QVariantMap>& items)
 {
-    QVector<QVariant> insertedIds;
-
     if (items.isEmpty())
     {
-        return insertedIds;
+        return {};
     }
+
+    const QVector<QVariantMap> validItems = filterValidItems(items);
 
     Insert insertCommand;
-    insertCommand.into(m_tableName);
+    insertCommand.into(m_tableName).columns(columnsPresentIn(validItems));
 
-    QVector<QVariantMap> validItemsList;
-    bool hasExplicitId = !items.isEmpty() && items.first().contains(m_idKey)
-        && items.first().value(m_idKey).isValid();
+    return executeInsert(insertCommand, validItems, "Inserted");
+}
 
-    for (const auto& item : items)
+QVector<QVariant> DbRepository::batchUpsert(const QVector<QVariantMap>& items)
+{
+    if (items.isEmpty())
     {
-        QVariantMap validItem = filterValidKeys(item);
-        if (!hasExplicitId)
-        {
-            validItem.remove(m_idKey);
-        }
-        validItemsList.append(validItem);
+        return {};
     }
 
-    insertCommand.batchValues(validItemsList);
+    const QVector<QVariantMap> validItems = filterValidItems(items);
+    const QStringList columns = columnsPresentIn(validItems);
+
+    Insert insertCommand;
+    insertCommand.into(m_tableName).columns(columns);
+    if (columns.contains(m_idKey))
+    {
+        insertCommand.onConflict({ m_idKey });
+    }
+
+    return executeInsert(insertCommand, validItems, "Upserted");
+}
+
+QVector<QVariant> DbRepository::executeInsert(Insert& insertCommand,
+                                              const QVector<QVariantMap>& items,
+                                              const QString& operation)
+{
+    insertCommand.batchValues(items);
 
     QVariant result = m_storage.execute(insertCommand);
 
@@ -101,107 +114,31 @@ QVector<QVariant> DbRepository::batchInsert(const QVector<QVariantMap>& items)
     {
         qWarning() << "[" << m_tableName << "] Insert failed:";
         qWarning() << "Items to insert:";
-        for (int i = 0; i < validItemsList.size(); ++i)
+        for (int i = 0; i < items.size(); ++i)
         {
-            qWarning() << "  Item" << i << ":" << validItemsList[i];
+            qWarning() << "  Item" << i << ":" << items[i];
         }
         logError("inserting");
-        return insertedIds;
+        return {};
     }
 
-    logSuccess("Inserted", items.size());
+    logSuccess(operation, items.size());
 
-    for (int i = 0; i < validItemsList.size(); ++i)
-    {
-        const auto& validItem = validItemsList[i];
-        if (validItem.contains(m_idKey))
-        {
-            insertedIds.append(validItem[m_idKey]);
-        }
-        else if (result.isValid())
-        {
-            insertedIds.append(QVariant(result.toLongLong() + i));
-        }
-    }
-
-    return insertedIds;
-}
-
-QVector<QVariant> DbRepository::batchUpsert(const QVector<QVariantMap>& items)
-{
-    QVector<QVariant> allIds;
-
-    if (items.isEmpty())
-    {
-        return allIds;
-    }
-
-    allIds.resize(items.size());
-
-    auto existingIds = batchExists(items);
-    QMap<int, QVariantMap> itemsToInsert;
-    QMap<int, QVariantMap> itemsToUpdate;
-    QList<QVariant> seenIds;
-
+    QVector<QVariant> ids;
     for (int i = 0; i < items.size(); ++i)
     {
-        const auto& item = items[i];
-        if (item.contains(m_idKey) && existingIds.contains(item.value(m_idKey)))
+        const QVariantMap& item = items[i];
+        if (item.contains(m_idKey))
         {
-            itemsToUpdate.insert(i, item);
+            ids.append(item[m_idKey]);
         }
         else
         {
-            QVariant itemId = item.value(m_idKey);
-            if (itemId.isValid() && seenIds.contains(itemId))
-            {
-                allIds[i] = itemId;
-            }
-            else
-            {
-                itemsToInsert.insert(i, item);
-                if (itemId.isValid())
-                {
-                    seenIds.append(itemId);
-                }
-            }
+            ids.append(QVariant(result.toLongLong() + i));
         }
     }
 
-    if (!itemsToInsert.isEmpty())
-    {
-        QVector<QVariant> insertedIds = batchInsert(itemsToInsert.values().toVector());
-        if (insertedIds.size() != itemsToInsert.size())
-        {
-            qWarning() << "[" << m_tableName << "] Batch insert failed: expected"
-                       << itemsToInsert.size() << "IDs, got" << insertedIds.size();
-            return QVector<QVariant>();
-        }
-        int idx = 0;
-        for (int originalIndex : itemsToInsert.keys())
-        {
-            allIds[originalIndex] = insertedIds[idx++];
-        }
-    }
-
-    if (!itemsToUpdate.isEmpty())
-    {
-        QVector<QVariant> updatedIds = updateAll(itemsToUpdate.values().toVector());
-        if (updatedIds.size() != itemsToUpdate.size())
-        {
-            qWarning() << "[" << m_tableName << "] Batch update failed: expected"
-                       << itemsToUpdate.size() << "IDs, got" << updatedIds.size();
-            return QVector<QVariant>();
-        }
-        int idx = 0;
-        for (int originalIndex : itemsToUpdate.keys())
-        {
-            allIds[originalIndex] = updatedIds[idx++];
-        }
-    }
-
-    logSuccess("Batch upserted", allIds.size());
-    return allIds;
+    return ids;
 }
 
 QVector<QVariant> DbRepository::insert(const QVector<QVariantMap>& items, int chunkSize)
@@ -309,20 +246,15 @@ int DbRepository::update(const QVariantMap& item, const Where& condition)
 
 QVariant DbRepository::upsert(const QVariantMap& item)
 {
-    if (exists(Where(m_idKey).equals(item.value(m_idKey))))
-    {
-        return update(item);
-    }
+    auto result = batchUpsert(QVector<QVariantMap> { item });
 
-    QVariant result = insert(item);
-
-    if (!result.isValid())
+    if (result.isEmpty())
     {
         qWarning() << "[" << m_tableName << "] Upsert failed for item:" << item;
         return QVariant();
     }
 
-    return result;
+    return result.first();
 }
 
 int DbRepository::remove(const Where& condition)
@@ -359,42 +291,6 @@ bool DbRepository::exists(const Where& condition) const
     query.from(m_tableName).where(condition).limit(1);
 
     return !m_storage.execute(query).isEmpty();
-}
-
-QList<QVariant> DbRepository::batchExists(const QVector<QVariantMap>& items) const
-{
-    QList<QVariant> existingIds;
-
-    if (items.isEmpty())
-    {
-        return existingIds;
-    }
-
-    QVariantList idsToCheck;
-    for (const auto& item : items)
-    {
-        if (item.contains(m_idKey) && item.value(m_idKey).isValid())
-        {
-            idsToCheck.append(item.value(m_idKey));
-        }
-    }
-
-    if (idsToCheck.isEmpty())
-    {
-        return existingIds;
-    }
-
-    Where where(m_idKey);
-    where.in(idsToCheck);
-
-    auto results = select(where);
-
-    for (const auto& row : results)
-    {
-        existingIds.append(row[m_idKey]);
-    }
-
-    return existingIds;
 }
 
 int DbRepository::count(const Where& condition) const
@@ -457,6 +353,49 @@ QVariantMap DbRepository::filterValidKeys(const QVariantMap& item) const
         }
     }
     return filtered;
+}
+
+QVector<QVariantMap> DbRepository::filterValidItems(const QVector<QVariantMap>& items) const
+{
+    bool hasExplicitId = false;
+    for (const QVariantMap& item : items)
+    {
+        if (item.value(m_idKey).isValid())
+        {
+            hasExplicitId = true;
+            break;
+        }
+    }
+
+    QVector<QVariantMap> validItems;
+    validItems.reserve(items.size());
+    for (const QVariantMap& item : items)
+    {
+        QVariantMap validItem = filterValidKeys(item);
+        if (!hasExplicitId || !validItem.value(m_idKey).isValid())
+        {
+            validItem.remove(m_idKey);
+        }
+        validItems.append(validItem);
+    }
+    return validItems;
+}
+
+QStringList DbRepository::columnsPresentIn(const QVector<QVariantMap>& items) const
+{
+    QStringList columns;
+    for (const QString& key : m_keys)
+    {
+        for (const QVariantMap& item : items)
+        {
+            if (item.contains(key))
+            {
+                columns.append(key);
+                break;
+            }
+        }
+    }
+    return columns;
 }
 
 Where DbRepository::buildWhereCondition(const QVariantMap& item, const Where& condition) const

@@ -9,6 +9,8 @@ add_library(app_dbtoolkit SHARED
     dbrepository.cpp
     migrationrunner.h
     migrationrunner.cpp
+    transaction.h
+    transaction.cpp
 )
 
 target_link_libraries(app_dbtoolkit 

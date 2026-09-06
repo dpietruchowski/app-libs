@@ -56,11 +56,14 @@ private:
     DbStorage& m_storage;
 
 private:
-    QList<QVariant> batchExists(const QVector<QVariantMap>& items) const;
     QVector<QVariant> batchInsert(const QVector<QVariantMap>& items);
     QVector<QVariant> batchUpsert(const QVector<QVariantMap>& items);
+    QVector<QVariant> executeInsert(Insert& insertCommand, const QVector<QVariantMap>& items,
+                                    const QString& operation);
 
     QVariantMap filterValidKeys(const QVariantMap& item) const;
+    QVector<QVariantMap> filterValidItems(const QVector<QVariantMap>& items) const;
+    QStringList columnsPresentIn(const QVector<QVariantMap>& items) const;
     Where buildWhereCondition(const QVariantMap& item, const Where& condition) const;
     void logError(const QString& operation) const;
     void logSuccess(const QString& operation, QVariant affectedRows) const;

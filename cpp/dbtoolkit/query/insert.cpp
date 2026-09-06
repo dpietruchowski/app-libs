@@ -44,6 +44,12 @@ Insert& Insert::value(const QString& column, const QVariant& value)
     return *this;
 }
 
+Insert& Insert::onConflict(const QStringList& conflictColumns)
+{
+    m_conflictColumns = conflictColumns;
+    return *this;
+}
+
 QVariant Insert::execute(QSqlDatabase& database) const
 {
     QString sql = toSql();
@@ -60,7 +66,7 @@ QVariant Insert::execute(QSqlDatabase& database) const
         return QVariant();
     }
 
-    QStringList columns = m_columnOrder.isEmpty() ? m_multipleValues.first().keys() : m_columnOrder;
+    QStringList columns = effectiveColumns();
 
     if (columns.isEmpty())
     {
@@ -100,7 +106,7 @@ QString Insert::toSql() const
         return QString();
     }
 
-    QStringList columns = m_columnOrder.isEmpty() ? m_multipleValues.first().keys() : m_columnOrder;
+    QStringList columns = effectiveColumns();
 
     if (columns.isEmpty())
     {
@@ -120,10 +126,40 @@ QString Insert::toSql() const
         allRows.append(singleRow);
     }
 
-    return QString("INSERT INTO %1 (%2) VALUES %3")
+    return QString("INSERT INTO %1 (%2) VALUES %3%4")
         .arg(m_table)
         .arg(columns.join(", "))
-        .arg(allRows.join(", "));
+        .arg(allRows.join(", "))
+        .arg(conflictClause(columns));
 }
 
 bool Insert::hasTable() const { return !m_table.isEmpty(); }
+
+QStringList Insert::effectiveColumns() const
+{
+    return m_columnOrder.isEmpty() ? m_multipleValues.first().keys() : m_columnOrder;
+}
+
+QString Insert::conflictClause(const QStringList& columns) const
+{
+    if (m_conflictColumns.isEmpty())
+    {
+        return QString();
+    }
+
+    QStringList assignments;
+    for (const QString& column : columns)
+    {
+        if (!m_conflictColumns.contains(column))
+        {
+            assignments.append(QString("%1 = excluded.%1").arg(column));
+        }
+    }
+
+    const QString target = QString(" ON CONFLICT(%1)").arg(m_conflictColumns.join(", "));
+    if (assignments.isEmpty())
+    {
+        return target + " DO NOTHING";
+    }
+    return target + " DO UPDATE SET " + assignments.join(", ");
+}
