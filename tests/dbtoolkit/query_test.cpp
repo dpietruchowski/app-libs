@@ -362,6 +362,30 @@ TEST_F(WhereQueryTest, InSubquery_WithTableAlias_GeneratesCorrectSQL)
     EXPECT_EQ(sql, "u.id IN (SELECT user_id FROM orders)");
 }
 
+TEST_F(WhereQueryTest, NotAsFirstCondition_GeneratesCorrectSQL)
+{
+    Select subquery(QStringList { "user_id" });
+    subquery.from("orders");
+
+    Where where;
+    where.not_("id").in(subquery);
+
+    QString sql = where.build();
+
+    EXPECT_EQ(sql, "NOT id IN (SELECT user_id FROM orders)");
+}
+
+TEST_F(WhereQueryTest, NotAfterAnotherCondition_GeneratesCorrectSQL)
+{
+    Where where("active");
+    where.equals(1).and_("id").equals(2);
+    where.not_("status").equals("done");
+
+    QString sql = where.build();
+
+    EXPECT_EQ(sql, "active = 1 AND id = 2 NOT status = 'done'");
+}
+
 TEST_F(WhereQueryTest, InSubquery_WithoutColumn_IsIgnored)
 {
     Select subquery(QStringList { "user_id" });
