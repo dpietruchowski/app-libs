@@ -3,6 +3,17 @@
 #include <QSqlError>
 #include <QSqlQuery>
 
+namespace
+{
+
+QVariant insertedRowId(const QSqlQuery& query)
+{
+    const QVariant rowId = query.lastInsertId();
+    return rowId.isValid() ? rowId : QVariant(qlonglong(0));
+}
+
+}
+
 Insert::Insert() { }
 
 Insert& Insert::into(const QString& table)
@@ -96,7 +107,7 @@ QVariant Insert::execute(QSqlDatabase& database) const
         return QVariant();
     }
 
-    return query.lastInsertId();
+    return insertedRowId(query);
 }
 
 QString Insert::toSql() const

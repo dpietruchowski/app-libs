@@ -1,5 +1,6 @@
 #include <QSqlDatabase>
 #include <QSqlQuery>
+#include <QTemporaryDir>
 #include <gtest/gtest.h>
 
 #include "dbtoolkit/query/insert.h"
@@ -132,6 +133,43 @@ TEST_F(InsertTest, OnConflict_Batch_InsertsNewAndUpdatesExisting)
     EXPECT_EQ(pointsOf("bob", 1), 20);
     EXPECT_EQ(pointsOf("bob", 2), 22);
     EXPECT_EQ(pointsOf("cid", 1), 33);
+}
+
+TEST_F(InsertTest, OnConflict_UpdateBeforeAnyInsertOnTheConnection_StillSucceeds)
+{
+    QTemporaryDir dir;
+    const QString path = dir.path() + "/scores.db";
+    {
+        QSqlDatabase seeded = QSqlDatabase::addDatabase("QSQLITE", "insert_test_seeded");
+        seeded.setDatabaseName(path);
+        ASSERT_TRUE(seeded.open());
+        QSqlQuery seed(seeded);
+        ASSERT_TRUE(seed.exec("CREATE TABLE scores (player TEXT NOT NULL, level INTEGER NOT NULL, "
+                              "points INTEGER NOT NULL, PRIMARY KEY (player, level))"));
+        ASSERT_TRUE(seed.exec("INSERT INTO scores (player, level, points) VALUES ('ann', 1, 10)"));
+        seeded.close();
+    }
+    QSqlDatabase::removeDatabase("insert_test_seeded");
+
+    QSqlDatabase fresh = QSqlDatabase::addDatabase("QSQLITE", "insert_test_fresh");
+    fresh.setDatabaseName(path);
+    ASSERT_TRUE(fresh.open());
+
+    Insert update;
+    update.into("scores")
+        .columns({ "player", "level", "points" })
+        .values(score("ann", 1, 25))
+        .onConflict({ "player", "level" });
+    EXPECT_TRUE(update.execute(fresh).isValid());
+
+    QSqlQuery check(fresh);
+    ASSERT_TRUE(check.exec("SELECT points FROM scores WHERE player = 'ann' AND level = 1"));
+    ASSERT_TRUE(check.next());
+    EXPECT_EQ(check.value(0).toInt(), 25);
+    check.finish();
+    fresh.close();
+    fresh = QSqlDatabase();
+    QSqlDatabase::removeDatabase("insert_test_fresh");
 }
 
 TEST_F(InsertTest, WithoutOnConflict_DuplicateKey_Fails)
