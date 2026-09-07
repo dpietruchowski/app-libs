@@ -7,6 +7,7 @@ add_library(app_dbtoolkit SHARED
     dbstorage.cpp
     dbrepository.h
     dbrepository.cpp
+    dbprojection.h
     migrationrunner.h
     migrationrunner.cpp
     transaction.h

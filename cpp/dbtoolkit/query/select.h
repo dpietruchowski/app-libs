@@ -34,6 +34,8 @@ public:
     Select& innerJoin(const Join& join);
     Select& leftJoin(const QString& table, const QString& condition);
     Select& leftJoin(const Join& join);
+    Select& projected(const QStringList& expressions);
+    Select& clearProjected();
     Select& where(const QString& condition);
     Select& where(const Where& condition);
     Select& orderBy(const QString& orderBy);
