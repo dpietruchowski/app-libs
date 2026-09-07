@@ -90,7 +90,7 @@ QStringList Join::columnsWithPrefix() const
         }
         else
         {
-            result.append(QString("%1 as %2")
+            result.append(QString("%1 AS %2")
                               .arg(m_tableAlias.createColumn(key), m_prefix->createColumn(key)));
         }
     }

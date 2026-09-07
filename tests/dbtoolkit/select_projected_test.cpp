@@ -52,7 +52,7 @@ TEST_F(SelectProjectedTest, PlainColumnsStillTakeTheFromAlias)
 TEST_F(SelectProjectedTest, AJoinWithColumnsProjectsThemOnItsOwn)
 {
     EXPECT_TRUE(
-        shape(projectingJoin()).toSql().contains("atl.total_attempts as atl_total_attempts"));
+        shape(projectingJoin()).toSql().contains("atl.total_attempts AS atl_total_attempts"));
 }
 
 TEST_F(SelectProjectedTest, AJoinWithoutColumnsProjectsNothingButStillJoins)
