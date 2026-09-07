@@ -56,7 +56,7 @@ template <typename U> Result<U> readyFailure(const QString& error)
 }
 }
 
-template <typename T> class Task final
+template <typename T> class [[nodiscard]] Task final
 {
 public:
     using value_type = T;
