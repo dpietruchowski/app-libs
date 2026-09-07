@@ -22,6 +22,12 @@ AlterTable& AlterTable::dropColumn(const QString& name)
     return *this;
 }
 
+AlterTable& AlterTable::renameColumn(const QString& from, const QString& to)
+{
+    m_renames.append({ from, to });
+    return *this;
+}
+
 QVariant AlterTable::execute(QSqlDatabase& database) const
 {
     if (m_tableName.isEmpty())
@@ -67,12 +73,32 @@ QVariant AlterTable::execute(QSqlDatabase& database) const
         }
     }
 
+    for (const auto& rename : m_renames)
+    {
+        if (!existing.contains(rename.from) || existing.contains(rename.to))
+        {
+            continue;
+        }
+
+        const QString sql = "ALTER TABLE " + m_tableName + " RENAME COLUMN " + rename.from + " TO "
+            + rename.to;
+
+        QSqlQuery query(database);
+        if (!query.exec(sql))
+        {
+            qWarning() << "AlterTable exec failed:" << query.lastError();
+            qWarning() << "SQL:" << sql;
+            return 0;
+        }
+    }
+
     return 1;
 }
 
 QString AlterTable::toSql() const
 {
-    if (m_tableName.isEmpty() || (m_columns.isEmpty() && m_dropColumns.isEmpty()))
+    if (m_tableName.isEmpty()
+        || (m_columns.isEmpty() && m_dropColumns.isEmpty() && m_renames.isEmpty()))
     {
         return QString();
     }
@@ -85,6 +111,11 @@ QString AlterTable::toSql() const
     for (const auto& name : m_dropColumns)
     {
         statements.append("ALTER TABLE " + m_tableName + " DROP COLUMN " + name);
+    }
+    for (const auto& rename : m_renames)
+    {
+        statements.append("ALTER TABLE " + m_tableName + " RENAME COLUMN " + rename.from + " TO "
+                          + rename.to);
     }
 
     return statements.join("; ");

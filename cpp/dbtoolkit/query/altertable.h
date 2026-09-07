@@ -6,18 +6,26 @@
 #include "column.h"
 #include "sqlcommand.h"
 
-// Builds `ALTER TABLE ... ADD COLUMN` / `DROP COLUMN` statements. Idempotent on
-// execute(): an added column whose name already exists is skipped and a dropped
-// column that is absent is skipped (both checked via the driver's table
-// metadata, not a query), so the same migration is safe to run against
-// databases at different schema states.
+// Builds `ALTER TABLE ... ADD COLUMN` / `DROP COLUMN` / `RENAME COLUMN`
+// statements. Idempotent on execute(): an added column whose name already exists
+// is skipped, a dropped column that is absent is skipped, and a rename is
+// skipped when the old name is gone or the new one is already there (all checked
+// via the driver's table metadata, not a query), so the same migration is safe to
+// run against databases at different schema states.
 class AlterTable : public SqlCommand
 {
 public:
+    struct ColumnRename
+    {
+        QString from;
+        QString to;
+    };
+
     explicit AlterTable(const QString& tableName);
 
     AlterTable& addColumn(const Column& col);
     AlterTable& dropColumn(const QString& name);
+    AlterTable& renameColumn(const QString& from, const QString& to);
 
     QVariant execute(QSqlDatabase& database) const override;
     QString toSql() const override;
@@ -26,4 +34,5 @@ private:
     QString m_tableName;
     QList<ColumnDefinition> m_columns;
     QStringList m_dropColumns;
+    QList<ColumnRename> m_renames;
 };
