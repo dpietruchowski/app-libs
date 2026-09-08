@@ -7,6 +7,7 @@
 #include <QString>
 
 #include <memory>
+#include <vector>
 
 #include "dbtoolkit/dbprojection.h"
 #include "dbtoolkit/dbstorage.h"
@@ -104,7 +105,7 @@ QList<Projection> narrowProjections()
              Projection(kLearning, {}), Projection(kReview, {}), Projection(kSchedule, {}) };
 }
 
-QStringList idsOf(const QVector<TestRow>& rows)
+QStringList idsOf(const std::vector<TestRow>& rows)
 {
     QStringList ids;
     for (const TestRow& row : rows)
@@ -167,7 +168,7 @@ protected:
 
 TEST_F(DbProjectionTest, SqlComputesTheValueAcrossTablesBeforeSorting)
 {
-    const QVector<TestRow> rows = wide().findAll(sortedByAccuracy());
+    const std::vector<TestRow> rows = wide().findAll(sortedByAccuracy());
 
     EXPECT_EQ(idsOf(rows), (QStringList { "f3", "f4", "f1", "f2", "f5" }));
     EXPECT_DOUBLE_EQ(rows[0].accuracy, 1.0);
@@ -209,7 +210,7 @@ TEST_F(DbProjectionTest, SortingWorksWhenTheExpressionIsNotProjected)
 {
     DbProjection<TestRow> narrow(*storage, narrowProjections(), rowFrom);
 
-    const QVector<TestRow> rows = narrow.findAll(sortedByAccuracy());
+    const std::vector<TestRow> rows = narrow.findAll(sortedByAccuracy());
 
     EXPECT_EQ(idsOf(rows), (QStringList { "f3", "f4", "f1", "f2", "f5" }));
     EXPECT_DOUBLE_EQ(rows[0].accuracy, 0.0);
@@ -297,16 +298,16 @@ TEST_F(DbProjectionTest, AShapeThatAlreadyCarriesJoinColumnsIsNormalised)
                         .withPrefix("rs2"));
 
     EXPECT_FALSE(wide().projected(legacy).toSql().contains("rs2_current_level"));
-    EXPECT_EQ(wide().findAll(legacy).size(), 5);
+    EXPECT_EQ(wide().findAll(legacy).size(), 5u);
 }
 
 TEST_F(DbProjectionTest, AnUndeclaredGroupYieldsAnEmptyRowRatherThanThrowing)
 {
     DbProjection<TestRow> onlyProgress(*storage, { Projection(kProgress, { "fact_id" }) }, rowFrom);
 
-    const QVector<TestRow> rows = onlyProgress.findAll(shape());
+    const std::vector<TestRow> rows = onlyProgress.findAll(shape());
 
-    EXPECT_EQ(rows.size(), 5);
+    EXPECT_EQ(rows.size(), 5u);
     EXPECT_DOUBLE_EQ(rows[0].accuracy, 0.0);
 }
 

@@ -7,6 +7,8 @@
 
 #include <functional>
 #include <optional>
+#include <utility>
+#include <vector>
 
 #include "dbstorage.h"
 #include "query/projection.h"
@@ -24,12 +26,12 @@ public:
     {
     }
 
-    QVector<Row> findAll(const Select& shape) const
+    std::vector<Row> findAll(const Select& shape) const
     {
-        QVector<Row> rows;
+        std::vector<Row> rows;
         for (const QVariantMap& row : m_storage.execute(projected(shape)))
         {
-            rows.append(m_mapper(split(row)));
+            rows.push_back(m_mapper(split(row)));
         }
         return rows;
     }
@@ -39,12 +41,12 @@ public:
         Select first = shape;
         first.limit(1);
 
-        const QVector<Row> rows = findAll(first);
-        if (rows.isEmpty())
+        std::vector<Row> rows = findAll(first);
+        if (rows.empty())
         {
             return std::nullopt;
         }
-        return rows.first();
+        return std::move(rows.front());
     }
 
     int count(const Select& shape) const
