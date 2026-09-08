@@ -33,6 +33,22 @@ TEST(SqlCodecTest, NullUuid_IsSqlNull)
     EXPECT_TRUE(uuidFromSql(QVariant()).isNull());
 }
 
+TEST(SqlCodecTest, UuidList_EncodesEveryIdInOrder)
+{
+    const std::vector<QUuid> ids { QUuid::createUuid(), QUuid::createUuid() };
+
+    const QVariantList stored = toSqlList(ids);
+
+    ASSERT_EQ(stored.size(), 2);
+    EXPECT_EQ(uuidFromSql(stored.at(0)), ids[0]);
+    EXPECT_EQ(uuidFromSql(stored.at(1)), ids[1]);
+}
+
+TEST(SqlCodecTest, EmptyUuidList_IsEmpty)
+{
+    EXPECT_TRUE(toSqlList({}).isEmpty());
+}
+
 TEST(SqlCodecTest, DateTime_IsStoredAsUtcIsoTextWithMilliseconds)
 {
     const QDateTime local(QDate(2026, 1, 5), QTime(12, 30, 15, 250), QTimeZone(3600));

@@ -19,6 +19,17 @@ inline QVariant toSql(const QUuid& id)
     return id.isNull() ? QVariant() : QVariant(id.toRfc4122());
 }
 
+inline QVariantList toSqlList(const std::vector<QUuid>& ids)
+{
+    QVariantList list;
+    list.reserve(static_cast<int>(ids.size()));
+    for (const QUuid& id : ids)
+    {
+        list.append(toSql(id));
+    }
+    return list;
+}
+
 inline QUuid uuidFromSql(const QVariant& value)
 {
     return value.isNull() ? QUuid() : QUuid::fromRfc4122(value.toByteArray());
