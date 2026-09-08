@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QDebug>
 #include <QFuture>
 #include <QMetaObject>
 #include <QObject>
@@ -105,6 +106,17 @@ public:
                           return result;
                       });
         return *this;
+    }
+
+    Task& warnOnError(QObject* context, const char* what)
+    {
+        return onError(context,
+                       [what](const QString& error)
+                       {
+                           qWarning().noquote()
+                               << QStringLiteral("Failed to %1: %2")
+                                      .arg(QString::fromUtf8(what), error);
+                       });
     }
 
     template <typename F> void finally(QObject* context, F&& handler)
