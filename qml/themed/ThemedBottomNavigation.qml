@@ -43,9 +43,8 @@ Rectangle {
         select(selectable(-1))
     }
 
-    Rectangle {
+    ThemedSeparator {
         width: parent.width
-        height: Theme.border.thin
         color: Theme.colors.border
         anchors.top: parent.top
     }

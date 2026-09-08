@@ -118,9 +118,37 @@ QtObject {
     }
 
     property QtObject text: QtObject {
+        readonly property QtObject title: QtObject {
+            readonly property color color: theme.colors.textPrimary
+            readonly property int fontSize: theme.fontSize.large
+            readonly property bool bold: true
+            readonly property real lineHeight: 1.2
+        }
+
         readonly property QtObject body: QtObject {
             readonly property color color: theme.colors.textPrimary
             readonly property int fontSize: theme.fontSize.normal
+            readonly property bool bold: false
+            readonly property real lineHeight: 1.2
+        }
+
+        readonly property QtObject bodyMuted: QtObject {
+            readonly property color color: theme.colors.textSecondary
+            readonly property int fontSize: theme.fontSize.normal
+            readonly property bool bold: false
+            readonly property real lineHeight: 1.2
+        }
+
+        readonly property QtObject label: QtObject {
+            readonly property color color: theme.colors.textPrimary
+            readonly property int fontSize: theme.fontSize.medium
+            readonly property bool bold: false
+            readonly property real lineHeight: 1.2
+        }
+
+        readonly property QtObject labelMuted: QtObject {
+            readonly property color color: theme.colors.textSecondary
+            readonly property int fontSize: theme.fontSize.medium
             readonly property bool bold: false
             readonly property real lineHeight: 1.2
         }

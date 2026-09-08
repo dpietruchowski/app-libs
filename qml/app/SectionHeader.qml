@@ -59,9 +59,8 @@ Item {
             color: Theme.colors.textSecondary
         }
 
-        Rectangle {
+        ThemedSeparator {
             Layout.fillWidth: true
-            Layout.preferredHeight: Theme.border.thin
             color: Theme.colors.border
         }
 
