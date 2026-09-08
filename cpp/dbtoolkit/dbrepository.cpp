@@ -281,14 +281,13 @@ int DbRepository::remove(const Where& condition)
 
 bool DbRepository::exists(const Where& condition) const
 {
-    if (condition.isEmpty())
-    {
-        qWarning() << "[" << m_tableName << "] Cannot check existence: condition is empty";
-        return false;
-    }
-
     Select query({ "1" });
-    query.from(m_tableName).where(condition).limit(1);
+    query.from(m_tableName).limit(1);
+
+    if (!condition.isEmpty())
+    {
+        query.where(condition);
+    }
 
     return !m_storage.execute(query).isEmpty();
 }
