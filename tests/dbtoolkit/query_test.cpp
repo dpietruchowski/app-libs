@@ -386,6 +386,25 @@ TEST_F(WhereQueryTest, NotAfterAnotherCondition_GeneratesCorrectSQL)
     EXPECT_EQ(sql, "active = 1 AND id = 2 NOT status = 'done'");
 }
 
+TEST_F(WhereQueryTest, NotOfACondition_NegatesTheWholeGroup)
+{
+    Where inner("a");
+    inner.equals(1).or_("b").equals(2);
+
+    Where where;
+    where.not_(inner);
+
+    EXPECT_EQ(where.build(), "NOT (a = 1 OR b = 2)");
+}
+
+TEST_F(WhereQueryTest, NotOfAnEmptyCondition_IsIgnored)
+{
+    Where where("active");
+    where.equals(1).not_(Where());
+
+    EXPECT_EQ(where.build(), "active = 1");
+}
+
 TEST_F(WhereQueryTest, InSubquery_WithoutColumn_IsIgnored)
 {
     Select subquery(QStringList { "user_id" });
