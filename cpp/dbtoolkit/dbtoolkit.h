@@ -2,6 +2,7 @@
 #include "dbrepository.h"
 #include "dbstorage.h"
 #include "migrationrunner.h"
+#include "sqlcodec.h"
 #include "transaction.h"
 #include "query/case.h"
 #include "query/cast.h"
