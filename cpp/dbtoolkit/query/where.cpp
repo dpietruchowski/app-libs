@@ -25,6 +25,23 @@ Where& Where::equals(const QVariant& value)
     return *this;
 }
 
+Where& Where::equalsColumn(const QString& column)
+{
+    if (!m_currentColumn.isEmpty())
+    {
+        if (!m_condition.isEmpty())
+            m_condition += " ";
+        m_condition += QString("%1 = %2").arg(m_currentColumn, column);
+        m_currentColumn.clear();
+    }
+    return *this;
+}
+
+Where& Where::equalsColumn(const TableAlias& alias, const QString& column)
+{
+    return equalsColumn(alias.createColumn(column));
+}
+
 Where& Where::notEquals(const QVariant& value)
 {
     appendOperator("!=", value);
