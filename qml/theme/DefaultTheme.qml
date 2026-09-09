@@ -229,6 +229,19 @@ QtObject {
         readonly property color color: theme.colors.divider
     }
 
+    property QtObject chip: QtObject {
+        readonly property int horizontalPadding: theme.padding.medium
+        readonly property int verticalPadding: theme.padding.small
+        readonly property int radius: theme.radius.full
+        readonly property int fontSize: theme.fontSize.normal
+        readonly property int borderWidth: theme.border.thin
+        readonly property int selectedBorderWidth: theme.border.medium
+        readonly property real selectedTint: 0.14
+        readonly property real pressedTint: 0.28
+        readonly property real disabledOpacity: 0.45
+        readonly property int animationDuration: 120
+    }
+
     property QtObject slider: QtObject {
         readonly property int width: theme.contentWidth * 0.6
         readonly property int handleSize: theme.scaled(20)
