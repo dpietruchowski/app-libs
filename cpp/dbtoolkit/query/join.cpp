@@ -37,9 +37,11 @@ Join& Join::andColumn(const QString& column)
     return *this;
 }
 
-Join& Join::equalsValue(int value)
+Join& Join::equalsValue(int value) { return equalsExpression(QString::number(value)); }
+
+Join& Join::equalsExpression(const QString& expression)
 {
-    m_additionalValue = value;
+    m_additionalValue = expression;
     return *this;
 }
 
@@ -74,7 +76,7 @@ QString Join::condition() const
     {
         result += QString(" AND %1 = %2")
                       .arg(m_tableAlias.createColumn(m_additionalColumn),
-                           QString::number(m_additionalValue.value()));
+                           m_additionalValue.value());
     }
     return result;
 }
