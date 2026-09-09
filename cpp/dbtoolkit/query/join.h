@@ -28,13 +28,19 @@ public:
     QString prefix() const;
 
 private:
+    struct ColumnValue
+    {
+        QString column;
+        int value;
+    };
+
     QString m_tableName;
     TableAlias m_tableAlias;
     TableAlias m_leftAlias;
     QString m_leftColumn;
     QString m_rightColumn;
-    QString m_additionalColumn;
-    std::optional<int> m_additionalValue;
+    QString m_pendingColumn;
+    QList<ColumnValue> m_additionalConditions;
     QStringList m_columnKeys;
     std::optional<ColumnPrefix> m_prefix;
 };
