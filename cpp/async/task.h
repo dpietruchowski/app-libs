@@ -80,7 +80,7 @@ public:
         QMetaObject::invokeMethod(worker,
                                   [promise, work = std::move(work)]() mutable
                                   {
-                                      promise->addResult(work());
+                                      promise->addResult(tryResult(work));
                                       promise->finish();
                                   });
 
