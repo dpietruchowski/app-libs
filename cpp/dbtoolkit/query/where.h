@@ -21,9 +21,7 @@ public:
     Where& lessThan(const QVariant& value);
     Where& greaterThan(const QVariant& value);
     Where& lessThanOrEquals(const QVariant& value);
-    Where& lessOrEqual(const QVariant& value);
     Where& greaterThanOrEquals(const QVariant& value);
-    Where& greaterOrEqual(const QVariant& value);
     Where& like(const QString& pattern);
     Where& glob(const QString& pattern);
     Where& in(const QVariantList& values);

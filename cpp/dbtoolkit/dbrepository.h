@@ -6,6 +6,9 @@
 #include <QVariantMap>
 #include <QVector>
 
+#include <optional>
+#include <vector>
+
 #include "dbstorage.h"
 #include "query/insert.h"
 #include "query/order.h"
@@ -28,6 +31,32 @@ public:
     QVector<QVariantMap> select(const Where& condition = Where(), const Order& order = Order(),
                                 int limit = -1, int offset = -1,
                                 const QString& groupBy = QString()) const;
+
+    template <typename T, typename Mapper>
+    std::vector<T> selectAs(Mapper map, const Where& condition = Where(),
+                            const Order& order = Order(), int limit = -1) const
+    {
+        const QVector<QVariantMap> rows = select(condition, order, limit);
+        std::vector<T> items;
+        items.reserve(static_cast<size_t>(rows.size()));
+        for (const QVariantMap& row : rows)
+        {
+            items.push_back(map(row));
+        }
+        return items;
+    }
+
+    template <typename T, typename Mapper>
+    std::optional<T> findFirstAs(Mapper map, const Where& condition = Where(),
+                                 const Order& order = Order()) const
+    {
+        const QVector<QVariantMap> rows = select(condition, order, 1);
+        if (rows.isEmpty())
+        {
+            return std::nullopt;
+        }
+        return map(rows.first());
+    }
 
     QVector<QVariant> insert(const QVector<QVariantMap>& items, int chunkSize = 20);
     QVector<QVariant> upsert(const QVector<QVariantMap>& items, int chunkSize = 20);

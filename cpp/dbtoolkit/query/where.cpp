@@ -49,15 +49,11 @@ Where& Where::lessThanOrEquals(const QVariant& value)
     return *this;
 }
 
-Where& Where::lessOrEqual(const QVariant& value) { return lessThanOrEquals(value); }
-
 Where& Where::greaterThanOrEquals(const QVariant& value)
 {
     appendOperator(">=", value);
     return *this;
 }
-
-Where& Where::greaterOrEqual(const QVariant& value) { return greaterThanOrEquals(value); }
 
 Where& Where::like(const QString& pattern)
 {
