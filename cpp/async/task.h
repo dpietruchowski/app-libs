@@ -108,6 +108,8 @@ public:
         return *this;
     }
 
+    Task& warnOnError(const char* what) { return warnOnError(m_worker, what); }
+
     Task& warnOnError(QObject* context, const char* what)
     {
         return onError(context,
