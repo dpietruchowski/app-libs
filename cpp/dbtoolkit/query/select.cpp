@@ -67,7 +67,7 @@ Select& Select::innerJoin(const QString& table, const QString& condition)
 
 Select& Select::innerJoin(const Join& join)
 {
-    m_joinColumns.append(join.columnsWithPrefix());
+    projected(join.columnsWithPrefix());
     return innerJoin(join.tableWithAlias(), join.condition());
 }
 
@@ -79,8 +79,20 @@ Select& Select::leftJoin(const QString& table, const QString& condition)
 
 Select& Select::leftJoin(const Join& join)
 {
-    m_joinColumns.append(join.columnsWithPrefix());
+    projected(join.columnsWithPrefix());
     return leftJoin(join.tableWithAlias(), join.condition());
+}
+
+Select& Select::projected(const QStringList& expressions)
+{
+    m_joinColumns.append(expressions);
+    return *this;
+}
+
+Select& Select::clearProjected()
+{
+    m_joinColumns.clear();
+    return *this;
 }
 
 Select& Select::where(const QString& condition)

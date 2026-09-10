@@ -7,8 +7,12 @@ add_library(app_dbtoolkit SHARED
     dbstorage.cpp
     dbrepository.h
     dbrepository.cpp
+    dbprojection.h
+    sqlcodec.h
     migrationrunner.h
     migrationrunner.cpp
+    transaction.h
+    transaction.cpp
 )
 
 target_link_libraries(app_dbtoolkit 

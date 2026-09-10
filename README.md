@@ -14,6 +14,7 @@ An app consumes it as a submodule at `libs/` and keeps only its own domain code.
 | `qml/` | QML modules: `theme` (URI `Themed.Theme`, the `DefaultTheme` base), `themed` (URI `Themed.Components`), `app` (URI `App.Components`), `icons` |
 | `cmake/` | `AppProject.cmake` — `app_load_env`, `app_project_setup`, `app_add_module`, `app_add_qml_module`, `app_add_test`, `app_configure_android` |
 | `scripts/` | `build-android.sh`, `build-appimage.sh`, `sign-apk.sh`, `sign-aab.sh`, `generate-keystore.sh`, `new-app.sh` — all parametrized by the consuming repo's `app.env` |
+| `doc/` | Notes on parts that need more than a table: [`read-port.md`](doc/read-port.md) — reading a joined shape into a typed row |
 | `docker/` | The Android build image |
 | `tools/` | `ui_driver.py` / `ui_session.py` — drive a running app by `objectName` |
 | `claude/` | Skills and agents an app symlinks into its own `.claude/` |
@@ -47,3 +48,15 @@ file, so it is safe to re-run to pick up files added later.
 | `LIBS_BUILD_TESTS` | ON standalone, OFF as a submodule | Build the libs' own tests |
 | `LIBS_AUTOMATION` | ON for Debug | Build `app_automation` and define `LIBS_AUTOMATION` for consumers |
 | `QML_LIVE_ENABLED` | OFF (forced OFF on Android) | Load QML from the source tree instead of the compiled resource, via `app_qmllive` — edit a `.qml`, restart the app, no rebuild. Declare the module→directory map with `app_qml_live_map(<target> URI dir …)` and call `QmlRegistrator::enableSourceReload(APP_QML_LIVE_MAP)` |
+
+### QML sandbox
+
+`app_qml_live_map()` also bakes `APP_QML_SANDBOX_DIR` (`<source root>/sandbox`). Pass it to
+`QmlRegistrator::enableSandbox(<module uri>, APP_QML_SANDBOX_DIR)` and the app gains a
+`QmlSandbox` singleton in that module. When the `APP_QML_SANDBOX` environment variable is
+set, the app should load `SandboxHost` (`libs/qml/app`) instead of its normal root: it
+lists the `.qml` files in that directory, instantiates the selected one by file path — so
+labs are never module types and never need a rebuild — and watches both the sandbox and
+every mapped QML source tree, calling `clearComponentCache()` on a change. That makes edits
+to real app components visible without a restart. QML singletons (`Theme.qml`) are the
+exception: the cache does not re-create them, so a theme edit needs a restart.

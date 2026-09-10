@@ -211,6 +211,15 @@ TEST_F(DbRepositoryTest, Exists_NonExistingItem_ReturnsFalse)
     EXPECT_FALSE(exists);
 }
 
+TEST_F(DbRepositoryTest, Exists_WithoutACondition_AsksWhetherTheTableHasAnyRow)
+{
+    EXPECT_FALSE(repository->exists(Where()));
+
+    repository->insert(createTestItem("John", 30));
+
+    EXPECT_TRUE(repository->exists(Where()));
+}
+
 TEST_F(DbRepositoryTest, Count_EmptyTable_ReturnsZero)
 {
     int count = repository->count();

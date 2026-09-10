@@ -1,7 +1,7 @@
 #include "createtable.h"
+#include <QDebug>
 #include <QSqlError>
 #include <QSqlQuery>
-#include <QDebug>
 
 namespace
 {
@@ -40,10 +40,7 @@ QString ForeignKeyDefinition::toSql() const
     return sql;
 }
 
-QString UniqueConstraint::toSql() const
-{
-    return QString("UNIQUE(%1)").arg(columns.join(", "));
-}
+QString UniqueConstraint::toSql() const { return QString("UNIQUE(%1)").arg(columns.join(", ")); }
 
 CreateTable::CreateTable(const QString& tableName)
     : m_tableName(tableName)
@@ -82,10 +79,16 @@ CreateTable& CreateTable::uniqueConstraint(const QStringList& columns)
     return *this;
 }
 
-QVariant CreateTable::execute(QSqlDatabase &database) const
+CreateTable& CreateTable::primaryKey(const QStringList& columns)
+{
+    m_primaryKey = columns;
+    return *this;
+}
+
+QVariant CreateTable::execute(QSqlDatabase& database) const
 {
     QString sql = toSql();
-    
+
     QSqlQuery query(database);
     if (!query.exec(sql))
     {
@@ -93,7 +96,7 @@ QVariant CreateTable::execute(QSqlDatabase &database) const
         qWarning() << "SQL:" << sql;
         return 0;
     }
-    
+
     return 1;
 }
 
@@ -103,40 +106,42 @@ QString CreateTable::toSql() const
     {
         return QString();
     }
-    
+
     QString sql = "CREATE TABLE";
-    
+
     if (m_ifNotExists)
     {
         sql += " IF NOT EXISTS";
     }
-    
+
     sql += " " + m_tableName + " (";
-    
+
     QStringList parts;
-    
+
     for (const auto& col : m_columns)
     {
         parts.append(col.toSql());
     }
-    
+
+    if (!m_primaryKey.isEmpty())
+    {
+        parts.append(QString("PRIMARY KEY(%1)").arg(m_primaryKey.join(", ")));
+    }
+
     for (const auto& fk : m_foreignKeys)
     {
         parts.append(fk.toSql());
     }
-    
+
     for (const auto& uc : m_uniqueConstraints)
     {
         parts.append(uc.toSql());
     }
-    
+
     sql += parts.join(", ");
     sql += ")";
-    
+
     return sql;
 }
 
-QString CreateTable::build() const
-{
-    return toSql();
-}
+QString CreateTable::build() const { return toSql(); }

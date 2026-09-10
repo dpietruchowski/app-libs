@@ -1,7 +1,10 @@
 #pragma once
 
 #include <QString>
+#include <exception>
 #include <optional>
+#include <type_traits>
+#include <utility>
 
 template <typename T> class Result final
 {
@@ -51,3 +54,16 @@ private:
 
     std::optional<QString> m_error;
 };
+
+template <typename F> auto tryResult(F&& fn) -> std::invoke_result_t<F>
+{
+    using ResultType = std::invoke_result_t<F>;
+    try
+    {
+        return fn();
+    }
+    catch (const std::exception& e)
+    {
+        return ResultType::failure(QString::fromStdString(e.what()));
+    }
+}

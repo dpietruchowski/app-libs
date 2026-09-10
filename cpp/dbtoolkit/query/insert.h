@@ -15,6 +15,7 @@ public:
     Insert& values(const QVariantMap& values);
     Insert& batchValues(const QVector<QVariantMap>& multipleValues);
     Insert& value(const QString& column, const QVariant& value);
+    Insert& onConflict(const QStringList& conflictColumns);
 
     QVariant execute(QSqlDatabase& database) const override;
     QString toSql() const override;
@@ -22,7 +23,11 @@ public:
     bool hasTable() const;
 
 private:
+    QStringList effectiveColumns() const;
+    QString conflictClause(const QStringList& columns) const;
+
     QString m_table;
     QVector<QVariantMap> m_multipleValues;
     QStringList m_columnOrder;
+    QStringList m_conflictColumns;
 };

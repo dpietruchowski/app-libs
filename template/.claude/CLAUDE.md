@@ -108,6 +108,9 @@ unattended. Keep to this form and nothing interrupts the run:
 - **Commit messages**: `<Verb> <Subject>[: <details>]`, English, imperative, capitalized, no trailing
   period. No Conventional Commits prefixes. **Never add a `Co-Authored-By` or any other attribution
   trailer.**
+- **Keep the body short**: subject, blank line, **one paragraph of at most five lines** — or no body
+  at all when the subject says it. No second paragraph, no bullet lists; the diff and the tests
+  carry the detail.
 - **Stage explicitly**: commit with `git commit -- <paths>`, never `git add -A` / `git add .`.
 - **`libs` is a submodule**: when it changed, commit inside `libs` first, then commit the app together
   with the new submodule pointer. A pointer bump without the matching libs commit breaks everyone's

@@ -197,7 +197,8 @@ Where& Where::isNotNull()
 Where& Where::not_(const QString& column)
 {
     if (!m_condition.isEmpty())
-        m_condition += " NOT";
+        m_condition += " ";
+    m_condition += "NOT";
     m_currentColumn = column;
     return *this;
 }
@@ -217,8 +218,8 @@ Where& Where::not_(const Where& condition)
     if (!condition.isEmpty())
     {
         if (!m_condition.isEmpty())
-            m_condition += " NOT ";
-        m_condition += QString("(%1)").arg(condition.build());
+            m_condition += " ";
+        m_condition += QString("NOT (%1)").arg(condition.build());
     }
     return *this;
 }

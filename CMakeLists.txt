@@ -40,6 +40,7 @@ add_subdirectory(cpp/platform)
 add_subdirectory(cpp/qmlutils)
 add_subdirectory(cpp/dbtoolkit)
 add_subdirectory(cpp/eventbus)
+add_subdirectory(cpp/texttospeech)
 add_subdirectory(cpp/agent)
 
 if(LIBS_AUTOMATION)
