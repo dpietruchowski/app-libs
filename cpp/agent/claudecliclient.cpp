@@ -197,7 +197,41 @@ QJsonObject unclosedObject(const QString& text, int start, int& end)
     return QJsonObject();
 }
 
-QVector<ToolCall> toolCallsIn(const QString& answer)
+std::optional<ToolCall> namedBeforeObject(const QString& text, int start, const QJsonObject& object,
+                                          const QStringList& toolNames)
+{
+    if (object.isEmpty() || object.contains(QStringLiteral("tool"))
+        || object.contains(QStringLiteral("function")))
+        return std::nullopt;
+
+    const int from = qMax(0, start - 160);
+    const QString before = text.mid(from, start - from);
+    QString found;
+    int at = -1;
+    for (const QString& name : toolNames)
+    {
+        const int index = before.lastIndexOf(name);
+        if (index <= at)
+            continue;
+        const bool wordStart = index == 0 || !before.at(index - 1).isLetterOrNumber();
+        const int after = index + name.size();
+        const bool wordEnd = after >= before.size() || !before.at(after).isLetterOrNumber();
+        if (wordStart && wordEnd)
+        {
+            at = index;
+            found = name;
+        }
+    }
+    if (found.isEmpty())
+        return std::nullopt;
+
+    return ToolCall { .id = QString(),
+                      .name = found,
+                      .arguments = object.toVariantMap(),
+                      .type = QStringLiteral("function") };
+}
+
+QVector<ToolCall> toolCallsIn(const QString& answer, const QStringList& toolNames)
 {
     QVector<ToolCall> calls;
     const QString text = stripFence(answer);
@@ -212,7 +246,10 @@ QVector<ToolCall> toolCallsIn(const QString& answer)
             object = unclosedObject(text, start, end);
         if (end < 0)
             break;
-        if (std::optional<ToolCall> call = toolCallFrom(object))
+        std::optional<ToolCall> call = toolCallFrom(object);
+        if (!call)
+            call = namedBeforeObject(text, start, object, toolNames);
+        if (call)
         {
             call->id = QStringLiteral("cli-%1-%2").arg(call->name).arg(calls.size() + 1);
             calls.append(*call);
@@ -226,13 +263,13 @@ QVector<ToolCall> toolCallsIn(const QString& answer)
     return calls;
 }
 
-Completion completionFromAnswer(const QString& answer)
+Completion completionFromAnswer(const QString& answer, const QStringList& toolNames)
 {
     Completion completion;
     Choice choice;
     choice.index = 0;
 
-    const QVector<ToolCall> calls = toolCallsIn(answer);
+    const QVector<ToolCall> calls = toolCallsIn(answer, toolNames);
     if (!calls.isEmpty())
     {
         choice.finish_reason = QStringLiteral("tool_calls");
@@ -250,7 +287,7 @@ Completion completionFromAnswer(const QString& answer)
     return completion;
 }
 
-Completion completionFromOutput(const QByteArray& output)
+Completion completionFromOutput(const QByteArray& output, const QStringList& toolNames)
 {
     const QJsonObject object = QJsonDocument::fromJson(output).object();
     const QString answer = object.value(QStringLiteral("result")).toString();
@@ -260,7 +297,7 @@ Completion completionFromOutput(const QByteArray& output)
     if (object.value(QStringLiteral("is_error")).toBool())
         return failure(QStringLiteral("server_error"));
 
-    return completionFromAnswer(answer);
+    return completionFromAnswer(answer, toolNames);
 }
 
 QString modelOf(const ModelConfig& config)
@@ -351,13 +388,14 @@ void ClaudeCliClient::createCompletionAsync(const ModelConfig& config, const Mes
                      });
 
     QObject::connect(process, &QProcess::finished, process,
-                     [process, callback, answered](int, QProcess::ExitStatus)
+                     [process, callback, answered, names = toolsMap.keys()](int,
+                                                                            QProcess::ExitStatus)
                      {
                          if (*answered)
                              return;
                          *answered = true;
                          Completion completion
-                             = completionFromOutput(process->readAllStandardOutput());
+                             = completionFromOutput(process->readAllStandardOutput(), names);
                          callback(completion);
                          process->deleteLater();
                      });
@@ -377,5 +415,5 @@ Completion ClaudeCliClient::createCompletion(const ModelConfig& config, const Me
     if (!process.waitForFinished(kTimeoutMs))
         return failure(QStringLiteral("server_error"));
 
-    return completionFromOutput(process.readAllStandardOutput());
+    return completionFromOutput(process.readAllStandardOutput(), toolsMap.keys());
 }

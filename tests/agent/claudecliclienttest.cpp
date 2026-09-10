@@ -266,6 +266,26 @@ TEST_F(ClaudeCliClientTest, AnArgumentsObjectThatSwallowedTheToolNameIsRecovered
     EXPECT_EQ(calls.at(1).name, "read_log");
 }
 
+TEST_F(ClaudeCliClientTest, AToolNamedInProseBeforeItsBareArgumentsIsStillACall)
+{
+    answerWith(R"({"result":": edit_file\n参数: {\"app\": \"stoper\", \"path\": \"Main.qml\", \"before\": \"a\", \"after\": \"b\"}"})");
+    ToolsMap tools;
+    for (const char* name : { "edit_file", "read_file" })
+        tools.insert(QLatin1String(name),
+                     ToolData { .tool = {},
+                                .json = QJsonObject { { QStringLiteral("name"),
+                                                        QLatin1String(name) } } });
+
+    const Completion completion = ClaudeCliClient().createCompletion(config, conversation(), tools);
+
+    ASSERT_EQ(completion.choices.size(), 1);
+    ASSERT_EQ(completion.choices.at(0).message.tool_calls.size(), 1);
+    const ToolCall& call = completion.choices.at(0).message.tool_calls.at(0);
+    EXPECT_EQ(call.name, "edit_file");
+    EXPECT_EQ(call.arguments.value("path").toString(), "Main.qml");
+    EXPECT_EQ(call.arguments.value("after").toString(), "b");
+}
+
 TEST_F(ClaudeCliClientTest, BracesInProseDoNotMakeAToolCall)
 {
     answerWith(R"({"result":"Use { and } in QML, like Item { }."})");
