@@ -137,6 +137,16 @@ QVariantMap argumentsOf(const QJsonObject& object)
     return QVariantMap();
 }
 
+bool isFabricatedAnswer(const QJsonObject& object, const QVariantMap& arguments)
+{
+    for (const char* key : { "return", "result", "output", "response" })
+    {
+        if (object.contains(QLatin1String(key)) || arguments.contains(QLatin1String(key)))
+            return true;
+    }
+    return false;
+}
+
 std::optional<ToolCall> toolCallFrom(const QJsonObject& object)
 {
     QString name = object.value(QStringLiteral("tool")).toString();
@@ -156,7 +166,7 @@ std::optional<ToolCall> toolCallFrom(const QJsonObject& object)
     if (name.isEmpty() && arguments.value(QStringLiteral("tool")).canConvert<QString>())
         name = arguments.take(QStringLiteral("tool")).toString();
 
-    if (name.isEmpty())
+    if (name.isEmpty() || isFabricatedAnswer(object, arguments))
         return std::nullopt;
     return ToolCall { .id = QString(),
                       .name = name,

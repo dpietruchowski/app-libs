@@ -286,6 +286,19 @@ TEST_F(ClaudeCliClientTest, AToolNamedInProseBeforeItsBareArgumentsIsStillACall)
     EXPECT_EQ(call.arguments.value("after").toString(), "b");
 }
 
+TEST_F(ClaudeCliClientTest, AnAnswerTheModelInventedForAToolIsNotACall)
+{
+    answerWith(R"({"result":"{\"tool\": \"read_file\", \"arguments\": {\"app\": \"quiz\", \"path\": \"Main.qml\", \"from\": 0, \"lines\": 0}}\n{\"tool\": \"read_file\", \"arguments\": {\"return\": \"1: import QtQuick\"}}\n{\"tool\": \"edit_file\", \"return\": \"Main.qml 1 replacement\"}"})");
+
+    const Completion completion = ClaudeCliClient().createCompletion(config, conversation(), {});
+
+    ASSERT_EQ(completion.choices.size(), 1);
+    const QVector<ToolCall>& calls = completion.choices.at(0).message.tool_calls;
+    ASSERT_EQ(calls.size(), 1);
+    EXPECT_EQ(calls.at(0).name, "read_file");
+    EXPECT_EQ(calls.at(0).arguments.value("path").toString(), "Main.qml");
+}
+
 TEST_F(ClaudeCliClientTest, BracesInProseDoNotMakeAToolCall)
 {
     answerWith(R"({"result":"Use { and } in QML, like Item { }."})");
