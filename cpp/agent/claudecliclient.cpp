@@ -153,6 +153,8 @@ std::optional<ToolCall> toolCallFrom(const QJsonObject& object)
         name = function.toString();
     if (name.isEmpty() && !argumentsOf(object).isEmpty())
         name = object.value(QStringLiteral("name")).toString();
+    if (name.isEmpty() && arguments.value(QStringLiteral("tool")).canConvert<QString>())
+        name = arguments.take(QStringLiteral("tool")).toString();
 
     if (name.isEmpty())
         return std::nullopt;
@@ -162,6 +164,39 @@ std::optional<ToolCall> toolCallFrom(const QJsonObject& object)
                       .type = QStringLiteral("function") };
 }
 
+QJsonObject unclosedObject(const QString& text, int start, int& end)
+{
+    int depth = 0;
+    bool inString = false;
+    for (int i = start; i < text.size(); ++i)
+    {
+        const QChar c = text.at(i);
+        if (inString)
+        {
+            if (c == QLatin1Char('\\'))
+                ++i;
+            else if (c == QLatin1Char('"'))
+                inString = false;
+        }
+        else if (c == QLatin1Char('"'))
+            inString = true;
+        else if (c == QLatin1Char('{'))
+            ++depth;
+        else if (c == QLatin1Char('}') && --depth == 1)
+        {
+            const QByteArray fragment = text.mid(start, i - start + 1).toUtf8() + '}';
+            const QJsonObject object = QJsonDocument::fromJson(fragment).object();
+            if (!object.isEmpty())
+            {
+                end = i;
+                return object;
+            }
+        }
+    }
+    end = -1;
+    return QJsonObject();
+}
+
 QVector<ToolCall> toolCallsIn(const QString& answer)
 {
     QVector<ToolCall> calls;
@@ -169,11 +204,14 @@ QVector<ToolCall> toolCallsIn(const QString& answer)
     int start = text.indexOf(QLatin1Char('{'));
     while (start >= 0)
     {
-        const int end = objectEnd(text, start);
+        int end = objectEnd(text, start);
+        QJsonObject object;
+        if (end >= 0)
+            object = QJsonDocument::fromJson(text.mid(start, end - start + 1).toUtf8()).object();
+        else
+            object = unclosedObject(text, start, end);
         if (end < 0)
             break;
-        const QJsonObject object
-            = QJsonDocument::fromJson(text.mid(start, end - start + 1).toUtf8()).object();
         if (std::optional<ToolCall> call = toolCallFrom(object))
         {
             call->id = QStringLiteral("cli-%1-%2").arg(call->name).arg(calls.size() + 1);

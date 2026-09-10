@@ -266,6 +266,7 @@ void Agent::handleToolCallsAsync(const Client& client, QVector<ToolCall> toolCal
         toolCall.arguments,
         [this, &client, toolCalls, index, id = toolCall.id](QVariant ret)
         {
+            qCInfo(AgentLogic) << "Tool result" << id << ret.toString().left(600);
             QVariantMap map;
             map["value"] = ret;
             QJsonDocument doc = QJsonDocument::fromVariant(map);

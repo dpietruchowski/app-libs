@@ -7,6 +7,7 @@ ListView {
     id: control
 
     spacing: Theme.list.spacing
+    implicitHeight: contentHeight
     clip: true
     boundsBehavior: Flickable.StopAtBounds
 

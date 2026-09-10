@@ -145,6 +145,70 @@ QtObject {
             readonly property bool bold: false
             readonly property real lineHeight: 1.2
         }
+
+        readonly property QtObject display: QtObject {
+            readonly property color color: theme.colors.textPrimary
+            readonly property int fontSize: theme.scaled(48)
+            readonly property bool bold: true
+            readonly property real lineHeight: 1.1
+        }
+    }
+
+    property QtObject stat: QtObject {
+        readonly property int padding: theme.padding.medium
+        readonly property int spacing: theme.spacing.xSmall
+        readonly property int minHeight: theme.scaled(88)
+        readonly property QtObject label: QtObject {
+            readonly property color color: theme.colors.textSecondary
+            readonly property int fontSize: theme.fontSize.small
+            readonly property bool bold: false
+            readonly property real lineHeight: 1.2
+        }
+        readonly property QtObject value: QtObject {
+            readonly property color color: theme.colors.textPrimary
+            readonly property int fontSize: theme.fontSize.xxLarge
+            readonly property bool bold: true
+            readonly property real lineHeight: 1.1
+        }
+    }
+
+    property QtObject badge: QtObject {
+        readonly property int height: theme.scaled(24)
+        readonly property int paddingH: theme.padding.small
+        readonly property int fontSize: theme.fontSize.small
+        readonly property int radius: theme.radius.full
+        readonly property QtObject neutral: QtObject {
+            readonly property color background: theme.colors.surfaceRaised
+            readonly property color text: theme.colors.textSecondary
+        }
+        readonly property QtObject primary: QtObject {
+            readonly property color background: theme.colors.primarySurface
+            readonly property color text: theme.colors.primary
+        }
+        readonly property QtObject success: QtObject {
+            readonly property color background: Qt.rgba(theme.colors.success.r, theme.colors.success.g, theme.colors.success.b, 0.2)
+            readonly property color text: theme.colors.success
+        }
+        readonly property QtObject warning: QtObject {
+            readonly property color background: Qt.rgba(theme.colors.warning.r, theme.colors.warning.g, theme.colors.warning.b, 0.2)
+            readonly property color text: theme.colors.warning
+        }
+        readonly property QtObject danger: QtObject {
+            readonly property color background: Qt.rgba(theme.colors.error.r, theme.colors.error.g, theme.colors.error.b, 0.2)
+            readonly property color text: theme.colors.error
+        }
+    }
+
+    property QtObject segmented: QtObject {
+        readonly property int height: theme.scaled(40)
+        readonly property int padding: theme.scaled(3)
+        readonly property int radius: theme.radius.medium
+        readonly property int fontSize: theme.fontSize.normal
+        readonly property color background: theme.colors.surface
+        readonly property color border: theme.colors.border
+        readonly property color selectedBackground: theme.colors.primary
+        readonly property color selectedText: theme.colors.textInverse
+        readonly property color text: theme.colors.textSecondary
     }
 
     property QtObject page: QtObject {

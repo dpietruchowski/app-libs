@@ -9,7 +9,11 @@ Item {
     property string text: ""
     property url iconSource: ""
 
+    implicitHeight: column.implicitHeight + 2 * Theme.empty.spacing
+
     ColumnLayout {
+        id: column
+
         anchors.centerIn: parent
         width: Math.min(parent.width, Theme.empty.maxWidth)
         spacing: Theme.empty.spacing

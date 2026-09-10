@@ -251,6 +251,21 @@ TEST_F(ClaudeCliClientTest, ArgumentsPassedAsAJsonStringAreDecoded)
     EXPECT_EQ(call.arguments.value("path").toString(), "Main.qml");
 }
 
+TEST_F(ClaudeCliClientTest, AnArgumentsObjectThatSwallowedTheToolNameIsRecovered)
+{
+    answerWith(R"({"result":"<function_calls>\n[{\"arguments\":{\"app\":\"quiz\",\"path\":\"Result.qml\",\"before\":\"a {\",\"after\":\"b }\",\"tool\":\"edit_file\"}]\n</function_calls>\n<function_calls>\n[{\"tool\": \"read_log\", \"arguments\": {\"app\": \"quiz\"}}]\n</function_calls>\nGotowe."})");
+
+    const Completion completion = ClaudeCliClient().createCompletion(config, conversation(), {});
+
+    ASSERT_EQ(completion.choices.size(), 1);
+    const QVector<ToolCall>& calls = completion.choices.at(0).message.tool_calls;
+    ASSERT_EQ(calls.size(), 2);
+    EXPECT_EQ(calls.at(0).name, "edit_file");
+    EXPECT_EQ(calls.at(0).arguments.value("after").toString(), "b }");
+    EXPECT_FALSE(calls.at(0).arguments.contains("tool"));
+    EXPECT_EQ(calls.at(1).name, "read_log");
+}
+
 TEST_F(ClaudeCliClientTest, BracesInProseDoNotMakeAToolCall)
 {
     answerWith(R"({"result":"Use { and } in QML, like Item { }."})");

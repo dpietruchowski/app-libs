@@ -10,6 +10,7 @@ GridView {
 
     cellWidth: control.width / Math.max(1, control.columns)
     cellHeight: cellWidth
+    implicitHeight: contentHeight
     clip: true
     boundsBehavior: Flickable.StopAtBounds
 
