@@ -2,21 +2,32 @@ import QtQuick
 import QtQuick.Controls
 import Themed.Components
 
-Text {
+TextEdit {
     id: root
 
     property string content: ""
     property bool centerAlign: true
     property int maxLines: 0
     property bool styled: false
+    property int cursorPosition: -1
 
-    textFormat: styled ? Text.StyledText : Text.RichText
-    wrapMode: Text.WordWrap
-    maximumLineCount: maxLines > 0 ? maxLines : 1000000
-    elide: maxLines > 0 ? Text.ElideRight : Text.ElideNone
+    readonly property real visibleHeight: maxLines > 0
+                                          ? Math.min(implicitHeight, Math.ceil(lineMetrics.lineSpacing) * maxLines)
+                                          : implicitHeight
+
+    height: visibleHeight
+    clip: visibleHeight < implicitHeight
+    readOnly: true
+    activeFocusOnPress: false
+    selectByMouse: false
+    selectByKeyboard: false
+    cursorVisible: false
+    textFormat: TextEdit.RichText
+    wrapMode: TextEdit.WordWrap
     color: Theme.colors.textPrimary
-    horizontalAlignment: centerAlign ? Text.AlignHCenter : Text.AlignLeft
-    verticalAlignment: Text.AlignVCenter
+    horizontalAlignment: centerAlign ? TextEdit.AlignHCenter : TextEdit.AlignLeft
+    verticalAlignment: TextEdit.AlignTop
+    text: styled ? buildStyled(content) : buildHtml(content)
 
     function buildStyled(content) {
         var errorColor = Theme.colors.error
@@ -70,7 +81,38 @@ Text {
                 </html>`
     }
 
-    text: styled ? buildStyled(content) : buildHtml(content)
+    FontMetrics {
+        id: lineMetrics
+        font: root.font
+    }
 
-    onContentChanged: text = styled ? buildStyled(content) : buildHtml(content)
+    Rectangle {
+        id: caret
+
+        readonly property rect bounds: {
+            root.text
+            root.width
+            root.contentWidth
+            root.contentHeight
+            return root.cursorPosition >= 0 ? root.positionToRectangle(root.cursorPosition)
+                                            : Qt.rect(0, 0, 0, 0)
+        }
+
+        objectName: root.objectName === "" ? "" : root.objectName + "Caret"
+        visible: root.cursorPosition >= 0 && bounds.y + bounds.height <= root.visibleHeight
+        x: bounds.x
+        y: bounds.y
+        width: 2
+        height: bounds.height
+        color: Theme.colors.primary
+
+        SequentialAnimation on opacity {
+            loops: Animation.Infinite
+            running: caret.visible
+            NumberAnimation { to: 0; duration: 80 }
+            PauseAnimation { duration: 450 }
+            NumberAnimation { to: 1; duration: 80 }
+            PauseAnimation { duration: 450 }
+        }
+    }
 }
