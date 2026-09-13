@@ -1,5 +1,7 @@
 #include "timeprovider.h"
 
+#include "datewatcher.h"
+
 std::unique_ptr<TimeProvider> TimeProvider::s_instance = nullptr;
 
 TimeProvider& TimeProvider::instance()
@@ -14,6 +16,7 @@ TimeProvider& TimeProvider::instance()
 void TimeProvider::setInstance(std::unique_ptr<TimeProvider> provider)
 {
     s_instance = std::move(provider);
+    DateWatcher::instance().check();
 }
 
 QDateTime SystemTimeProvider::currentDateTime() const { return QDateTime::currentDateTime(); }
