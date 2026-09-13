@@ -9,7 +9,16 @@ TextEdit {
     property bool centerAlign: true
     property int maxLines: 0
     property bool styled: false
-    property int cursorPosition: -1
+    property int slotPosition: -1
+    property int slotLength: 0
+
+    readonly property rect slotRect: {
+        const start = rectAt(slotPosition)
+        const end = rectAt(slotPosition >= 0 ? slotPosition + slotLength : -1)
+        if (start.y + start.height > visibleHeight)
+            return Qt.rect(0, 0, 0, 0)
+        return Qt.rect(start.x, start.y, end.x - start.x, start.height)
+    }
 
     readonly property real visibleHeight: maxLines > 0
                                           ? Math.min(implicitHeight, Math.ceil(lineMetrics.lineSpacing) * maxLines)
@@ -86,33 +95,12 @@ TextEdit {
         font: root.font
     }
 
-    Rectangle {
-        id: caret
-
-        readonly property rect bounds: {
-            root.text
-            root.width
-            root.contentWidth
-            root.contentHeight
-            return root.cursorPosition >= 0 ? root.positionToRectangle(root.cursorPosition)
-                                            : Qt.rect(0, 0, 0, 0)
-        }
-
-        objectName: root.objectName === "" ? "" : root.objectName + "Caret"
-        visible: root.cursorPosition >= 0 && bounds.y + bounds.height <= root.visibleHeight
-        x: bounds.x
-        y: bounds.y
-        width: 2
-        height: bounds.height
-        color: Theme.colors.primary
-
-        SequentialAnimation on opacity {
-            loops: Animation.Infinite
-            running: caret.visible
-            NumberAnimation { to: 0; duration: 80 }
-            PauseAnimation { duration: 450 }
-            NumberAnimation { to: 1; duration: 80 }
-            PauseAnimation { duration: 450 }
-        }
+    function rectAt(position) {
+        root.text
+        root.width
+        root.contentWidth
+        root.contentHeight
+        return position >= 0 && position <= root.length ? root.positionToRectangle(position)
+                                                        : Qt.rect(0, 0, 0, 0)
     }
 }
