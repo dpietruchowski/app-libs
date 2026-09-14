@@ -7,14 +7,16 @@ Item {
     z: 9000
 
     property string iconSource: ""
-    property color accentColor: Theme.colors.accent
+    property color tint: Theme.colors.accent
+    property int iconSize: Theme.scaled(48)
+    property int labelFontSize: Theme.fontSize.xMedium
     property int stepDuration: 220
     property int holdDuration: 900
-    property real topMargin: Theme.scaled(96)
+    property Item anchorItem: null
+    property bool suppressed: false
 
     property bool busy: false
     property int displayedValue: 0
-    property int targetValue: 0
     property int delta: 0
 
     property var queue: []
@@ -27,58 +29,71 @@ Item {
             startNext()
     }
 
+    function placeMark() {
+        if (root.anchorItem) {
+            const center = root.anchorItem.mapToItem(root, root.anchorItem.width / 2,
+                                                     root.anchorItem.height / 2)
+            mark.x = Math.round(center.x - mark.width / 2)
+            mark.y = Math.round(center.y - mark.height / 2)
+            return
+        }
+        mark.x = Math.round((root.width - mark.width) / 2)
+        mark.y = Math.round(root.height * 2 / 7 - mark.height / 2)
+    }
+
     function startNext() {
         if (queue.length === 0) {
-            pill.visible = false
+            mark.opacity = 0
             busy = false
             return
         }
         busy = true
         const change = queue.shift()
         displayedValue = change.from
-        targetValue = change.to
         delta = change.to - change.from
         stepTimer.stepsLeft = Math.abs(delta)
+        placeMark()
         sequence.restart()
     }
 
     Rectangle {
-        id: pill
-        objectName: "counterDeltaPill"
-        visible: false
-        opacity: 0
-        anchors.horizontalCenter: parent.horizontalCenter
-        y: root.topMargin
-        width: row.implicitWidth + Theme.padding.large * 2
-        height: row.implicitHeight + Theme.padding.small * 2
+        visible: mark.visible && !root.anchorItem
+        opacity: mark.opacity
+        scale: mark.scale
+        x: mark.x - Theme.padding.large
+        y: mark.y - Theme.padding.small
+        width: mark.width + Theme.padding.large * 2
+        height: mark.height + Theme.padding.small * 2
         radius: height / 2
         color: Theme.colors.dialogSurface
-        border.width: Theme.border.medium
-        border.color: root.accentColor
+    }
 
-        Row {
-            id: row
-            anchors.centerIn: parent
-            spacing: Theme.spacing.small
+    Row {
+        id: mark
+        objectName: "counterDeltaPill"
+        opacity: 0
+        visible: opacity > 0 && !root.suppressed
+        spacing: Theme.spacing.small
 
-            ThemedIcon {
-                id: icon
-                anchors.verticalCenter: parent.verticalCenter
-                width: Theme.icon.medium
-                height: width
-                svgSource: root.iconSource
-                color: root.accentColor
-            }
+        onWidthChanged: if (root.busy) root.placeMark()
 
-            Text {
-                id: valueText
-                objectName: "counterDeltaValue"
-                anchors.verticalCenter: parent.verticalCenter
-                text: root.displayedValue
-                font.pixelSize: Theme.fontSize.xLarge
-                font.bold: true
-                color: Theme.colors.textPrimary
-            }
+        ThemedIcon {
+            id: icon
+            anchors.verticalCenter: parent.verticalCenter
+            width: root.iconSize
+            height: width
+            svgSource: root.iconSource
+            color: root.tint
+        }
+
+        Text {
+            id: valueText
+            objectName: "counterDeltaValue"
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.displayedValue
+            color: root.tint
+            font.pixelSize: root.labelFontSize
+            font.weight: Font.DemiBold
         }
     }
 
@@ -102,16 +117,15 @@ Item {
 
     SequentialAnimation {
         id: bump
-        NumberAnimation { target: valueText; property: "scale"; to: 1.35; duration: root.stepDuration / 2; easing.type: Easing.OutQuad }
-        NumberAnimation { target: valueText; property: "scale"; to: 1.0; duration: root.stepDuration / 2; easing.type: Easing.InQuad }
+        NumberAnimation { target: valueText; property: "scale"; to: 1.3; duration: root.stepDuration / 2; easing.type: Easing.OutBack }
+        NumberAnimation { target: valueText; property: "scale"; to: 1.0; duration: root.stepDuration / 2; easing.type: Easing.OutCubic }
     }
 
     SequentialAnimation {
         id: sequence
-        ScriptAction { script: { pill.visible = true; pill.scale = 0.8 } }
         ParallelAnimation {
-            NumberAnimation { target: pill; property: "opacity"; to: 1; duration: 180 }
-            NumberAnimation { target: pill; property: "scale"; to: 1; duration: 220; easing.type: Easing.OutBack }
+            NumberAnimation { target: mark; property: "opacity"; to: 1; duration: 180; easing.type: Easing.OutCubic }
+            NumberAnimation { target: mark; property: "scale"; from: 0.6; to: 1; duration: 260; easing.type: Easing.OutBack }
             SequentialAnimation {
                 NumberAnimation { target: icon; property: "rotation"; to: -15; duration: 90 }
                 NumberAnimation { target: icon; property: "rotation"; to: 15; duration: 120 }
@@ -120,7 +134,7 @@ Item {
         }
         ScriptAction { script: stepTimer.start() }
         PauseAnimation { duration: Math.abs(root.delta) * root.stepDuration + root.holdDuration }
-        NumberAnimation { target: pill; property: "opacity"; to: 0; duration: 300 }
+        NumberAnimation { target: mark; property: "opacity"; to: 0; duration: 300; easing.type: Easing.InQuad }
         ScriptAction { script: Qt.callLater(root.startNext) }
     }
 }
