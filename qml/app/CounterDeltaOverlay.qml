@@ -79,16 +79,6 @@ Item {
                 font.bold: true
                 color: Theme.colors.textPrimary
             }
-
-            Text {
-                id: deltaText
-                objectName: "counterDeltaText"
-                anchors.verticalCenter: parent.verticalCenter
-                text: root.delta > 0 ? "+" + root.delta : "−" + Math.abs(root.delta)
-                font.pixelSize: Theme.fontSize.large
-                font.bold: true
-                color: root.delta > 0 ? Theme.colors.success : Theme.colors.error
-            }
         }
     }
 
