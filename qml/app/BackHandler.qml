@@ -27,9 +27,6 @@ FocusScope {
         if (!root.quitOnBack)
             return false
 
-        if (Qt.platform.os !== "android")
-            return true
-
         if (root._exitArmed)
             return true
 
