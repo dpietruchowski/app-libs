@@ -470,6 +470,7 @@ QtObject {
         readonly property string paste: "qrc:/Themed/Icons/import.svg"
         readonly property string speaker: "qrc:/Themed/Icons/speaker.svg"
         readonly property string eye: "qrc:/Themed/Icons/eye.svg"
+        readonly property string lightbulb: "qrc:/Themed/Icons/lightbulb.svg"
         readonly property string translate: "qrc:/Themed/Icons/translate.svg"
         readonly property string globe: "qrc:/Themed/Icons/globe.svg"
         readonly property string curvedArrow: "qrc:/Themed/Icons/curved-arrow.svg"
