@@ -11,6 +11,11 @@ TextEdit {
     property bool styled: false
     property int slotPosition: -1
     property int slotLength: 0
+    property string revealedIcon: Theme.icons.eye
+
+    readonly property string revealedImage: revealedIconProvider.svgSource === "" ? ""
+        : '<img src="' + revealedIconProvider.svgSource + '" width="' + revealedIconProvider.width
+          + '" height="' + revealedIconProvider.height + '" style="vertical-align: middle">'
 
     readonly property rect slotRect: {
         const start = rectAt(slotPosition)
@@ -51,6 +56,7 @@ TextEdit {
                      '<font color="' + successColor + '">$1</font>')
             .replace(/<span class="wrong">([\s\S]*?)<\/span>/g,
                      '<font color="' + errorColor + '"><s>$1</s></font>')
+            .replace(/<span class="revealed"><\/span>/g, root.revealedImage)
             .trim()
     }
 
@@ -84,7 +90,7 @@ TextEdit {
                     </head>
                     <body>
                         <div style="text-align: ${centerAlign ? 'center' : 'left'};">
-                            ${content}
+                            ${content.replace(/<span class="revealed"><\/span>/g, root.revealedImage)}
                         </div>
                     </body>
                 </html>`
@@ -93,6 +99,14 @@ TextEdit {
     FontMetrics {
         id: lineMetrics
         font: root.font
+    }
+
+    ColoredSvgProvider {
+        id: revealedIconProvider
+        svgOriginSource: root.revealedIcon
+        color: Theme.colors.error
+        width: Math.round(root.font.pixelSize > 0 ? root.font.pixelSize : lineMetrics.height)
+        height: width
     }
 
     function rectAt(position) {
