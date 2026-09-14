@@ -13,9 +13,14 @@ TextEdit {
     property int slotLength: 0
     property string revealedIcon: Theme.icons.eye
 
-    readonly property string revealedImage: revealedIconProvider.svgSource === "" ? ""
-        : '<img src="' + revealedIconProvider.svgSource + '" width="' + revealedIconProvider.width
-          + '" height="' + revealedIconProvider.height + '" style="vertical-align: middle">'
+    readonly property int revealedIconSize: Math.round(font.pixelSize > 0 ? font.pixelSize : lineMetrics.height)
+    readonly property string revealedImage: {
+        const size = revealedIconSize
+        const source = revealedIconProvider.svgSource
+        return source === "" ? ""
+            : '<img src="' + source + '" width="' + size + '" height="' + size
+              + '" style="vertical-align: middle">'
+    }
 
     readonly property rect slotRect: {
         const start = rectAt(slotPosition)
@@ -105,8 +110,8 @@ TextEdit {
         id: revealedIconProvider
         svgOriginSource: root.revealedIcon
         color: Theme.colors.error
-        width: Math.round(root.font.pixelSize > 0 ? root.font.pixelSize : lineMetrics.height)
-        height: width
+        width: root.revealedIconSize
+        height: root.revealedIconSize
     }
 
     function rectAt(position) {
