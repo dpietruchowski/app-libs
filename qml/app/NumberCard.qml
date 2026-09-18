@@ -17,7 +17,7 @@ ThemedCard {
     content: Item {
         Text {
             anchors.bottom: mainRow.top
-            anchors.bottomMargin: Theme.spacing.small
+            anchors.bottomMargin: Theme.spacing.xSmall
             anchors.horizontalCenter: parent.horizontalCenter
             text: root.title
             font.pixelSize: Theme.fontSize.xSmall
