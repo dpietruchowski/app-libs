@@ -164,7 +164,7 @@ std::optional<TextSpan> TextMatcher::findInSentence(const QString& text,
     const qsizetype last = targets.size() - 1;
     for (qsizetype first = 0; first + targets.size() <= words.size(); ++first)
     {
-        if (words[first].start < from)
+        if (words[first].start + words[first].length <= from)
             continue;
 
         qsizetype start = 0;
@@ -180,10 +180,13 @@ std::optional<TextSpan> TextMatcher::findInSentence(const QString& text,
                 break;
             }
 
-            const auto span = matchPiece(QStringView(sentenceText).sliced(word.start, word.length),
-                                         QStringView(text).sliced(target.start, target.length),
-                                         k == last, k == 0);
-            if (!span || (k < last && span->start + span->length != word.length)
+            const QStringView wordView = QStringView(sentenceText).sliced(word.start, word.length);
+            const QStringView targetView = QStringView(text).sliced(target.start, target.length);
+            auto span = matchPiece(wordView, targetView, k == last, k == 0);
+            if (span && k == 0 && word.start + span->start < from)
+                span = matchPiece(wordView, targetView, false, true);
+            if (!span || (k == 0 && word.start + span->start < from)
+                || (k < last && span->start + span->length != word.length)
                 || (k > 0 && span->start != 0))
             {
                 matches = false;
