@@ -35,7 +35,10 @@ can ask for a sandbox instead, so driving it never mutates that data:
       "env": {"XDG_DATA_HOME": "data"}   # dirs created inside the sandbox
     }
 
-`--run-dir PATH` picks a different sandbox for one run.
+`--run-dir PATH` picks a different sandbox for one run. Session state and the log
+are keyed by port, so `--port N --run-dir tmp/x` gives you an independent
+instance next to the default one — several can run side by side, and `stop`/
+`restart`/`logs` with the same `--port` only touch that instance.
 
 Drive the running instance with ui_driver.py, e.g.:
   ui_driver.py dump
@@ -67,29 +70,37 @@ from ui_driver import (  # noqa: E402
 )
 
 # State and log stay inside the repo (gitignored tmp/), so nothing the session
-# writes lands outside the project directory.
+# writes lands outside the project directory. Both are keyed by port, so several
+# instances (one per --port, each in its own --run-dir) can coexist and `stop`
+# never kills a neighbour.
 SESSION_DIR = os.path.join(REPO_ROOT, "tmp", "ui_session")
-STATE_PATH = os.path.join(SESSION_DIR, "session.json")
-LOG_PATH = os.path.join(SESSION_DIR, "app.log")
 
 
-def _load_state():
+def _state_path(port):
+    return os.path.join(SESSION_DIR, f"session-{port}.json")
+
+
+def _log_path(port):
+    return os.path.join(SESSION_DIR, f"app-{port}.log")
+
+
+def _load_state(port):
     try:
-        with open(STATE_PATH, "r", encoding="utf-8") as handle:
+        with open(_state_path(port), "r", encoding="utf-8") as handle:
             return json.load(handle)
     except (OSError, ValueError):
         return None
 
 
-def _save_state(state):
+def _save_state(port, state):
     os.makedirs(SESSION_DIR, exist_ok=True)
-    with open(STATE_PATH, "w", encoding="utf-8") as handle:
+    with open(_state_path(port), "w", encoding="utf-8") as handle:
         json.dump(state, handle)
 
 
-def _clear_state():
+def _clear_state(port):
     try:
-        os.remove(STATE_PATH)
+        os.remove(_state_path(port))
     except OSError:
         pass
 
@@ -159,9 +170,10 @@ def _pid_on_port(port):
 
 
 def cmd_start(opts):
+    log_path = _log_path(opts.port)
     if _responds(opts.port):
         pid = _pid_on_port(opts.port)
-        _save_state({"pid": pid, "port": opts.port, "log": LOG_PATH})
+        _save_state(opts.port, {"pid": pid, "port": opts.port, "log": log_path})
         where = f"pid {pid}" if pid else "unknown pid"
         print(f"already running on 127.0.0.1:{opts.port} ({where}); using it")
         return 0
@@ -184,7 +196,7 @@ def cmd_start(opts):
         child_env["QT_QPA_PLATFORM"] = opts.platform
 
     os.makedirs(SESSION_DIR, exist_ok=True)
-    log = open(LOG_PATH, "wb")
+    log = open(log_path, "wb")
     proc = subprocess.Popen(
         [binary],
         cwd=work_dir,
@@ -199,21 +211,21 @@ def cmd_start(opts):
     while time.time() < deadline:
         if proc.poll() is not None:
             print(
-                f"error: app exited early (code {proc.returncode}); see {LOG_PATH}",
+                f"error: app exited early (code {proc.returncode}); see {log_path}",
                 file=sys.stderr,
             )
             return 1
         if _responds(opts.port):
-            _save_state({"pid": proc.pid, "port": opts.port, "log": LOG_PATH})
+            _save_state(opts.port, {"pid": proc.pid, "port": opts.port, "log": log_path})
             print(
                 f"started: pid {proc.pid} on 127.0.0.1:{opts.port} "
-                f"(run dir: {work_dir}, log: {LOG_PATH})"
+                f"(run dir: {work_dir}, log: {log_path})"
             )
             return 0
         time.sleep(0.25)
 
     print(
-        f"error: app did not become ready within {opts.timeout:g}s; see {LOG_PATH}",
+        f"error: app did not become ready within {opts.timeout:g}s; see {log_path}",
         file=sys.stderr,
     )
     proc.terminate()
@@ -222,7 +234,7 @@ def cmd_start(opts):
 
 def cmd_status(opts):
     if _responds(opts.port):
-        pid = (_load_state() or {}).get("pid") or _pid_on_port(opts.port)
+        pid = (_load_state(opts.port) or {}).get("pid") or _pid_on_port(opts.port)
         print(f"running: pid {pid} on 127.0.0.1:{opts.port}")
         return 0
     print("stopped")
@@ -230,9 +242,9 @@ def cmd_status(opts):
 
 
 def cmd_stop(opts):
-    pid = (_load_state() or {}).get("pid") or _pid_on_port(opts.port)
+    pid = (_load_state(opts.port) or {}).get("pid") or _pid_on_port(opts.port)
     if not _pid_alive(pid):
-        _clear_state()
+        _clear_state(opts.port)
         print("not running")
         return 0
     for sig in (signal.SIGTERM, signal.SIGKILL):
@@ -249,7 +261,7 @@ def cmd_stop(opts):
             time.sleep(0.25)
         if not _pid_alive(pid):
             break
-    _clear_state()
+    _clear_state(opts.port)
     print(f"stopped: pid {pid}")
     return 0
 
@@ -260,7 +272,7 @@ def cmd_restart(opts):
 
 
 def cmd_logs(opts):
-    path = (_load_state() or {}).get("log", LOG_PATH)
+    path = (_load_state(opts.port) or {}).get("log", _log_path(opts.port))
     if not os.path.isfile(path):
         print(f"no log at {path}")
         return 1
@@ -296,6 +308,7 @@ def main(argv=None):
         add_common_arguments(sub.add_parser(name))
 
     p = sub.add_parser("logs")
+    add_common_arguments(p)
     p.add_argument("-n", "--lines", type=int, default=40)
 
     opts = parser.parse_args(argv)
