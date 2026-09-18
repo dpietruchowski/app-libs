@@ -1,6 +1,13 @@
 #pragma once
 
 #include <QString>
+#include <optional>
+
+struct TextSpan
+{
+    qsizetype start = 0;
+    qsizetype length = 0;
+};
 
 class TextMatcher final
 {
@@ -13,4 +20,6 @@ public:
     static bool answersMatch(const QString& userAnswer, const QString& correctAnswer,
                              bool ignoreAccents = false);
     static bool existsInSentence(const QString& text, const QString& sentenceText);
+    static std::optional<TextSpan> findInSentence(const QString& text, const QString& sentenceText,
+                                                  qsizetype from = 0);
 };
