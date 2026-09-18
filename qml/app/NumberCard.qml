@@ -6,40 +6,67 @@ ThemedCard {
     id: root
 
     property string title: "Title"
-    property int number: 10
-    property bool done: false
-    property string text: title + ": " + number + (done ? " ✓" : "")
-
-    property real displayNumber: number
-    Behavior on displayNumber {
-        NumberAnimation {
-            duration: 600
-            easing.type: Easing.OutCubic
-        }
-    }
+    property string mainText: ""
+    property string mainLabel: ""
+    property string subText: ""
+    property string subLabel: ""
 
     clickable: true
     backgroundColor: Theme.colors.surface
 
     content: Item {
-        Column {
+        Text {
+            anchors.bottom: mainRow.top
+            anchors.bottomMargin: Theme.spacing.small
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: root.title
+            font.pixelSize: Theme.fontSize.xSmall
+            color: Theme.colors.textSecondary
+        }
+
+        Row {
+            id: mainRow
             anchors.centerIn: parent
             spacing: Theme.spacing.small
-            Text {
-                text: root.title
-                font.pixelSize: Theme.fontSize.xSmall
-                color: Theme.colors.textSecondary
-                horizontalAlignment: Text.AlignHCenter
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
 
             Text {
-                text: Math.round(root.displayNumber)
+                id: mainValue
+                text: root.mainText
                 font.pixelSize: Theme.fontSize.xxLarge
                 font.bold: true
                 color: Theme.colors.textPrimary
-                horizontalAlignment: Text.AlignHCenter
-                anchors.horizontalCenter: parent.horizontalCenter
+            }
+
+            Text {
+                visible: root.mainLabel !== ""
+                anchors.verticalCenter: mainValue.verticalCenter
+                text: root.mainLabel
+                font.pixelSize: Theme.fontSize.small
+                color: Theme.colors.textSecondary
+            }
+        }
+
+        Row {
+            visible: root.subText !== "" || root.subLabel !== ""
+            anchors.top: mainRow.bottom
+            anchors.topMargin: 0
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.spacing.xSmall
+
+            Text {
+                id: subValue
+                text: root.subText
+                font.pixelSize: Theme.fontSize.medium
+                font.bold: true
+                color: Theme.colors.textSecondary
+            }
+
+            Text {
+                visible: root.subLabel !== ""
+                anchors.baseline: subValue.baseline
+                text: root.subLabel
+                font.pixelSize: Theme.fontSize.small
+                color: Theme.colors.textSecondary
             }
         }
     }
