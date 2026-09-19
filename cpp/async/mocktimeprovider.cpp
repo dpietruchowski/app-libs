@@ -1,13 +1,17 @@
 #include "mocktimeprovider.h"
 
+#include "datewatcher.h"
+
 void MockTimeProvider::setCurrentDateTime(const QDateTime& dateTime)
 {
     m_currentDateTime = dateTime;
+    notifyDateWatcher();
 }
 
 void MockTimeProvider::setCurrentDate(const QDate& date)
 {
     m_currentDateTime = QDateTime(date, m_currentDateTime.time());
+    notifyDateWatcher();
 }
 
 void MockTimeProvider::advanceSeconds(int seconds)
@@ -20,6 +24,7 @@ void MockTimeProvider::advanceSeconds(int seconds)
     {
         m_currentDateTime = QDateTime::currentDateTime().addSecs(seconds);
     }
+    notifyDateWatcher();
 }
 
 void MockTimeProvider::advanceDays(int days)
@@ -32,6 +37,7 @@ void MockTimeProvider::advanceDays(int days)
     {
         m_currentDateTime = QDateTime::currentDateTime().addDays(days);
     }
+    notifyDateWatcher();
 }
 
 void MockTimeProvider::advanceDate(const QDate& targetDate)
@@ -46,6 +52,7 @@ void MockTimeProvider::advanceDate(const QDate& targetDate)
     {
         m_currentDateTime = QDateTime(targetDate, QTime(12, 0, 0));
     }
+    notifyDateWatcher();
 }
 
 QDateTime MockTimeProvider::currentDateTime() const
@@ -56,4 +63,10 @@ QDateTime MockTimeProvider::currentDateTime() const
 QDate MockTimeProvider::currentDate() const
 {
     return m_currentDateTime.isValid() ? m_currentDateTime.date() : QDate::currentDate();
+}
+
+void MockTimeProvider::notifyDateWatcher() const
+{
+    if (&TimeProvider::instance() == this)
+        DateWatcher::instance().check();
 }

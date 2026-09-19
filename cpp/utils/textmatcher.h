@@ -1,15 +1,12 @@
 #pragma once
 
 #include <QString>
+#include <optional>
 
-struct TextSpan final
+struct TextSpan
 {
-    qsizetype position { -1 };
-    qsizetype length { 0 };
-
-    bool isValid() const { return position >= 0; }
-
-    bool operator==(const TextSpan& other) const = default;
+    qsizetype start = 0;
+    qsizetype length = 0;
 };
 
 class TextMatcher final
@@ -22,7 +19,8 @@ public:
     static bool compare(const QString& a, const QString& b, bool ignoreAccents = false);
     static bool answersMatch(const QString& userAnswer, const QString& correctAnswer,
                              bool ignoreAccents = false);
-    static TextSpan spanInSentence(const QString& text, const QString& sentenceText);
     static bool existsInSentence(const QString& text, const QString& sentenceText);
+    static std::optional<TextSpan> findInSentence(const QString& text, const QString& sentenceText,
+                                                  qsizetype from = 0);
     static int editDistance(const QString& a, const QString& b);
 };
