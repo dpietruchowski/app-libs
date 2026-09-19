@@ -10,6 +10,8 @@ Item {
     property string buttonText: qsTr("Got it")
     property real gap: Theme.spacing.small
     property bool dimBackground: true
+    property real holePadding: Theme.scaled(4)
+    property real holeRadius: Theme.radius.medium
     property real borderWidth: Theme.border.thin
     property color borderColor: Theme.button.ghost.border
 
@@ -57,10 +59,22 @@ Item {
         }
     }
 
-    Rectangle {
+    Item {
         anchors.fill: parent
         visible: root.dimBackground
-        color: Theme.colors.overlayLight
+        clip: true
+
+        Rectangle {
+            readonly property real veilWidth: Math.max(root.width, root.height) * 2
+            x: root.anchorRect.x - root.holePadding - veilWidth
+            y: root.anchorRect.y - root.holePadding - veilWidth
+            width: root.anchorRect.width + (root.holePadding + veilWidth) * 2
+            height: root.anchorRect.height + (root.holePadding + veilWidth) * 2
+            radius: root.holeRadius + veilWidth
+            color: "transparent"
+            border.color: Theme.colors.overlayLight
+            border.width: veilWidth
+        }
     }
 
     MouseArea {
