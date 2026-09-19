@@ -57,7 +57,7 @@ Control {
             states: [
                 State {
                     name: "hovered"
-                    when: clickable && mouseArea.containsMouse
+                    when: clickable && hoverHandler.hovered
                     PropertyChanges {
                         target: face
                         color: Theme.isNightMode ? Qt.lighter(backgroundColor, 1.3) : Qt.darker(backgroundColor, 1.1)
@@ -75,11 +75,16 @@ Control {
         }
     }
 
+    HoverHandler {
+        id: hoverHandler
+        enabled: clickable
+        cursorShape: Qt.PointingHandCursor
+    }
+
     MouseArea {
         id: mouseArea
         anchors.fill: parent
         enabled: clickable
-        hoverEnabled: clickable
         cursorShape: clickable ? Qt.PointingHandCursor : Qt.ArrowCursor
         onClicked: control.clicked()
     }
