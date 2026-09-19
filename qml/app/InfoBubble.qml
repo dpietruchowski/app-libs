@@ -85,8 +85,7 @@ Item {
     Item {
         id: bubble
 
-        readonly property bool below: root.anchorRect.y + root.anchorRect.height + root.gap + arrow.height + height
-                                      < root.height - Theme.spacing.large
+        readonly property bool below: root.height - root.anchorRect.y - root.anchorRect.height >= root.anchorRect.y
         readonly property real margin: Theme.spacing.medium
         readonly property real anchorCenterX: root.anchorRect.x + root.anchorRect.width / 2
 
@@ -134,6 +133,7 @@ Item {
                 spacing: Theme.spacing.small
 
                 Text {
+                    id: titleText
                     width: parent.width
                     visible: root.title !== ""
                     text: root.title
@@ -144,6 +144,7 @@ Item {
                 }
 
                 Text {
+                    id: bodyText
                     width: parent.width
                     visible: root.text !== ""
                     text: root.text
@@ -154,13 +155,30 @@ Item {
                     lineHeight: 1.2
                 }
 
-                Column {
-                    id: contentColumn
+                ThemedScroll {
+                    id: contentScroll
+
+                    readonly property real chromeHeight: Theme.spacing.large * 2
+                                                         + (titleText.visible ? titleText.height + bubbleColumn.spacing : 0)
+                                                         + (bodyText.visible ? bodyText.height + bubbleColumn.spacing : 0)
+                                                         + gotItRow.height + bubbleColumn.spacing
+                    readonly property real availableHeight: Math.max(root.anchorRect.y,
+                                                                     root.height - root.anchorRect.y - root.anchorRect.height)
+                                                            - root.gap - arrow.height - Theme.spacing.large
+
                     width: parent.width
-                    visible: children.length > 0
+                    height: Math.max(0, Math.min(contentColumn.height, availableHeight - chromeHeight))
+                    visible: contentColumn.children.length > 0
+                    contentHeight: contentColumn.height
+
+                    Column {
+                        id: contentColumn
+                        width: contentScroll.width
+                    }
                 }
 
                 Item {
+                    id: gotItRow
                     width: parent.width
                     height: gotItButton.height
 
