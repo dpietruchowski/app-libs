@@ -9,10 +9,14 @@ Item {
     property string text: ""
     property string buttonText: qsTr("Got it")
     property real gap: Theme.spacing.small
+    property bool dimBackground: true
     property real borderWidth: Theme.border.thin
     property color borderColor: Theme.button.ghost.border
 
     property rect anchorRect: Qt.rect(0, 0, 0, 0)
+
+    default property alias content: contentColumn.data
+    readonly property real contentWidth: contentColumn.width
 
     signal dismissed()
 
@@ -51,6 +55,12 @@ Item {
             duration: 200
             easing.type: Easing.InOutQuad
         }
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        visible: root.dimBackground
+        color: Theme.colors.overlayLight
     }
 
     MouseArea {
@@ -121,12 +131,19 @@ Item {
 
                 Text {
                     width: parent.width
+                    visible: root.text !== ""
                     text: root.text
                     textFormat: Text.StyledText
                     color: Theme.colors.textSecondary
                     font.pixelSize: Theme.fontSize.small
                     wrapMode: Text.WordWrap
                     lineHeight: 1.2
+                }
+
+                Column {
+                    id: contentColumn
+                    width: parent.width
+                    visible: children.length > 0
                 }
 
                 Item {
