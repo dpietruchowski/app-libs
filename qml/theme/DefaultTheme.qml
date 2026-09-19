@@ -35,6 +35,7 @@ QtObject {
         readonly property color primaryDark: theme.isNightMode ? "#4080E6" : "#2563EB"
         readonly property color primaryVariant: theme.isNightMode ? "#70AFFA" : "#60A5FA"
         readonly property color secondary: theme.isNightMode ? "#A78BFA" : "#8B5CF6"
+        readonly property color secondaryVariant: theme.isNightMode ? "#C4B5FD" : "#A78BFA"
         readonly property color accent: theme.isNightMode ? "#FFA826" : "#F59E0B"
 
         readonly property color info: theme.isNightMode ? "#5B9AF6" : "#3B82F6"
