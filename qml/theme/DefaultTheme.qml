@@ -456,6 +456,7 @@ QtObject {
         readonly property string expand: "qrc:/Themed/Icons/expand.svg"
         readonly property string collapse: "qrc:/Themed/Icons/collapse.svg"
         readonly property string info: "qrc:/Themed/Icons/info.svg"
+        readonly property string help: "qrc:/Themed/Icons/help.svg"
         readonly property string success: "qrc:/Themed/Icons/success.svg"
         readonly property string warning: "qrc:/Themed/Icons/warning.svg"
         readonly property string error: "qrc:/Themed/Icons/error.svg"
