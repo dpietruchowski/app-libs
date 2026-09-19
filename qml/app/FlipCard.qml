@@ -12,9 +12,11 @@ Item {
     property bool enabled: true
     property real textSize: Theme.fontSize.xxLarge
     property string text: flipped ? targetText : sourceText
+    property int lineCount: 0
 
     implicitWidth: card.implicitWidth
-    implicitHeight: card.implicitHeight
+    implicitHeight: lineCount > 0 ? Math.ceil(fontMetrics.lineSpacing * lineCount) + 1 + card.margins * 2
+                                  : card.implicitHeight
 
     function flip() {
         if (root.enabled) {
@@ -54,7 +56,8 @@ Item {
                 color: root.enabled ? Theme.colors.textPrimary : Theme.colors.textDisabled
                 wrapMode: Text.WordWrap
                 elide: Text.ElideRight
-                maximumLineCount: Math.max(1, Math.floor(height / fontMetrics.height))
+                maximumLineCount: root.lineCount > 0 ? root.lineCount
+                                                     : Math.max(1, Math.floor(height / fontMetrics.height))
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
 
