@@ -22,4 +22,5 @@ public:
     static bool existsInSentence(const QString& text, const QString& sentenceText);
     static std::optional<TextSpan> findInSentence(const QString& text, const QString& sentenceText,
                                                   qsizetype from = 0);
+    static int editDistance(const QString& a, const QString& b);
 };

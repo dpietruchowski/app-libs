@@ -66,4 +66,8 @@ template <typename F> auto tryResult(F&& fn) -> std::invoke_result_t<F>
     {
         return ResultType::failure(QString::fromStdString(e.what()));
     }
+    catch (...)
+    {
+        return ResultType::failure(QStringLiteral("Unknown error"));
+    }
 }

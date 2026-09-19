@@ -16,6 +16,7 @@ public:
     Join& equals(const QString& rightColumn);
     Join& andColumn(const QString& column);
     Join& equalsValue(int value);
+    Join& equalsExpression(const QString& expression);
     Join& withColumns(const QStringList& columnKeys);
     Join& withPrefix(const QString& prefix);
     Join& withPrefix(const ColumnPrefix& prefix);
@@ -31,7 +32,7 @@ private:
     struct ColumnValue
     {
         QString column;
-        int value;
+        QString expression;
     };
 
     QString m_tableName;

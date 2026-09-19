@@ -17,6 +17,8 @@ public:
     Where(const TableAlias& alias, const QString& column);
 
     Where& equals(const QVariant& value);
+    Where& equalsColumn(const QString& column);
+    Where& equalsColumn(const TableAlias& alias, const QString& column);
     Where& notEquals(const QVariant& value);
     Where& lessThan(const QVariant& value);
     Where& greaterThan(const QVariant& value);
