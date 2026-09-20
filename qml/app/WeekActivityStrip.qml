@@ -8,18 +8,11 @@ Row {
     property var dueCounts: []
     property int todayIndex: -1
     property real cellSize: Theme.activity.cellSize
-    property bool clickable: false
 
     readonly property int maxDue: Math.max(1, ...dueCounts.slice(1))
 
-    signal clicked()
-
-    spacing: Theme.spacing.large
-
-    TapHandler {
-        enabled: root.clickable
-        onTapped: root.clicked()
-    }
+    implicitWidth: root.cellSize * 7 + Theme.spacing.medium * 6
+    spacing: Math.max(Theme.spacing.medium, (width - root.cellSize * 7) / 6)
 
     Repeater {
         model: 7
@@ -41,7 +34,6 @@ Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: root.cellSize
                 height: root.cellSize
-                radius: width / 2
                 future: offset > 0
                 today: offset === 0
                 count: future ? (root.dueCounts[offset] ?? 0) : (root.dailyStages[index] ?? 0)
