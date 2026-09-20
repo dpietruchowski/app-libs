@@ -5,7 +5,13 @@ Row {
     id: root
 
     property var activity: []
+    property var counts: []
+    property int maxCount: 1
     property int todayIndex: -1
+
+    readonly property var levels: counts.length > 0
+        ? counts
+        : activity.map(day => day === true ? 1 : 0)
 
     spacing: Theme.spacing.large
 
@@ -15,21 +21,21 @@ Row {
         Column {
             spacing: Theme.spacing.xSmall
 
-            Rectangle {
+            ActivityCell {
                 id: dot
                 objectName: "weekDot" + index
 
-                readonly property bool filled: root.activity[index] === true
-                property string text: (filled ? "active" : "inactive") + (index === root.todayIndex ? " (today)" : "")
                 property bool animationReady: false
+                property string text: (filled ? "active" : "inactive")
+                    + (today ? " (today)" : "")
 
                 width: 12
                 height: 12
                 radius: 6
                 anchors.horizontalCenter: parent.horizontalCenter
-                color: filled ? Theme.colors.primary : "transparent"
-                border.color: filled ? Theme.colors.primary : Theme.colors.textSecondary
-                border.width: Theme.border.thin
+                count: index < root.levels.length ? root.levels[index] : 0
+                maxCount: root.maxCount
+                today: index === root.todayIndex
 
                 Component.onCompleted: animationReady = true
 
@@ -41,12 +47,12 @@ Row {
 
                 Behavior on color {
                     enabled: dot.animationReady
-                    ColorAnimation { duration: 250 }
+                    ColorAnimation { duration: Theme.activity.animationDuration }
                 }
 
                 Behavior on border.color {
                     enabled: dot.animationReady
-                    ColorAnimation { duration: 250 }
+                    ColorAnimation { duration: Theme.activity.animationDuration }
                 }
 
                 SequentialAnimation {

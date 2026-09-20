@@ -243,6 +243,12 @@ QtObject {
         readonly property int animationDuration: 120
     }
 
+    property QtObject activity: QtObject {
+        readonly property real minTint: 0.35
+        readonly property real maxTint: 1.0
+        readonly property int animationDuration: 250
+    }
+
     property QtObject slider: QtObject {
         readonly property int width: theme.contentWidth * 0.6
         readonly property int handleSize: theme.scaled(20)
