@@ -1,7 +1,8 @@
 import QtQuick
+import QtQuick.Layouts
 import Themed.Components
 
-Row {
+RowLayout {
     id: root
 
     property var dailyStages: []
@@ -11,16 +12,16 @@ Row {
 
     readonly property int maxDue: Math.max(1, ...dueCounts.slice(1))
 
-    implicitWidth: root.cellSize * 7 + Theme.spacing.medium * 6
-    spacing: Math.max(Theme.spacing.medium, (width - root.cellSize * 7) / 6)
+    spacing: Theme.spacing.small
 
     Repeater {
         model: 7
 
-        Column {
+        ColumnLayout {
             required property int index
             readonly property int offset: index - root.todayIndex
 
+            Layout.fillWidth: true
             spacing: Theme.spacing.xSmall
 
             ActivityCell {
@@ -31,9 +32,9 @@ Row {
                 property string text: (filled ? "active" : "inactive")
                                       + (today ? " (today)" : "")
 
-                anchors.horizontalCenter: parent.horizontalCenter
-                width: root.cellSize
-                height: root.cellSize
+                Layout.fillWidth: true
+                Layout.minimumWidth: root.cellSize
+                Layout.preferredHeight: width
                 future: offset > 0
                 today: offset === 0
                 count: future ? (root.dueCounts[offset] ?? 0) : (root.dailyStages[index] ?? 0)
@@ -80,7 +81,7 @@ Row {
 
             Text {
                 objectName: "weekDayLabel" + index
-                anchors.horizontalCenter: parent.horizontalCenter
+                Layout.alignment: Qt.AlignHCenter
                 text: Qt.locale().dayName(index + 1, Locale.NarrowFormat)
                 font.pixelSize: Theme.fontSize.xSmall
                 font.bold: offset === 0
