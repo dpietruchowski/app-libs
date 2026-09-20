@@ -1,129 +1,276 @@
 import QtQuick
 import Themed.Components
 
-Column {
+ThemedCard {
     id: root
 
-    property var levels: []
-    property var forecast: []
-    property int maxCount: 1
-    property date startDate: new Date()
-    property int weeks: 18
-    property string pastLegend: qsTr("done")
-    property string futureLegend: qsTr("planned")
+    property var dailyStages: []
+    property var dueCounts: []
+    property date today: new Date()
+    property int pastWeeks: 14
+    property int futureWeeks: 4
+    property int streakDays: 0
+    property string title: qsTr("Activity")
+    property string pastLegend: qsTr("Daily stage")
+    property string futureLegend: qsTr("Reviews due")
+    property string futureMarker: qsTr("scheduled")
+    property string dueTodayLabel: qsTr("Due today")
+    property string dueNextWeekLabel: qsTr("Next 7 days")
+    property string streakLabel: qsTr("Day streak")
 
-    readonly property int cellSize: Theme.activity.cellSize
-    readonly property int todayIndex: levels.length - 1
+    readonly property int dueToday: dueCounts.length > 0 ? dueCounts[0] : 0
+    readonly property int dueNextWeek: dueCounts.slice(1, 8).reduce((sum, value) => sum + value, 0)
+    readonly property int columns: pastWeeks + futureWeeks
+    readonly property real innerWidth: width - Theme.padding.medium * 2
+    readonly property real cellGap: Theme.scaled(3)
+    readonly property real cellSize: Math.floor((innerWidth - cellGap * (columns - 1)) / columns)
+    readonly property real gridWidth: cellSize * columns + cellGap * (columns - 1)
+    readonly property date firstDay: {
+        const day = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+        const weekday = (day.getDay() + 6) % 7
+        day.setDate(day.getDate() - weekday - (pastWeeks - 1) * 7)
+        return day
+    }
+    readonly property int todayIndex: Math.round(
+        (new Date(today.getFullYear(), today.getMonth(), today.getDate()) - firstDay) / 86400000)
+    readonly property int maxDue: Math.max(1, ...dueCounts.slice(1))
 
-    function dateAt(index) {
-        const date = new Date(startDate)
-        date.setDate(date.getDate() + index)
-        return date
+    function dayAt(index) {
+        const day = new Date(root.firstDay)
+        day.setDate(day.getDate() + index)
+        return day
     }
 
-    function countAt(index) {
-        if (index < levels.length) {
-            return levels[index]
+    function monthLabel(column) {
+        const monday = root.dayAt(column * 7)
+        if (column > 0 && root.dayAt((column - 1) * 7).getMonth() === monday.getMonth())
+        {
+            return ""
         }
-        const ahead = index - levels.length
-        return ahead < forecast.length ? forecast[ahead] : 0
+        if (column > root.columns - 3)
+        {
+            return ""
+        }
+        return Qt.locale().standaloneMonthName(monday.getMonth(), Locale.ShortFormat)
     }
 
-    spacing: Theme.spacing.small
+    component Swatch: ActivityCell {
+        width: root.cellSize
+        height: root.cellSize
+    }
 
-    Row {
-        objectName: "heatmapMonths"
+    component Stat: Column {
+        id: stat
+
+        property string value: ""
+        property string label: ""
+
         spacing: Theme.spacing.xSmall
 
-        Repeater {
-            model: root.weeks
+        Text {
+            text: stat.value
+            color: Theme.colors.textPrimary
+            font.pixelSize: Theme.fontSize.xLarge
+            font.bold: true
+        }
 
-            Text {
-                readonly property date columnStart: root.dateAt(index * 7)
-                readonly property bool startsMonth: index === 0
-                    || columnStart.getMonth() !== root.dateAt((index - 1) * 7).getMonth()
+        ThemedText {
+            textStyle: Theme.text.caption
+            width: parent.width
+            text: stat.label
+            wrapMode: Text.Wrap
+        }
+    }
 
-                width: root.cellSize
-                text: startsMonth
-                    ? Qt.locale().standaloneMonthName(columnStart.getMonth() + 1,
-                                                      Locale.ShortFormat)
-                    : ""
-                font.pixelSize: Theme.fontSize.xSmall
-                color: Theme.colors.textSecondary
+    component LegendLabel: ThemedText {
+        textStyle: Theme.text.caption
+        anchors.verticalCenter: parent.verticalCenter
+        rightPadding: Theme.spacing.xSmall
+    }
+
+    content: Item {
+        implicitHeight: heatmapColumn.height + Theme.padding.medium * 2
+
+        Column {
+            id: heatmapColumn
+            x: Theme.padding.medium
+            y: Theme.padding.medium
+            width: root.innerWidth
+            spacing: Theme.spacing.medium
+
+            Item {
+                width: parent.width
+                height: titleText.height
+
+                ThemedText {
+                    id: titleText
+                    objectName: "activityTitle"
+                    textStyle: Theme.text.title
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.title
+                }
+
+                ThemedText {
+                    objectName: "activityRange"
+                    textStyle: Theme.text.caption
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: qsTr("last %n week(s)", "", root.pastWeeks)
+                }
             }
-        }
-    }
-
-    Row {
-        objectName: "heatmapGrid"
-        spacing: Theme.spacing.xSmall
-
-        Repeater {
-            model: root.weeks
 
             Column {
-                readonly property int week: index
-
+                anchors.horizontalCenter: parent.horizontalCenter
                 spacing: Theme.spacing.xSmall
 
-                Repeater {
-                    model: 7
+                Grid {
+                    objectName: "activityHeatmapGrid"
+                    rows: 7
+                    flow: Grid.TopToBottom
+                    spacing: root.cellGap
 
-                    ActivityCell {
-                        readonly property int cell: parent.week * 7 + index
+                    Repeater {
+                        model: root.columns * 7
 
-                        objectName: "heatmapCell" + cell
-                        width: root.cellSize
-                        height: root.cellSize
-                        radius: Theme.radius.small
-                        count: root.countAt(cell)
-                        maxCount: root.maxCount
-                        future: cell >= root.levels.length
-                        today: cell === root.todayIndex
+                        Swatch {
+                            required property int index
+                            readonly property int offset: index - root.todayIndex
+
+                            future: offset > 0
+                            today: offset === 0
+                            count: future
+                                   ? (root.dueCounts[offset] ?? 0)
+                                   : (root.dailyStages[-offset] ?? 0)
+                            maxCount: root.maxDue
+                        }
+                    }
+                }
+
+                Item {
+                    width: root.gridWidth
+                    height: scheduledText.height
+
+                    Repeater {
+                        model: root.columns
+
+                        ThemedText {
+                            required property int index
+                            textStyle: Theme.text.caption
+                            x: index * (root.cellSize + root.cellGap)
+                            text: root.monthLabel(index)
+                        }
+                    }
+
+                    Text {
+                        id: scheduledText
+                        objectName: "activityScheduledLabel"
+                        anchors.right: parent.right
+                        text: root.futureMarker + " →"
+                        color: Theme.activity.scheduled
+                        font.pixelSize: Theme.fontSize.small
+                        font.bold: true
                     }
                 }
             }
-        }
-    }
 
-    Row {
-        objectName: "heatmapLegend"
-        spacing: Theme.spacing.medium
+            Flow {
+                width: parent.width
+                spacing: Theme.spacing.large
 
-        component LegendEntry: Row {
-            property alias future: swatch.future
-            property string label: ""
+                Row {
+                    spacing: Theme.spacing.xSmall
 
-            spacing: Theme.spacing.xSmall
+                    LegendLabel {
+                        objectName: "activityStageLegend"
+                        text: root.pastLegend
+                    }
 
-            ActivityCell {
-                id: swatch
-                width: root.cellSize
-                height: root.cellSize
-                radius: Theme.radius.small
-                count: 1
-                maxCount: 1
-                anchors.verticalCenter: parent.verticalCenter
+                    Repeater {
+                        model: [1, 3, 5, 8]
+
+                        Swatch {
+                            required property int modelData
+                            anchors.verticalCenter: parent.verticalCenter
+                            count: modelData
+                        }
+                    }
+                }
+
+                Row {
+                    spacing: Theme.spacing.xSmall
+
+                    LegendLabel {
+                        objectName: "activityDueLegend"
+                        text: root.futureLegend
+                    }
+
+                    Repeater {
+                        model: 4
+
+                        Swatch {
+                            required property int index
+                            anchors.verticalCenter: parent.verticalCenter
+                            future: true
+                            count: index + 1
+                            maxCount: 4
+                        }
+                    }
+                }
             }
 
-            Text {
-                text: parent.label
-                font.pixelSize: Theme.fontSize.xSmall
-                color: Theme.colors.textSecondary
-                anchors.verticalCenter: parent.verticalCenter
+            ThemedSeparator {
+                width: parent.width
+                color: Theme.colors.border
             }
-        }
 
-        LegendEntry {
-            objectName: "heatmapPastLegend"
-            future: false
-            label: root.pastLegend
-        }
+            Row {
+                id: stats
 
-        LegendEntry {
-            objectName: "heatmapFutureLegend"
-            future: true
-            label: root.futureLegend
+                readonly property real separatorWidth: Theme.separator.thickness
+                readonly property real statWidth: (width - separatorWidth * 2 - spacing * 4) / 3
+
+                width: parent.width
+                height: Math.max(dueTodayStat.implicitHeight, dueNextWeekStat.implicitHeight,
+                                 streakStat.implicitHeight)
+                spacing: Theme.spacing.medium
+
+                Stat {
+                    id: dueTodayStat
+                    objectName: "activityDueToday"
+                    width: stats.statWidth
+                    value: root.dueToday
+                    label: root.dueTodayLabel
+                }
+
+                ThemedSeparator {
+                    vertical: true
+                    height: parent.height
+                    color: Theme.colors.border
+                }
+
+                Stat {
+                    id: dueNextWeekStat
+                    objectName: "activityDueNextWeek"
+                    width: stats.statWidth
+                    value: root.dueNextWeek
+                    label: root.dueNextWeekLabel
+                }
+
+                ThemedSeparator {
+                    vertical: true
+                    height: parent.height
+                    color: Theme.colors.border
+                }
+
+                Stat {
+                    id: streakStat
+                    objectName: "activityStreak"
+                    width: stats.statWidth
+                    value: root.streakDays
+                    label: root.streakLabel
+                }
+            }
         }
     }
 }

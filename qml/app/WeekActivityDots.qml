@@ -4,26 +4,15 @@ import Themed.Components
 Row {
     id: root
 
-    property var activity: []
-    property var counts: []
-    property var futureCounts: []
-    property int maxCount: 1
+    property var dailyStages: []
+    property var dueCounts: []
     property int todayIndex: -1
+    property real cellSize: Theme.activity.cellSize
     property bool clickable: false
 
+    readonly property int maxDue: Math.max(1, ...dueCounts.slice(1))
+
     signal clicked()
-
-    readonly property var levels: counts.length > 0
-        ? counts
-        : activity.map(day => day === true ? 1 : 0)
-
-    function levelAt(index) {
-        if (todayIndex >= 0 && index > todayIndex) {
-            const ahead = index - todayIndex - 1
-            return ahead < futureCounts.length ? futureCounts[ahead] : 0
-        }
-        return index < levels.length ? levels[index] : 0
-    }
 
     spacing: Theme.spacing.large
 
@@ -36,55 +25,59 @@ Row {
         model: 7
 
         Column {
+            required property int index
+            readonly property int offset: index - root.todayIndex
+
             spacing: Theme.spacing.xSmall
 
             ActivityCell {
-                id: dot
+                id: cell
                 objectName: "weekDot" + index
 
                 property bool animationReady: false
                 property string text: (filled ? "active" : "inactive")
-                    + (today ? " (today)" : "")
+                                      + (today ? " (today)" : "")
 
-                width: Theme.activity.cellSize
-                height: Theme.activity.cellSize
-                radius: width / 2
                 anchors.horizontalCenter: parent.horizontalCenter
-                count: root.levelAt(index)
-                maxCount: root.maxCount
-                future: root.todayIndex >= 0 && index > root.todayIndex
-                today: index === root.todayIndex
+                width: root.cellSize
+                height: root.cellSize
+                radius: width / 2
+                future: offset > 0
+                today: offset === 0
+                count: future ? (root.dueCounts[offset] ?? 0) : (root.dailyStages[index] ?? 0)
+                maxCount: root.maxDue
 
                 Component.onCompleted: animationReady = true
 
-                onFilledChanged: {
-                    if (animationReady && filled) {
-                        fillAnimation.restart()
+                onHeatChanged: {
+                    if (animationReady && today && heat > 0)
+                    {
+                        bounce.restart()
                     }
                 }
 
                 Behavior on color {
-                    enabled: dot.animationReady
+                    enabled: cell.animationReady
                     ColorAnimation { duration: Theme.activity.animationDuration }
                 }
 
                 Behavior on border.color {
-                    enabled: dot.animationReady
+                    enabled: cell.animationReady
                     ColorAnimation { duration: Theme.activity.animationDuration }
                 }
 
                 SequentialAnimation {
-                    id: fillAnimation
+                    id: bounce
 
                     NumberAnimation {
-                        target: dot
+                        target: cell
                         property: "scale"
-                        to: 1.8
+                        to: 1.4
                         duration: 200
                         easing.type: Easing.OutQuad
                     }
                     NumberAnimation {
-                        target: dot
+                        target: cell
                         property: "scale"
                         to: 1.0
                         duration: 400
@@ -95,13 +88,11 @@ Row {
 
             Text {
                 objectName: "weekDayLabel" + index
+                anchors.horizontalCenter: parent.horizontalCenter
                 text: Qt.locale().dayName(index + 1, Locale.NarrowFormat)
                 font.pixelSize: Theme.fontSize.xSmall
-                font.bold: index === root.todayIndex
-                color: index === root.todayIndex
-                    ? Theme.colors.textPrimary
-                    : Theme.colors.textSecondary
-                anchors.horizontalCenter: parent.horizontalCenter
+                font.bold: offset === 0
+                color: offset === 0 ? Theme.colors.textPrimary : Theme.colors.textSecondary
             }
         }
     }
