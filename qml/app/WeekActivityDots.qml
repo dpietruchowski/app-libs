@@ -6,14 +6,31 @@ Row {
 
     property var activity: []
     property var counts: []
+    property var futureCounts: []
     property int maxCount: 1
     property int todayIndex: -1
+    property bool clickable: false
+
+    signal clicked()
 
     readonly property var levels: counts.length > 0
         ? counts
         : activity.map(day => day === true ? 1 : 0)
 
+    function levelAt(index) {
+        if (todayIndex >= 0 && index > todayIndex) {
+            const ahead = index - todayIndex - 1
+            return ahead < futureCounts.length ? futureCounts[ahead] : 0
+        }
+        return index < levels.length ? levels[index] : 0
+    }
+
     spacing: Theme.spacing.large
+
+    TapHandler {
+        enabled: root.clickable
+        onTapped: root.clicked()
+    }
 
     Repeater {
         model: 7
@@ -29,12 +46,13 @@ Row {
                 property string text: (filled ? "active" : "inactive")
                     + (today ? " (today)" : "")
 
-                width: 12
-                height: 12
-                radius: 6
+                width: Theme.activity.cellSize
+                height: Theme.activity.cellSize
+                radius: width / 2
                 anchors.horizontalCenter: parent.horizontalCenter
-                count: index < root.levels.length ? root.levels[index] : 0
+                count: root.levelAt(index)
                 maxCount: root.maxCount
+                future: root.todayIndex >= 0 && index > root.todayIndex
                 today: index === root.todayIndex
 
                 Component.onCompleted: animationReady = true
