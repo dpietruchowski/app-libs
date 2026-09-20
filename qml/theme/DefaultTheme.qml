@@ -245,6 +245,7 @@ QtObject {
 
     property QtObject activity: QtObject {
         readonly property int cellSize: theme.scaled(12)
+        readonly property int weekCellSize: theme.scaled(22)
         readonly property color scheduled: theme.colors.secondary
         readonly property real minTint: 0.35
         readonly property real maxTint: 1.0
