@@ -13,7 +13,7 @@ ThemedCard {
     property string title: qsTr("Activity")
     property string pastLegend: qsTr("Daily stage")
     property string futureLegend: qsTr("Reviews due")
-    property string futureMarker: qsTr("scheduled")
+    property string futureMarker: qsTr("scheduled →")
     property string dueTodayLabel: qsTr("Due today")
     property string dueNextWeekLabel: qsTr("Next 7 days")
     property string streakLabel: qsTr("Day streak")
@@ -47,11 +47,7 @@ ThemedCard {
         {
             return ""
         }
-        if (column > root.columns - 3)
-        {
-            return ""
-        }
-        return Qt.locale().standaloneMonthName(monday.getMonth(), Locale.ShortFormat)
+        return Qt.locale(Qt.uiLanguage).standaloneMonthName(monday.getMonth(), Locale.ShortFormat)
     }
 
     component Swatch: ActivityCell {
@@ -159,6 +155,7 @@ ThemedCard {
                             textStyle: Theme.text.caption
                             x: index * (root.cellSize + root.cellGap)
                             text: root.monthLabel(index)
+                            visible: x + implicitWidth + Theme.spacing.small <= scheduledText.x
                         }
                     }
 
@@ -166,7 +163,7 @@ ThemedCard {
                         id: scheduledText
                         objectName: "activityScheduledLabel"
                         anchors.right: parent.right
-                        text: root.futureMarker + " →"
+                        text: root.futureMarker
                         color: Theme.activity.scheduled
                         font.pixelSize: Theme.fontSize.small
                         font.bold: true
