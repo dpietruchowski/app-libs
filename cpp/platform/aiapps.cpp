@@ -99,6 +99,35 @@ QVariantList catalog()
     return apps;
 }
 
+QStringList names()
+{
+    QStringList result;
+    for (const AiAppEntry& entry : kAiApps)
+    {
+        result.append(QString::fromLatin1(entry.name));
+    }
+    return result;
+}
+
+QString idAt(int index)
+{
+    if (index < 0 || index >= static_cast<int>(kAiApps.size()))
+    {
+        return QString();
+    }
+    return QString::fromLatin1(kAiApps[static_cast<size_t>(index)].id);
+}
+
+int indexOf(const QString& id)
+{
+    const AiAppEntry* entry = find(id);
+    if (entry == nullptr)
+    {
+        return -1;
+    }
+    return static_cast<int>(entry - kAiApps.data());
+}
+
 void open(const QString& id)
 {
     const AiAppEntry* entry = find(id);
