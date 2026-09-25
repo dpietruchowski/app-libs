@@ -272,6 +272,15 @@ QtObject {
             readonly property int iconSize: theme.scaled(24)
         }
 
+        readonly property QtObject inline: QtObject {
+            readonly property int size: theme.scaled(35)
+            readonly property int width: size
+            readonly property int height: size
+            readonly property int fontSize: theme.fontSize.medium
+            readonly property int iconSize: theme.scaled(19)
+            readonly property int radius: Math.round(theme.radius.xLarge * 0.8)
+        }
+
         readonly property QtObject iconSmall: QtObject {
             readonly property int size: theme.scaled(33)
             readonly property int width: size
