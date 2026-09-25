@@ -38,6 +38,7 @@ Control {
             }
 
             ThemedButton {
+                objectName: "copyTextButton"
                 text: qsTr("Copy")
                 buttonStyle: Theme.button.ghost
                 buttonSize: Theme.button.small
@@ -49,6 +50,7 @@ Control {
             }
 
             ThemedButton {
+                objectName: "pasteTextButton"
                 text: qsTr("Paste")
                 buttonStyle: Theme.button.ghost
                 buttonSize: Theme.button.small
