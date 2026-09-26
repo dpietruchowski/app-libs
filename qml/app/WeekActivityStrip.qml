@@ -6,6 +6,7 @@ Row {
 
     property var dailyStages: []
     property var dueCounts: []
+    property var goalsCompleted: []
     property int todayIndex: -1
     property real cellSize: Theme.activity.weekCellSize
 
@@ -19,7 +20,7 @@ Row {
         Column {
             required property int index
             readonly property int offset: index - root.todayIndex
-            readonly property string dayName: Qt.locale().dayName(index + 1, Locale.NarrowFormat)
+            readonly property string dayName: Qt.locale(Qt.uiLanguage).dayName(index + 1, Locale.NarrowFormat)
 
             spacing: Theme.spacing.xSmall
 
@@ -28,7 +29,10 @@ Row {
                 objectName: "weekDot" + index
 
                 property bool animationReady: false
-                property string text: (filled ? "active" : "inactive")
+                readonly property bool active: root.goalsCompleted.length > 0
+                                               ? root.goalsCompleted[index] === true
+                                               : filled
+                property string text: (active ? "active" : "inactive")
                                       + (today ? " (today)" : "")
 
                 anchors.horizontalCenter: parent.horizontalCenter
