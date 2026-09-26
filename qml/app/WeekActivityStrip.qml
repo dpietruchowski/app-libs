@@ -7,19 +7,11 @@ Row {
     property var dailyStages: []
     property var dueCounts: []
     property int todayIndex: -1
-    property real cellSize: Theme.activity.cellSize
-    property bool clickable: false
+    property real cellSize: Theme.activity.weekCellSize
 
     readonly property int maxDue: Math.max(1, ...dueCounts.slice(1))
 
-    signal clicked()
-
-    spacing: Theme.spacing.large
-
-    TapHandler {
-        enabled: root.clickable
-        onTapped: root.clicked()
-    }
+    spacing: Theme.spacing.medium
 
     Repeater {
         model: 7
@@ -27,6 +19,7 @@ Row {
         Column {
             required property int index
             readonly property int offset: index - root.todayIndex
+            readonly property string dayName: Qt.locale().dayName(index + 1, Locale.NarrowFormat)
 
             spacing: Theme.spacing.xSmall
 
@@ -41,7 +34,6 @@ Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: root.cellSize
                 height: root.cellSize
-                radius: width / 2
                 future: offset > 0
                 today: offset === 0
                 count: future ? (root.dueCounts[offset] ?? 0) : (root.dailyStages[index] ?? 0)
@@ -89,7 +81,7 @@ Row {
             Text {
                 objectName: "weekDayLabel" + index
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: Qt.locale().dayName(index + 1, Locale.NarrowFormat)
+                text: dayName.charAt(0).toUpperCase() + dayName.slice(1)
                 font.pixelSize: Theme.fontSize.xSmall
                 font.bold: offset === 0
                 color: offset === 0 ? Theme.colors.textPrimary : Theme.colors.textSecondary

@@ -245,6 +245,7 @@ QtObject {
 
     property QtObject activity: QtObject {
         readonly property int cellSize: theme.scaled(12)
+        readonly property int weekCellSize: theme.scaled(22)
         readonly property color scheduled: theme.colors.secondary
         readonly property real minTint: 0.35
         readonly property real maxTint: 1.0
@@ -499,6 +500,7 @@ QtObject {
         readonly property string globe: "qrc:/Themed/Icons/globe.svg"
         readonly property string curvedArrow: "qrc:/Themed/Icons/curved-arrow.svg"
         readonly property string calendar: "qrc:/Themed/Icons/calendar.svg"
+        readonly property string chart: "qrc:/Themed/Icons/chart.svg"
         readonly property string timer: "qrc:/Themed/Icons/timer.svg"
         readonly property string aiApp: "qrc:/Themed/Icons/ai-app.svg"
     }
