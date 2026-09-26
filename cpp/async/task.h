@@ -55,6 +55,16 @@ template <typename U> Result<U> readyFailure(const QString& error)
         return Result<U>::failure(error);
     }
 }
+
+template <typename U> QFuture<Result<U>> readyFuture(Result<U> result)
+{
+    QPromise<Result<U>> promise;
+    QFuture<Result<U>> future = promise.future();
+    promise.start();
+    promise.addResult(std::move(result));
+    promise.finish();
+    return future;
+}
 }
 
 template <typename T> class [[nodiscard]] Task final
@@ -80,11 +90,16 @@ public:
         QMetaObject::invokeMethod(worker,
                                   [promise, work = std::move(work)]() mutable
                                   {
-                                      promise->addResult(work());
+                                      promise->addResult(tryResult(work));
                                       promise->finish();
                                   });
 
         return Task<T>(worker, std::move(future));
+    }
+
+    static Task<T> ready(QObject* worker, Result<T> result)
+    {
+        return Task<T>(worker, task_detail::readyFuture(std::move(result)));
     }
 
     template <typename F> auto then(F&& fn) { return thenOn(m_worker, std::forward<F>(fn)); }
@@ -189,12 +204,7 @@ private:
             {
                 if (result.isFailure())
                 {
-                    QPromise<Result<U>> promise;
-                    QFuture<Result<U>> future = promise.future();
-                    promise.start();
-                    promise.addResult(task_detail::readyFailure<U>(result.error()));
-                    promise.finish();
-                    return future;
+                    return task_detail::readyFuture(task_detail::readyFailure<U>(result.error()));
                 }
                 return task_detail::callWith(fn, result).future();
             });

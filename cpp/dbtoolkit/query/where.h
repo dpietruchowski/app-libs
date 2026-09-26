@@ -17,13 +17,13 @@ public:
     Where(const TableAlias& alias, const QString& column);
 
     Where& equals(const QVariant& value);
+    Where& equalsColumn(const QString& column);
+    Where& equalsColumn(const TableAlias& alias, const QString& column);
     Where& notEquals(const QVariant& value);
     Where& lessThan(const QVariant& value);
     Where& greaterThan(const QVariant& value);
     Where& lessThanOrEquals(const QVariant& value);
-    Where& lessOrEqual(const QVariant& value);
     Where& greaterThanOrEquals(const QVariant& value);
-    Where& greaterOrEqual(const QVariant& value);
     Where& like(const QString& pattern);
     Where& glob(const QString& pattern);
     Where& in(const QVariantList& values);

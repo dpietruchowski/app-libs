@@ -18,5 +18,7 @@ public:
     QDate currentDate() const override;
 
 private:
+    void notifyDateWatcher() const;
+
     QDateTime m_currentDateTime;
 };

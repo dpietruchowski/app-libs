@@ -59,6 +59,7 @@ Flow {
         model: flow.model
 
         ThemedButton {
+            objectName: "answerOption" + index
             text: modelData.text !== undefined ? modelData.text : modelData
             buttonSize: Theme.button.medium
             buttonStyle: modelData.style !== undefined ? modelData.style : Theme.button.secondary

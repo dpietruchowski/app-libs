@@ -2,21 +2,51 @@ import QtQuick
 import QtQuick.Controls
 import Themed.Components
 
-Text {
+TextEdit {
     id: root
 
     property string content: ""
     property bool centerAlign: true
     property int maxLines: 0
     property bool styled: false
+    property int slotPosition: -1
+    property int slotLength: 0
+    property string revealedIcon: Theme.icons.eye
 
-    textFormat: styled ? Text.StyledText : Text.RichText
-    wrapMode: Text.WordWrap
-    maximumLineCount: maxLines > 0 ? maxLines : 1000000
-    elide: maxLines > 0 ? Text.ElideRight : Text.ElideNone
+    readonly property int revealedIconSize: Math.round(font.pixelSize > 0 ? font.pixelSize : lineMetrics.height)
+    readonly property string revealedImage: {
+        const size = revealedIconSize
+        const source = revealedIconProvider.svgSource
+        return source === "" ? ""
+            : '<img src="' + source + '" width="' + size + '" height="' + size
+              + '" style="vertical-align: middle">'
+    }
+
+    readonly property rect slotRect: {
+        const start = rectAt(slotPosition)
+        const end = rectAt(slotPosition >= 0 ? slotPosition + slotLength : -1)
+        if (start.y + start.height > visibleHeight)
+            return Qt.rect(0, 0, 0, 0)
+        return Qt.rect(start.x, start.y, end.x - start.x, start.height)
+    }
+
+    readonly property real visibleHeight: maxLines > 0
+                                          ? Math.min(implicitHeight, Math.ceil(lineMetrics.lineSpacing) * maxLines)
+                                          : implicitHeight
+
+    height: visibleHeight
+    clip: visibleHeight < implicitHeight
+    readOnly: true
+    activeFocusOnPress: false
+    selectByMouse: false
+    selectByKeyboard: false
+    cursorVisible: false
+    textFormat: TextEdit.RichText
+    wrapMode: TextEdit.WordWrap
     color: Theme.colors.textPrimary
-    horizontalAlignment: centerAlign ? Text.AlignHCenter : Text.AlignLeft
-    verticalAlignment: Text.AlignVCenter
+    horizontalAlignment: centerAlign ? TextEdit.AlignHCenter : TextEdit.AlignLeft
+    verticalAlignment: TextEdit.AlignTop
+    text: styled ? buildStyled(content) : buildHtml(content)
 
     function buildStyled(content) {
         var errorColor = Theme.colors.error
@@ -31,6 +61,7 @@ Text {
                      '<font color="' + successColor + '">$1</font>')
             .replace(/<span class="wrong">([\s\S]*?)<\/span>/g,
                      '<font color="' + errorColor + '"><s>$1</s></font>')
+            .replace(/<span class="revealed"><\/span>/g, root.revealedImage)
             .trim()
     }
 
@@ -64,13 +95,31 @@ Text {
                     </head>
                     <body>
                         <div style="text-align: ${centerAlign ? 'center' : 'left'};">
-                            ${content}
+                            ${content.replace(/<span class="revealed"><\/span>/g, root.revealedImage)}
                         </div>
                     </body>
                 </html>`
     }
 
-    text: styled ? buildStyled(content) : buildHtml(content)
+    FontMetrics {
+        id: lineMetrics
+        font: root.font
+    }
 
-    onContentChanged: text = styled ? buildStyled(content) : buildHtml(content)
+    ColoredSvgProvider {
+        id: revealedIconProvider
+        svgOriginSource: root.revealedIcon
+        color: Theme.colors.error
+        width: root.revealedIconSize
+        height: root.revealedIconSize
+    }
+
+    function rectAt(position) {
+        root.text
+        root.width
+        root.contentWidth
+        root.contentHeight
+        return position >= 0 && position <= root.length ? root.positionToRectangle(position)
+                                                        : Qt.rect(0, 0, 0, 0)
+    }
 }

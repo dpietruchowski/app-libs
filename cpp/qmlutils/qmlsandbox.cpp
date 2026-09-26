@@ -1,8 +1,10 @@
 #include "qmlsandbox.h"
 
+#include <QCoreApplication>
 #include <QDebug>
 #include <QDir>
 #include <QDirIterator>
+#include <QFile>
 #include <QFileInfo>
 #include <QFileSystemWatcher>
 #include <QQmlEngine>
@@ -17,6 +19,16 @@ QStringList qmlFilesIn(const QString& directory)
 {
     return QDir(directory).entryList(QStringList { QStringLiteral("*.qml") }, QDir::Files,
                                      QDir::Name);
+}
+
+bool isQmlSingleton(const QString& path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        return false;
+    }
+    return file.readLine(64).startsWith("pragma Singleton");
 }
 }
 
@@ -49,7 +61,12 @@ QmlSandbox::QmlSandbox(QQmlEngine& engine, const QString& directory, const QStri
 
     m_watcher = new QFileSystemWatcher(this);
     watchAllTrees();
-    connect(m_watcher, &QFileSystemWatcher::fileChanged, this, [this] { m_debounce->start(); });
+    connect(m_watcher, &QFileSystemWatcher::fileChanged, this,
+            [this](const QString& path)
+            {
+                m_singletonChanged = m_singletonChanged || isQmlSingleton(path);
+                m_debounce->start();
+            });
     connect(m_watcher, &QFileSystemWatcher::directoryChanged, this,
             [this] { m_debounce->start(); });
 
@@ -97,6 +114,14 @@ void QmlSandbox::reload()
     rescanFiles();
     watchAllTrees();
     m_engine.clearComponentCache();
+
+    if (m_singletonChanged)
+    {
+        m_singletonChanged = false;
+        qInfo() << "QML sandbox: singleton changed, restarting";
+        QCoreApplication::exit(kRestartExitCode);
+        return;
+    }
 
     ++m_revision;
     emit revisionChanged();

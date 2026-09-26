@@ -35,6 +35,7 @@ QtObject {
         readonly property color primaryDark: theme.isNightMode ? "#4080E6" : "#2563EB"
         readonly property color primaryVariant: theme.isNightMode ? "#70AFFA" : "#60A5FA"
         readonly property color secondary: theme.isNightMode ? "#A78BFA" : "#8B5CF6"
+        readonly property color secondaryVariant: theme.isNightMode ? "#C4B5FD" : "#A78BFA"
         readonly property color accent: theme.isNightMode ? "#FFA826" : "#F59E0B"
 
         readonly property color info: theme.isNightMode ? "#5B9AF6" : "#3B82F6"
@@ -229,6 +230,28 @@ QtObject {
         readonly property color color: theme.colors.divider
     }
 
+    property QtObject chip: QtObject {
+        readonly property int horizontalPadding: theme.padding.medium
+        readonly property int verticalPadding: theme.padding.small
+        readonly property int radius: theme.radius.full
+        readonly property int fontSize: theme.fontSize.normal
+        readonly property int borderWidth: theme.border.thin
+        readonly property int selectedBorderWidth: theme.border.medium
+        readonly property real selectedTint: 0.14
+        readonly property real pressedTint: 0.28
+        readonly property real disabledOpacity: 0.45
+        readonly property int animationDuration: 120
+    }
+
+    property QtObject activity: QtObject {
+        readonly property int cellSize: theme.scaled(12)
+        readonly property int weekCellSize: theme.scaled(22)
+        readonly property color scheduled: theme.colors.secondary
+        readonly property real minTint: 0.35
+        readonly property real maxTint: 1.0
+        readonly property int animationDuration: 250
+    }
+
     property QtObject slider: QtObject {
         readonly property int width: theme.contentWidth * 0.6
         readonly property int handleSize: theme.scaled(20)
@@ -256,6 +279,15 @@ QtObject {
             readonly property int height: size
             readonly property int fontSize: theme.fontSize.medium
             readonly property int iconSize: theme.scaled(24)
+        }
+
+        readonly property QtObject inline: QtObject {
+            readonly property int size: theme.scaled(35)
+            readonly property int width: size
+            readonly property int height: size
+            readonly property int fontSize: theme.fontSize.medium
+            readonly property int iconSize: theme.scaled(19)
+            readonly property int radius: Math.round(theme.radius.xLarge * 0.8)
         }
 
         readonly property QtObject iconSmall: QtObject {
@@ -414,6 +446,11 @@ QtObject {
         readonly property real maxHeightRatio: 0.75
     }
 
+    property QtObject input: QtObject {
+        readonly property int searchHeight: theme.scaled(44)
+        readonly property int searchDelay: 150
+    }
+
     property QtObject icon: QtObject {
         readonly property int small: theme.scaled(16)
         readonly property int medium: theme.scaled(24)
@@ -442,6 +479,7 @@ QtObject {
         readonly property string expand: "qrc:/Themed/Icons/expand.svg"
         readonly property string collapse: "qrc:/Themed/Icons/collapse.svg"
         readonly property string info: "qrc:/Themed/Icons/info.svg"
+        readonly property string help: "qrc:/Themed/Icons/help.svg"
         readonly property string success: "qrc:/Themed/Icons/success.svg"
         readonly property string warning: "qrc:/Themed/Icons/warning.svg"
         readonly property string error: "qrc:/Themed/Icons/error.svg"
@@ -456,10 +494,13 @@ QtObject {
         readonly property string copy: "qrc:/Themed/Icons/copy.svg"
         readonly property string paste: "qrc:/Themed/Icons/import.svg"
         readonly property string speaker: "qrc:/Themed/Icons/speaker.svg"
+        readonly property string eye: "qrc:/Themed/Icons/eye.svg"
+        readonly property string lightbulb: "qrc:/Themed/Icons/lightbulb.svg"
         readonly property string translate: "qrc:/Themed/Icons/translate.svg"
         readonly property string globe: "qrc:/Themed/Icons/globe.svg"
         readonly property string curvedArrow: "qrc:/Themed/Icons/curved-arrow.svg"
         readonly property string calendar: "qrc:/Themed/Icons/calendar.svg"
+        readonly property string chart: "qrc:/Themed/Icons/chart.svg"
         readonly property string timer: "qrc:/Themed/Icons/timer.svg"
         readonly property string aiApp: "qrc:/Themed/Icons/ai-app.svg"
     }
