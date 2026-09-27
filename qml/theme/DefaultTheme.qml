@@ -504,5 +504,6 @@ QtObject {
         readonly property string timer: "qrc:/Themed/Icons/timer.svg"
         readonly property string aiApp: "qrc:/Themed/Icons/ai-app.svg"
         readonly property string fillinLogo: "qrc:/Themed/Icons/fillin-logo.svg"
+        readonly property string fillinLogoColor: "qrc:/Themed/Icons/fillin-logo-color.svg"
     }
 }
