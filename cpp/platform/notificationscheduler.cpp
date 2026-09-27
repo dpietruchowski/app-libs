@@ -43,6 +43,15 @@ void NotificationScheduler::cancel(int notificationId)
 #endif
 }
 
+void NotificationScheduler::dismiss(int displayId)
+{
+#ifdef NOTIFICATION_SCHEDULER_BACKEND
+    NOTIFICATION_SCHEDULER_BACKEND::dismiss(displayId);
+#else
+    Q_UNUSED(displayId);
+#endif
+}
+
 void NotificationScheduler::requestPermission()
 {
 #ifdef NOTIFICATION_SCHEDULER_BACKEND

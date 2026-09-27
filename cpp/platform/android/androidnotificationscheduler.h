@@ -11,5 +11,6 @@ public:
     static bool isAvailable();
     static void schedule(const ScheduledNotification& notification);
     static void cancel(int notificationId);
+    static void dismiss(int displayId);
     static void requestPermission();
 };

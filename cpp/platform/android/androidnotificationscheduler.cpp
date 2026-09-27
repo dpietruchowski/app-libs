@@ -3,6 +3,7 @@
 #include "jni/alarmmanager.h"
 #include "jni/context.h"
 #include "jni/intent.h"
+#include "jni/notificationmanager.h"
 #include "jni/pendingintent.h"
 #include "platform/notificationscheduler.h"
 
@@ -40,7 +41,9 @@ void AndroidNotificationScheduler::schedule(const ScheduledNotification& notific
     if (!isAvailable())
         return;
 
+    const int displayId = notification.displayId != 0 ? notification.displayId : notification.id;
     auto intent = receiverIntent(notification.id)
+                      .putExtra(QStringLiteral("display_id"), displayId)
                       .putExtra(QStringLiteral("channel_id"), notification.channelId)
                       .putExtra(QStringLiteral("channel_name"), notification.channelName)
                       .putExtra(QStringLiteral("title"), notification.title)
@@ -60,6 +63,11 @@ void AndroidNotificationScheduler::cancel(int notificationId)
     auto pendingIntent
         = android::PendingIntent::getBroadcast(notificationId, receiverIntent(notificationId));
     android::AlarmManager::instance().cancel(pendingIntent);
+}
+
+void AndroidNotificationScheduler::dismiss(int displayId)
+{
+    android::NotificationManager::instance().cancel(displayId);
 }
 
 void AndroidNotificationScheduler::requestPermission()
