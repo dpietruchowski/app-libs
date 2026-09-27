@@ -503,5 +503,6 @@ QtObject {
         readonly property string chart: "qrc:/Themed/Icons/chart.svg"
         readonly property string timer: "qrc:/Themed/Icons/timer.svg"
         readonly property string aiApp: "qrc:/Themed/Icons/ai-app.svg"
+        readonly property string fillinLogo: "qrc:/Themed/Icons/fillin-logo.svg"
     }
 }
