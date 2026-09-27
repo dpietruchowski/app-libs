@@ -21,6 +21,8 @@ Item {
 
     property var queue: []
 
+    onSuppressedChanged: if (!suppressed && !busy) startNext()
+
     function show(previousValue, value) {
         if (previousValue === value)
             return
@@ -42,7 +44,7 @@ Item {
     }
 
     function startNext() {
-        if (queue.length === 0) {
+        if (queue.length === 0 || suppressed) {
             mark.opacity = 0
             busy = false
             return
