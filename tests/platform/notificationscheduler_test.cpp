@@ -19,3 +19,8 @@ TEST(NotificationSchedulerTest, WithoutBackend_ScheduleAndCancelAreNoOps)
     EXPECT_NO_FATAL_FAILURE(NotificationScheduler::schedule(notification));
     EXPECT_NO_FATAL_FAILURE(NotificationScheduler::cancel(notification.id));
 }
+
+TEST(NotificationSchedulerTest, WithoutBackend_RequestPermissionIsNoOp)
+{
+    EXPECT_NO_FATAL_FAILURE(NotificationScheduler::requestPermission());
+}

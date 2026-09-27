@@ -6,6 +6,9 @@
 #include "jni/pendingintent.h"
 #include "platform/notificationscheduler.h"
 
+#include <QCoreApplication>
+#include <QtCore/private/qandroidextras_p.h>
+
 namespace
 {
 
@@ -57,4 +60,15 @@ void AndroidNotificationScheduler::cancel(int notificationId)
     auto pendingIntent
         = android::PendingIntent::getBroadcast(notificationId, receiverIntent(notificationId));
     android::AlarmManager::instance().cancel(pendingIntent);
+}
+
+void AndroidNotificationScheduler::requestPermission()
+{
+    if (QNativeInterface::QAndroidApplication::sdkVersion() < 33)
+        return;
+
+    const QString permission = QStringLiteral("android.permission.POST_NOTIFICATIONS");
+    if (QtAndroidPrivate::checkPermission(permission).result() == QtAndroidPrivate::Authorized)
+        return;
+    QtAndroidPrivate::requestPermission(permission);
 }
