@@ -131,7 +131,10 @@ Item {
         id: repeatTimer
         interval: Theme.keyboard.repeatInterval
         repeat: true
-        onTriggered: root.activated(root.value)
+        onTriggered: {
+            KeyboardHaptics.keyPress()
+            root.activated(root.value)
+        }
     }
 
     MouseArea {
@@ -145,6 +148,7 @@ Item {
 
         onPressed: {
             consumed = false
+            KeyboardHaptics.keyPress()
             root.touched()
         }
 
@@ -153,7 +157,9 @@ Item {
                 alternatesPopup.highlighted = 0
                 alternatesPopup.visible = true
                 consumed = true
+                KeyboardHaptics.longPress()
             } else if (root.repeats) {
+                KeyboardHaptics.keyPress()
                 root.activated(root.value)
                 repeatTimer.start()
                 consumed = true
