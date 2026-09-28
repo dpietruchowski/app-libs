@@ -1,6 +1,8 @@
 add_subdirectory(jni)
 
 target_sources(app_platform PRIVATE
+    androidlaunchaction.h
+    androidlaunchaction.cpp
     androidnotification.h
     androidnotification.cpp
     androidnotificationscheduler.h
