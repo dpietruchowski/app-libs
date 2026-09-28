@@ -23,15 +23,18 @@ done
 ANDROID_BUILD_DIR="${ANDROID_BUILD_DIR:-build-android}"
 ANDROID_IMAGE_TAG="${ANDROID_IMAGE_TAG:-app-libs-qt6-android:6.10-api36}"
 ANDROID_SDK_BUILD_TOOLS="${ANDROID_SDK_BUILD_TOOLS:-36.0.0}"
+ANDROID_DEBUG_HOME="${ANDROID_DEBUG_HOME:-.android-debug}"
 
 ensure_android_image() {
     docker build -t "$ANDROID_IMAGE_TAG" - < "$LIBS_DIR/docker/Dockerfile.android"
 }
 
 android_run() {
+    mkdir -p "${PROJECT_DIR}/${ANDROID_DEBUG_HOME}"
     docker run --rm \
         -v "${PROJECT_DIR}:/home/user/project:ro" \
         -v "${PROJECT_DIR}/${ANDROID_BUILD_DIR}:/home/user/build" \
+        -v "${PROJECT_DIR}/${ANDROID_DEBUG_HOME}:/home/user/.android" \
         "$@"
 }
 
