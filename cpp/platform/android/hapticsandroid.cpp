@@ -13,11 +13,14 @@ namespace
 {
 
 constexpr int LongPressFeedback = 0;
+constexpr int KeyboardTapFeedback = 3;
 
 std::optional<int> viewFeedbackFor(Haptics::Effect effect)
 {
     switch (effect)
     {
+        case Haptics::Effect::KeyPress:
+            return KeyboardTapFeedback;
         case Haptics::Effect::LongPress:
             return LongPressFeedback;
         default:
@@ -49,9 +52,6 @@ struct EffectDescription
 };
 
 constexpr int DefaultAmplitude = -1;
-constexpr int NoPredefinedEffect = -1;
-constexpr qint64 KeyPressDurationMs = 12;
-constexpr int KeyPressAmplitude = 60;
 constexpr int MaxAmplitude = 255;
 constexpr qint64 MasteryFallbackDurationMs = 520;
 constexpr qint64 RewardFallbackDurationMs = 400;
@@ -103,9 +103,8 @@ EffectDescription describe(Haptics::Effect effect)
     {
         case Haptics::Effect::Tick:
             return { 2, 10, DefaultAmplitude };
-        case Haptics::Effect::KeyPress:
-            return { NoPredefinedEffect, KeyPressDurationMs, KeyPressAmplitude };
         case Haptics::Effect::Click:
+        case Haptics::Effect::KeyPress:
         case Haptics::Effect::LongPress:
             return { 0, 20, DefaultAmplitude };
         case Haptics::Effect::DoubleClick:
@@ -140,11 +139,9 @@ void HapticsAndroid::play(Haptics::Effect effect)
 
     const EffectDescription description = describe(effect);
     const Waveform waveform = describeWaveform(effect);
-    bool played = false;
-    if (waveform.timings != nullptr)
-        played = vibrator.vibrateWaveform(*waveform.timings, *waveform.amplitudes);
-    else if (description.predefinedId != NoPredefinedEffect)
-        played = vibrator.vibratePredefined(description.predefinedId);
+    const bool played = waveform.timings != nullptr
+        ? vibrator.vibrateWaveform(*waveform.timings, *waveform.amplitudes)
+        : vibrator.vibratePredefined(description.predefinedId);
     if (!played)
         vibrator.vibrateOneShot(description.durationMs, description.amplitude);
 }
