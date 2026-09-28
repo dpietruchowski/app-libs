@@ -15,6 +15,8 @@ qt_add_qml_module(${LIBRARY_NAME}
     SOURCES
         filelistmodel.h
         filelistmodel.cpp
+        keyboardbuffer.h
+        keyboardbuffer.cpp
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Themed/Components
 )
 

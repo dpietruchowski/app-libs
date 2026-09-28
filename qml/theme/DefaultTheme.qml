@@ -451,6 +451,35 @@ QtObject {
         readonly property int searchDelay: 150
     }
 
+    property QtObject keyboard: QtObject {
+        readonly property int keyHeight: theme.scaled(44)
+        readonly property int keySpacing: theme.scaled(5)
+        readonly property int rowSpacing: theme.scaled(8)
+        readonly property int padding: theme.padding.xSmall
+        readonly property int keyRadius: theme.radius.medium
+        readonly property int fontSize: theme.fontSize.large
+        readonly property int specialFontSize: theme.fontSize.normal
+        readonly property int iconSize: theme.scaled(20)
+        readonly property real specialKeyUnits: 1.5
+        readonly property real previewScale: 1.3
+        readonly property int repeatDelay: 400
+        readonly property int repeatInterval: 60
+        readonly property int doubleTapInterval: 300
+        readonly property color background: theme.isNightMode ? "#141414" : "#E4E5E8"
+        readonly property color keyBackground: theme.isNightMode ? "#2D2D2D" : "#FFFFFF"
+        readonly property color specialKeyBackground: theme.isNightMode ? "#242424" : "#C9CBD0"
+        readonly property color keyPressedBackground: theme.isNightMode ? "#3A3A3A" : "#D5D7DB"
+        readonly property color activeKeyBackground: theme.colors.primary
+        readonly property color activeKeyText: theme.colors.textInverse
+        readonly property color accentedKeyText: theme.colors.primary
+        readonly property color keyText: theme.colors.textPrimary
+        readonly property color previewBackground: theme.colors.dialogSurface
+        readonly property color previewBorder: theme.colors.border
+        readonly property string shiftIcon: theme.icons.chevronUp
+        readonly property string backspaceIcon: theme.icons.back
+        readonly property string enterIcon: theme.icons.check
+    }
+
     property QtObject icon: QtObject {
         readonly property int small: theme.scaled(16)
         readonly property int medium: theme.scaled(24)
