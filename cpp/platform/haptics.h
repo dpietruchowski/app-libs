@@ -8,8 +8,8 @@
 // ramping three-pulse waveform at full amplitude and `LevelUp` a shorter,
 // softer two-pulse variant of it, the remaining effects use predefined haptic
 // primitives where the device supports them and a one-shot pulse otherwise.
-// `KeyPress` and `LongPress` go through the window's view haptic feedback, like
-// the system keyboard, so they follow the user's touch feedback setting.
+// `KeyPress` plays a short low-amplitude pulse; `LongPress` goes through the
+// window's view haptic feedback, so it follows the user's touch feedback setting.
 // Platforms without a backend do nothing.
 class Haptics final
 {
