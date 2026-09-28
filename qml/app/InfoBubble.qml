@@ -49,8 +49,21 @@ Item {
         root.anchorRect = root.target.mapToItem(root, 0, 0, root.target.width, root.target.height)
     }
 
-    onWidthChanged: if (visible) updateAnchor()
-    onHeightChanged: if (visible) updateAnchor()
+    function scheduleAnchorUpdate() {
+        if (root.visible)
+            Qt.callLater(root.updateAnchor)
+    }
+
+    onWidthChanged: scheduleAnchorUpdate()
+    onHeightChanged: scheduleAnchorUpdate()
+
+    Connections {
+        target: root.target
+        function onXChanged() { root.scheduleAnchorUpdate() }
+        function onYChanged() { root.scheduleAnchorUpdate() }
+        function onWidthChanged() { root.scheduleAnchorUpdate() }
+        function onHeightChanged() { root.scheduleAnchorUpdate() }
+    }
 
     Behavior on opacity {
         NumberAnimation {
