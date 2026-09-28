@@ -149,6 +149,10 @@ Rectangle {
                 onActivated: root.symbolsActive = !root.symbolsActive
             }
 
+            CharacterKey {
+                modelData: "'"
+            }
+
             ThemedKeyboardKey {
                 objectName: "keyboardKeySpace"
                 width: root.innerWidth - 2 * root.specialWidth - root.unit
@@ -160,10 +164,6 @@ Rectangle {
                     if (root.buffer)
                         root.buffer.insert(" ")
                 }
-            }
-
-            CharacterKey {
-                modelData: "'"
             }
 
             ThemedKeyboardKey {
