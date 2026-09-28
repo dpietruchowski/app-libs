@@ -3,13 +3,7 @@
 #include <QGuiApplication>
 #include <QInputMethod>
 #include <QScreen>
-#include <QSettings>
 #include <QTimer>
-
-namespace
-{
-const QString kRememberedHeightKey = QStringLiteral("keyboard/height");
-}
 
 #ifdef Q_OS_ANDROID
 #include <QFuture>
@@ -82,16 +76,9 @@ extern "C" JNIEXPORT void JNICALL Java_com_fillin_app_KeyboardHeightProvider_onK
 }
 #endif
 
-KeyboardInsetProvider::KeyboardInsetProvider(const QString& settingsPath, QObject* parent)
+KeyboardInsetProvider::KeyboardInsetProvider(QObject* parent)
     : QObject(parent)
-    , m_settingsPath(settingsPath)
 {
-    if (!m_settingsPath.isEmpty())
-    {
-        QSettings settings(m_settingsPath, QSettings::IniFormat);
-        m_rememberedHeight = settings.value(kRememberedHeightKey, 0).toInt();
-    }
-
 #ifdef Q_OS_ANDROID
     g_instance = this;
 
@@ -147,7 +134,7 @@ void KeyboardInsetProvider::setBottom(int bottom)
 {
     if (bottom > 0 && !QGuiApplication::inputMethod()->isAnimating())
     {
-        rememberHeight(bottom);
+        setRememberedHeight(bottom);
     }
 
     if (m_bottom == bottom)
@@ -159,7 +146,7 @@ void KeyboardInsetProvider::setBottom(int bottom)
     emit bottomChanged();
 }
 
-void KeyboardInsetProvider::rememberHeight(int height)
+void KeyboardInsetProvider::setRememberedHeight(int height)
 {
     if (m_rememberedHeight == height)
     {
@@ -167,10 +154,5 @@ void KeyboardInsetProvider::rememberHeight(int height)
     }
 
     m_rememberedHeight = height;
-    if (!m_settingsPath.isEmpty())
-    {
-        QSettings settings(m_settingsPath, QSettings::IniFormat);
-        settings.setValue(kRememberedHeightKey, m_rememberedHeight);
-    }
     emit rememberedHeightChanged();
 }
