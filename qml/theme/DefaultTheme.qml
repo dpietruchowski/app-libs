@@ -499,6 +499,7 @@ QtObject {
         readonly property string translate: "qrc:/Themed/Icons/translate.svg"
         readonly property string globe: "qrc:/Themed/Icons/globe.svg"
         readonly property string curvedArrow: "qrc:/Themed/Icons/curved-arrow.svg"
+        readonly property string repeat: "qrc:/Themed/Icons/repeat.svg"
         readonly property string calendar: "qrc:/Themed/Icons/calendar.svg"
         readonly property string chart: "qrc:/Themed/Icons/chart.svg"
         readonly property string timer: "qrc:/Themed/Icons/timer.svg"
