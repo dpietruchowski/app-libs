@@ -19,27 +19,19 @@ the app draws under the system bars, so it is not a fix for the splash (see
 
 ## Recipe
 
-Only one stage may show the logo before QML takes over.
+Stages 1 and 2 draw only the background colour; the logo exists only in QML, which fades
+it in at its final position. The same on every API level and on desktop.
 
-- **API < 31:** stages 1 and 2 show just the background colour; QML fades the logo in at its
-  final position.
-  - Put the background in a `layer-list` drawable (`splash_plain.xml`), not a bare
-    `@color`. With a colour, MIUI draws the starting window black.
-  - Point `android:windowBackground` in `values/` and `values-v29/` at that drawable.
-  - Point `android.app.splash_screen_drawable` at a resource with an API-qualified
-    variant (`drawable/splash_start.xml` → plain, `drawable-v31/splash_start.xml` → with logo).
-- **API 31+:** the system splash always draws an icon and cannot be made logo-less without
-  a blank icon. Keep the logo in all three stages and make them match. Set
-  `android:windowSplashScreenAnimatedIcon` to an `inset` drawable. With no icon
-  background the canvas is 288 dp, so an 84 dp inset gives a 120 dp logo. Without that
-  attribute the system falls back to the adaptive launcher icon on a 240 dp canvas.
-  Stage 2 and QML then draw the same 120 dp logo, and the QML splash shows it without a
-  fade.
-- The app tells QML which case applies, e.g. a context property set from
-  `QNativeInterface::QAndroidApplication::sdkVersion() < 31`. On desktop there is no
-  native splash, so the fade-in is always fine there.
-- The QML splash dismisses itself only after the fade-in has finished, so a fast start does
-  not flash the logo.
+- One drawable, `splash.xml`: a `layer-list` with just the background colour. Not a bare
+  `@color` — with a colour, MIUI draws the starting window black.
+- Use it for `android:windowBackground` in `values/`, `values-v29/` and `values-v31/`, and
+  for the manifest `android.app.splash_screen_drawable`.
+- **API 31+:** the SplashScreen API always shows the starting window with an icon, but the
+  icon is any drawable. Set `android:windowSplashScreenBackground` to the same colour and
+  `android:windowSplashScreenAnimatedIcon` to a transparent shape. Without that attribute
+  the system falls back to the launcher icon. A blank splash icon is allowed on Google Play.
+- The QML splash starts with the logo at opacity 0, fades it in, and dismisses itself only
+  after the fade-in has finished, so a fast start does not flash the logo.
 - Hide the Qt splash (`QAndroidApplication::hideSplashScreen(0)`) on the first
   `QQuickWindow::frameSwapped`, not earlier. Otherwise a frame of the bare window shows
   between stage 2 and stage 3.
@@ -48,6 +40,8 @@ Only one stage may show the logo before QML takes over.
 
 - `android:windowSplashscreenContent` (API 26–30): MIUI renders it on black.
 - A hard-coded offset in the drawables: it depends on the device's bar heights.
+- Keeping the system logo on API 31+ (an `inset` logo matched to the QML size): it cannot
+  be combined with the fade-in, because the logo would vanish and come back.
 
 ## Verifying
 
