@@ -119,8 +119,11 @@ QtObject {
         }
     })
 
+    function codeFor(language) {
+        return (language ?? "").split(/[-_]/)[0].toLowerCase()
+    }
+
     function layoutFor(language) {
-        var code = (language ?? "").split(/[-_]/)[0].toLowerCase()
-        return layouts.languages[code] ?? layouts.fallback
+        return layouts.languages[layouts.codeFor(language)] ?? layouts.fallback
     }
 }

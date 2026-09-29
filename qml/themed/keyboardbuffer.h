@@ -50,6 +50,7 @@ public:
     Q_INVOKABLE void lockShift();
     Q_INVOKABLE void submit();
     Q_INVOKABLE void compose(const QStringList& characters);
+    Q_INVOKABLE void composeWord(const QString& word);
     Q_INVOKABLE void commitComposition();
 
 signals:
@@ -66,6 +67,7 @@ private:
     void placeCursor(int position);
     void setShiftState(ShiftState state);
     QString composedCharacter() const;
+    QString casedWord(const QString& word) const;
 
     QString m_text;
     int m_cursorPosition = 0;
@@ -74,4 +76,6 @@ private:
     int m_compositionIndex = 0;
     int m_compositionStart = 0;
     bool m_compositionUpperCase = false;
+    bool m_composingWord = false;
+    ShiftState m_wordShift = ShiftState::Off;
 };

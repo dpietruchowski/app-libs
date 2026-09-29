@@ -13,6 +13,9 @@ Rectangle {
     property string punctuation: layouts.t9Punctuation
     property string enterLabel: ""
     property bool symbolsActive: false
+    property var predictor: null
+    property bool predictiveEnabled: true
+    property int candidateLimit: 8
 
     readonly property var groups: symbolsActive ? symbolGroups : letterGroups
     readonly property var digitKeys: [root.punctuation].concat(root.groups).map((group, index) => ({
@@ -28,6 +31,13 @@ Rectangle {
     readonly property real keyHeight: Theme.keyboard.t9KeyHeight
     readonly property real tallKeyHeight: 2 * keyHeight + Theme.keyboard.rowSpacing
     readonly property bool upperCase: buffer !== null && buffer.upperCase && !symbolsActive
+    readonly property bool predictionAvailable: predictor !== null
+                                                && ["", "en"].includes(layouts.codeFor(language))
+    readonly property bool predicting: predictionAvailable && predictiveEnabled && !symbolsActive
+    readonly property real candidateBarSpace: predictionAvailable
+                                              ? Theme.keyboard.candidateBarHeight
+                                                + Theme.keyboard.rowSpacing
+                                              : 0
 
     signal keyTapped()
 
@@ -56,10 +66,87 @@ Rectangle {
         }
     }
 
+    function showWord(text) {
+        word.updating = true
+        root.buffer.composeWord(text)
+        word.updating = false
+        word.shown = text
+    }
+
+    function lookUpCandidates() {
+        word.candidates = root.predictor.candidates(word.digits, root.candidateLimit)
+    }
+
+    function typeDigit(digit, letters) {
+        if (!root.buffer)
+            return
+        var previous = word.shown
+        word.digits += digit
+        root.lookUpCandidates()
+        root.showWord(word.candidates.length > 0
+                      ? word.candidates[0].substring(0, word.digits.length)
+                      : previous + letters.charAt(0))
+    }
+
+    function eraseDigit() {
+        word.digits = word.digits.slice(0, -1)
+        if (word.digits === "") {
+            root.showWord("")
+            root.resetWord()
+            return
+        }
+        var previous = word.shown
+        root.lookUpCandidates()
+        root.showWord(word.candidates.length > 0
+                      ? word.candidates[0].substring(0, word.digits.length)
+                      : previous.slice(0, -1))
+    }
+
+    function chooseCandidate(index) {
+        root.showWord(word.candidates[index])
+        root.acceptWord()
+    }
+
+    function acceptWord() {
+        if (word.digits === "")
+            return
+        var accepted = word.shown
+        var known = word.candidates.indexOf(accepted) >= 0
+        root.resetWord()
+        root.buffer.commitComposition()
+        if (known)
+            root.predictor.learn(accepted)
+    }
+
+    function learnTypedWord() {
+        if (!root.predictionAvailable || root.predictiveEnabled || !root.buffer)
+            return
+        var typed = root.buffer.text.substring(0, root.buffer.cursorPosition).match(/[A-Za-z]+$/)
+        if (typed)
+            root.predictor.learn(typed[0])
+    }
+
+    function finishWord() {
+        root.acceptWord()
+        root.learnTypedWord()
+    }
+
+    function resetWord() {
+        word.digits = ""
+        word.candidates = []
+        word.shown = ""
+    }
+
     objectName: "t9Keyboard"
     implicitWidth: Theme.applicationWidth
-    implicitHeight: 4 * keyHeight + 3 * Theme.keyboard.rowSpacing + 2 * Theme.keyboard.padding
+    implicitHeight: candidateBarSpace + 4 * keyHeight + 3 * Theme.keyboard.rowSpacing
+                    + 2 * Theme.keyboard.padding
     color: Theme.keyboard.background
+
+    onPredictingChanged: {
+        if (!root.predicting)
+            root.acceptWord()
+    }
 
     ThemedKeyboardLayouts {
         id: layouts
@@ -68,6 +155,23 @@ Rectangle {
     QtObject {
         id: shiftTaps
         property real last: 0
+    }
+
+    QtObject {
+        id: word
+        property string digits: ""
+        property var candidates: []
+        property string shown: ""
+        property bool updating: false
+    }
+
+    Connections {
+        target: root.buffer
+
+        function onCompositionChanged() {
+            if (!word.updating && word.digits !== "" && !root.buffer.composing)
+                root.resetWord()
+        }
     }
 
     Timer {
@@ -82,6 +186,76 @@ Rectangle {
     Row {
         x: Theme.keyboard.padding
         y: Theme.keyboard.padding
+        visible: root.predictionAvailable
+        spacing: Theme.keyboard.keySpacing
+
+        ListView {
+            id: candidateList
+            objectName: "t9Candidates"
+            width: root.innerWidth - root.sideWidth - Theme.keyboard.keySpacing
+            height: Theme.keyboard.candidateBarHeight
+            orientation: ListView.Horizontal
+            clip: true
+            model: word.candidates
+
+            delegate: Item {
+                id: candidate
+
+                required property string modelData
+                required property int index
+
+                objectName: "t9Candidate_" + index
+                width: candidateText.implicitWidth + 2 * Theme.keyboard.candidatePadding
+                height: candidateList.height
+
+                Text {
+                    id: candidateText
+                    anchors.centerIn: parent
+                    text: candidate.modelData
+                    font.pixelSize: Theme.keyboard.candidateFontSize
+                    font.bold: candidate.modelData === word.shown
+                    color: candidate.modelData === word.shown
+                           ? Theme.keyboard.selectedCandidateText
+                           : Theme.keyboard.candidateText
+                }
+
+                Rectangle {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: candidate.index < candidateList.count - 1
+                    width: Theme.border.thin
+                    height: parent.height / 2
+                    color: Theme.keyboard.candidateSeparator
+                }
+
+                TapHandler {
+                    onTapped: {
+                        KeyboardHaptics.keyPress()
+                        root.keyTapped()
+                        root.chooseCandidate(candidate.index)
+                    }
+                }
+            }
+        }
+
+        ThemedKeyboardKey {
+            objectName: "t9KeyPredictive"
+            width: root.sideWidth
+            height: Theme.keyboard.candidateBarHeight
+            special: true
+            active: root.predictiveEnabled
+            label: "T9"
+            onTouched: root.keyTapped()
+            onActivated: {
+                root.acceptWord()
+                root.predictiveEnabled = !root.predictiveEnabled
+            }
+        }
+    }
+
+    Row {
+        x: Theme.keyboard.padding
+        y: Theme.keyboard.padding + root.candidateBarSpace
         spacing: Theme.keyboard.keySpacing
 
         Grid {
@@ -94,6 +268,7 @@ Rectangle {
 
                 ThemedKeyboardKey {
                     required property var modelData
+                    required property int index
 
                     objectName: "t9Key_" + modelData.digit
                     width: root.unit
@@ -106,6 +281,11 @@ Rectangle {
                     alternates: modelData.characters
                     onTouched: root.keyTapped()
                     onActivated: (value) => {
+                        if (value === modelData.value && root.predicting && index > 0) {
+                            root.typeDigit(modelData.digit, modelData.hint)
+                            return
+                        }
+                        root.acceptWord()
                         if (value === modelData.value)
                             root.compose(modelData.characters)
                         else
@@ -127,7 +307,10 @@ Rectangle {
                 accented: root.buffer !== null
                           && root.buffer.shiftState === KeyboardBuffer.ShiftState.Once
                 onTouched: root.keyTapped()
-                onActivated: root.tapShift()
+                onActivated: {
+                    root.acceptWord()
+                    root.tapShift()
+                }
             }
 
             ThemedKeyboardKey {
@@ -143,6 +326,7 @@ Rectangle {
                 onActivated: (value) => {
                     if (!root.buffer)
                         return
+                    root.finishWord()
                     root.buffer.insert(value)
                 }
             }
@@ -155,6 +339,7 @@ Rectangle {
                 label: root.symbolsActive ? root.languageLayout.layerLabel : "?123"
                 onTouched: root.keyTapped()
                 onActivated: {
+                    root.acceptWord()
                     if (root.buffer)
                         root.buffer.commitComposition()
                     root.symbolsActive = !root.symbolsActive
@@ -174,7 +359,11 @@ Rectangle {
                 iconSource: Theme.keyboard.backspaceIcon
                 onTouched: root.keyTapped()
                 onActivated: {
-                    if (root.buffer)
+                    if (!root.buffer)
+                        return
+                    if (word.digits !== "")
+                        root.eraseDigit()
+                    else
                         root.buffer.backspace()
                 }
             }
@@ -189,8 +378,10 @@ Rectangle {
                 iconSource: root.enterLabel === "" ? Theme.keyboard.enterIcon : ""
                 onTouched: root.keyTapped()
                 onActivated: {
-                    if (root.buffer)
-                        root.buffer.submit()
+                    if (!root.buffer)
+                        return
+                    root.finishWord()
+                    root.buffer.submit()
                 }
             }
         }

@@ -27,7 +27,7 @@ KeyboardBuffer::ShiftState KeyboardBuffer::shiftState() const { return m_shiftSt
 
 bool KeyboardBuffer::upperCase() const { return m_shiftState != ShiftState::Off; }
 
-bool KeyboardBuffer::composing() const { return !m_composition.isEmpty(); }
+bool KeyboardBuffer::composing() const { return !m_composition.isEmpty() || m_composingWord; }
 
 int KeyboardBuffer::compositionStart() const
 {
@@ -144,13 +144,35 @@ void KeyboardBuffer::compose(const QStringList& characters)
     emit compositionChanged();
 }
 
+void KeyboardBuffer::composeWord(const QString& word)
+{
+    if (!m_composingWord) {
+        commitComposition();
+        if (word.isEmpty())
+            return;
+        m_composingWord = true;
+        m_compositionStart = m_cursorPosition;
+        m_wordShift = m_shiftState;
+        if (m_shiftState == ShiftState::Once)
+            setShiftState(ShiftState::Off);
+    }
+
+    const QString cased = casedWord(word);
+    QString updated = m_text;
+    updated.replace(m_compositionStart, compositionLength(), cased);
+    m_composingWord = !word.isEmpty();
+    apply(updated, m_compositionStart + static_cast<int>(cased.size()));
+    emit compositionChanged();
+}
+
 void KeyboardBuffer::commitComposition()
 {
-    if (m_composition.isEmpty())
+    if (!composing())
         return;
 
     m_composition.clear();
     m_compositionIndex = 0;
+    m_composingWord = false;
     emit compositionChanged();
 }
 
@@ -207,4 +229,17 @@ QString KeyboardBuffer::composedCharacter() const
 {
     const QString& character = m_composition.at(m_compositionIndex);
     return m_compositionUpperCase ? character.toUpper() : character;
+}
+
+QString KeyboardBuffer::casedWord(const QString& word) const
+{
+    switch (m_wordShift) {
+    case ShiftState::Locked:
+        return word.toUpper();
+    case ShiftState::Once:
+        return word.left(1).toUpper() + word.mid(1);
+    case ShiftState::Off:
+        break;
+    }
+    return word;
 }

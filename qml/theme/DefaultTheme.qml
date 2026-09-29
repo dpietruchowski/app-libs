@@ -471,6 +471,12 @@ QtObject {
         readonly property int hintFontSize: theme.fontSize.small
         readonly property color hintText: theme.colors.textSecondary
         readonly property color composingUnderline: theme.colors.primary
+        readonly property int candidateBarHeight: theme.scaled(40)
+        readonly property int candidateFontSize: theme.fontSize.medium
+        readonly property int candidatePadding: theme.padding.medium
+        readonly property color candidateText: theme.colors.textPrimary
+        readonly property color selectedCandidateText: theme.colors.primary
+        readonly property color candidateSeparator: theme.colors.border
         readonly property color background: theme.isNightMode ? "#141414" : "#E4E5E8"
         readonly property color keyBackground: theme.isNightMode ? "#2D2D2D" : "#FFFFFF"
         readonly property color specialKeyBackground: theme.isNightMode ? "#242424" : "#C9CBD0"

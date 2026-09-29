@@ -362,3 +362,132 @@ TEST(KeyboardBufferTest, SetTextEndsComposition)
 
     EXPECT_EQ(buffer.text(), "a");
 }
+
+TEST(KeyboardBufferTest, ComposeWordInsertsTheWordAndMarksIt)
+{
+    KeyboardBuffer buffer;
+    buffer.setText("a ");
+    QSignalSpy compositionSpy(&buffer, &KeyboardBuffer::compositionChanged);
+
+    buffer.composeWord("go");
+
+    EXPECT_EQ(buffer.text(), "a go");
+    EXPECT_EQ(buffer.cursorPosition(), 4);
+    EXPECT_TRUE(buffer.composing());
+    EXPECT_EQ(buffer.compositionStart(), 2);
+    EXPECT_EQ(buffer.compositionLength(), 2);
+    EXPECT_EQ(compositionSpy.count(), 1);
+}
+
+TEST(KeyboardBufferTest, ComposeWordReplacesTheComposedWord)
+{
+    KeyboardBuffer buffer;
+    buffer.setText("xy");
+    buffer.setCursorPosition(1);
+
+    buffer.composeWord("go");
+    buffer.composeWord("inn");
+    buffer.composeWord("good");
+
+    EXPECT_EQ(buffer.text(), "xgoody");
+    EXPECT_EQ(buffer.cursorPosition(), 5);
+    EXPECT_EQ(buffer.compositionLength(), 4);
+}
+
+TEST(KeyboardBufferTest, ComposeWordWithEmptyWordRemovesItAndStopsComposing)
+{
+    KeyboardBuffer buffer;
+    buffer.setText("a ");
+
+    buffer.composeWord("go");
+    buffer.composeWord("");
+
+    EXPECT_EQ(buffer.text(), "a ");
+    EXPECT_EQ(buffer.cursorPosition(), 2);
+    EXPECT_FALSE(buffer.composing());
+}
+
+TEST(KeyboardBufferTest, ComposeWordWithEmptyWordWhileIdleChangesNothing)
+{
+    KeyboardBuffer buffer;
+    buffer.setText("a");
+    QSignalSpy compositionSpy(&buffer, &KeyboardBuffer::compositionChanged);
+
+    buffer.composeWord("");
+
+    EXPECT_EQ(buffer.text(), "a");
+    EXPECT_EQ(compositionSpy.count(), 0);
+}
+
+TEST(KeyboardBufferTest, CommitCompositionKeepsTheComposedWord)
+{
+    KeyboardBuffer buffer;
+
+    buffer.composeWord("good");
+    buffer.commitComposition();
+    buffer.composeWord("go");
+
+    EXPECT_EQ(buffer.text(), "goodgo");
+    EXPECT_EQ(buffer.compositionStart(), 4);
+}
+
+TEST(KeyboardBufferTest, ShiftOnceCapitalizesOnlyTheFirstLetterOfTheWord)
+{
+    KeyboardBuffer buffer;
+    buffer.toggleShift();
+
+    buffer.composeWord("go");
+    buffer.composeWord("good");
+
+    EXPECT_EQ(buffer.text(), "Good");
+    EXPECT_EQ(buffer.shiftState(), KeyboardBuffer::ShiftState::Off);
+}
+
+TEST(KeyboardBufferTest, LockedShiftUppercasesTheWholeWord)
+{
+    KeyboardBuffer buffer;
+    buffer.lockShift();
+
+    buffer.composeWord("good");
+
+    EXPECT_EQ(buffer.text(), "GOOD");
+    EXPECT_EQ(buffer.shiftState(), KeyboardBuffer::ShiftState::Locked);
+}
+
+TEST(KeyboardBufferTest, ComposeWordCommitsAPendingCharacter)
+{
+    KeyboardBuffer buffer;
+    buffer.compose({ "a", "b", "c" });
+
+    buffer.composeWord("go");
+
+    EXPECT_EQ(buffer.text(), "ago");
+    EXPECT_EQ(buffer.compositionStart(), 1);
+}
+
+TEST(KeyboardBufferTest, ComposeAfterComposeWordCommitsTheWord)
+{
+    KeyboardBuffer buffer;
+    buffer.composeWord("go");
+
+    buffer.compose({ ".", "," });
+
+    EXPECT_EQ(buffer.text(), "go.");
+    EXPECT_EQ(buffer.compositionStart(), 2);
+    EXPECT_EQ(buffer.compositionLength(), 1);
+}
+
+TEST(KeyboardBufferTest, EditingCommitsComposedWord)
+{
+    KeyboardBuffer buffer;
+
+    buffer.composeWord("go");
+    buffer.insert(" ");
+    EXPECT_FALSE(buffer.composing());
+    EXPECT_EQ(buffer.text(), "go ");
+
+    buffer.composeWord("in");
+    buffer.backspace();
+    EXPECT_FALSE(buffer.composing());
+    EXPECT_EQ(buffer.text(), "go i");
+}
