@@ -33,6 +33,8 @@ QtObject {
         ["zx", "cv", "bn", "m"]
     ]
 
+    readonly property var t9QwertyTriangles: ["qwa", "zsx", "edr", "cfv", "tyg", "bhn", "uij", "mk", "opl"]
+
     readonly property var fallback: ({
         letters: qwerty,
         alternates: symbolAlternates,

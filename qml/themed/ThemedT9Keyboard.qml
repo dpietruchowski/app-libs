@@ -17,7 +17,7 @@ Rectangle {
     property bool predictiveEnabled: true
     property int candidateLimit: 8
     property string keyLayout: "phone"
-    property var bucketRows: layouts.t9QwertyPairs
+    property var buckets: layouts.t9QwertyTriangles
 
     readonly property var groups: symbolsActive ? symbolGroups : letterGroups
     readonly property var digitKeys: [root.punctuation].concat(root.groups).map((group, index) => ({
@@ -28,17 +28,9 @@ Rectangle {
         characters: Array.from(group + String(index + 1)),
         predictive: index > 0
     }))
-    readonly property var pairRows: {
-        var count = 0
-        return root.bucketRows.map(row => row.map(group => ({
-            name: group,
-            code: (++count).toString(36),
-            letters: group,
-            value: group,
-            characters: Array.from(group),
-            predictive: true
-        })))
-    }
+    readonly property var bucketKeys: root.buckets
+        .map((letters, index) => root.bucketKey(letters, (index + 1).toString(36)))
+        .filter(key => key.cells.length > 0)
     readonly property var punctuationKey: ({
         name: "punctuation",
         code: "",
@@ -48,7 +40,7 @@ Rectangle {
         predictive: false
     })
     readonly property bool qwertyShape: keyLayout === "qwerty" && !symbolsActive
-    readonly property var keyMap: (qwertyShape ? [].concat(...pairRows) : digitKeys)
+    readonly property var keyMap: (qwertyShape ? bucketKeys : digitKeys)
         .filter(key => key.predictive)
         .reduce((map, key) => Object.assign(map, { [key.code]: key.letters }), {})
     readonly property real innerWidth: width - 2 * Theme.keyboard.padding
@@ -93,6 +85,91 @@ Rectangle {
         } else {
             root.buffer.toggleShift()
             shiftTaps.last = now
+        }
+    }
+
+    function letterCell(letter) {
+        var rows = layouts.qwerty
+        var row = rows.findIndex(letters => letters.includes(letter))
+        if (row < 0)
+            return null
+        var step = root.qwertyUnit + Theme.keyboard.keySpacing
+        return {
+            letter: letter,
+            row: row,
+            x: (root.innerWidth - rows[row].length * step + Theme.keyboard.keySpacing) / 2
+               + rows[row].indexOf(letter) * step,
+            y: row * (root.qwertyKeyHeight + Theme.keyboard.rowSpacing),
+            width: root.qwertyUnit,
+            height: root.qwertyKeyHeight
+        }
+    }
+
+    function rowSpans(cells) {
+        return cells.map(cell => cell.row)
+            .filter((row, index, rows) => rows.indexOf(row) === index)
+            .sort()
+            .map(row => {
+                var inRow = cells.filter(cell => cell.row === row)
+                return {
+                    row: row,
+                    y: inRow[0].y,
+                    left: Math.min(...inRow.map(cell => cell.x)),
+                    right: Math.max(...inRow.map(cell => cell.x + cell.width))
+                }
+            })
+    }
+
+    function bucketPieces(cells) {
+        var spans = root.rowSpans(cells)
+        var across = spans.filter(span => span.right - span.left > root.qwertyUnit).map(span => ({
+            x: span.left + root.qwertyUnit / 2,
+            y: span.y,
+            width: span.right - span.left - root.qwertyUnit,
+            height: root.qwertyKeyHeight,
+            rounded: false
+        }))
+        var down = spans.slice(1)
+            .map((lower, index) => ({ upper: spans[index], lower: lower }))
+            .filter(pair => pair.lower.row === pair.upper.row + 1)
+            .map(pair => ({
+                x: Math.max(pair.upper.left, pair.lower.left),
+                y: pair.upper.y + root.qwertyKeyHeight / 2,
+                width: Math.min(pair.upper.right, pair.lower.right)
+                       - Math.max(pair.upper.left, pair.lower.left),
+                height: pair.lower.y - pair.upper.y,
+                rounded: false
+            }))
+            .filter(piece => piece.width > 0)
+        return cells.map(cell => ({
+            x: cell.x,
+            y: cell.y,
+            width: cell.width,
+            height: cell.height,
+            rounded: true
+        })).concat(across, down)
+    }
+
+    function bucketKey(letters, code) {
+        var cells = Array.from(letters).map(letter => root.letterCell(letter))
+            .filter(cell => cell !== null)
+        var pieces = root.bucketPieces(cells)
+        var left = Math.min(...pieces.map(piece => piece.x))
+        var top = Math.min(...pieces.map(piece => piece.y))
+        var relative = (item) => Object.assign({}, item, { x: item.x - left, y: item.y - top })
+        return {
+            name: letters,
+            code: code,
+            letters: letters,
+            value: letters,
+            characters: Array.from(letters),
+            predictive: true,
+            x: left,
+            y: top,
+            width: Math.max(...pieces.map(piece => piece.x + piece.width)) - left,
+            height: Math.max(...pieces.map(piece => piece.y + piece.height)) - top,
+            cells: cells.map(relative),
+            pieces: pieces.map(relative)
         }
     }
 
@@ -232,42 +309,74 @@ Rectangle {
         id: layouts
     }
 
-    component PairKey: ThemedKeyboardKey {
-        id: pairKey
+    component BucketKey: Item {
+        id: bucketKey
 
         required property var modelData
+        readonly property bool pressed: bucketArea.pressed
 
-        objectName: "t9Pair_" + modelData.name
-        width: modelData.predictive
-               ? modelData.characters.length * (root.qwertyUnit + Theme.keyboard.keySpacing)
-                 - Theme.keyboard.keySpacing
-               : root.qwertyUnit
-        height: root.qwertyKeyHeight
-        label: modelData.predictive ? "" : modelData.letters
-        value: modelData.value
-        showsPreview: false
-        upperCase: root.upperCase
-        alternates: modelData.characters
-        onTouched: root.keyTapped()
-        onActivated: (value) => root.activateGroupKey(modelData, value)
+        objectName: "t9Bucket_" + modelData.name
+        x: modelData.x
+        y: modelData.y
+        width: modelData.width
+        height: modelData.height
+        z: pressed ? 1 : 0
 
-        Row {
-            anchors.verticalCenter: parent.verticalCenter
-            visible: pairKey.label === ""
-            spacing: Theme.keyboard.keySpacing
+        Repeater {
+            model: bucketKey.modelData.pieces
 
-            Repeater {
-                model: pairKey.modelData.characters
+            Rectangle {
+                required property var modelData
 
-                Text {
-                    required property string modelData
+                x: modelData.x
+                y: modelData.y
+                width: modelData.width
+                height: modelData.height
+                radius: modelData.rounded ? Theme.keyboard.keyRadius : 0
+                color: bucketKey.pressed ? Theme.keyboard.keyPressedBackground
+                                         : Theme.keyboard.keyBackground
+            }
+        }
 
-                    width: root.qwertyUnit
-                    horizontalAlignment: Text.AlignHCenter
-                    text: pairKey.displayed(modelData)
-                    font.pixelSize: Theme.keyboard.fontSize
-                    color: pairKey.contentColor
+        Repeater {
+            model: bucketKey.modelData.cells
+
+            Text {
+                required property var modelData
+
+                objectName: "t9Letter_" + modelData.letter
+                x: modelData.x
+                y: modelData.y
+                width: modelData.width
+                height: modelData.height
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                text: root.upperCase ? modelData.letter.toUpperCase() : modelData.letter
+                font.pixelSize: Theme.keyboard.fontSize
+                color: Theme.keyboard.keyText
+            }
+        }
+
+        MouseArea {
+            id: bucketArea
+
+            anchors.fill: parent
+            preventStealing: true
+            containmentMask: QtObject {
+                function contains(point: point): bool {
+                    return bucketKey.modelData.pieces.some(piece => point.x >= piece.x
+                                                           && point.x <= piece.x + piece.width
+                                                           && point.y >= piece.y
+                                                           && point.y <= piece.y + piece.height)
                 }
+            }
+            onPressed: {
+                KeyboardHaptics.keyPress()
+                root.keyTapped()
+            }
+            onReleased: {
+                if (containsMouse)
+                    root.activateGroupKey(bucketKey.modelData, bucketKey.modelData.value)
             }
         }
     }
@@ -489,31 +598,21 @@ Rectangle {
         visible: root.qwertyShape
         spacing: Theme.keyboard.rowSpacing
 
-        Repeater {
-            model: root.pairRows.slice(0, -1)
+        Item {
+            width: root.innerWidth
+            height: 3 * root.qwertyKeyHeight + 2 * Theme.keyboard.rowSpacing
 
-            Row {
-                id: pairRow
+            Repeater {
+                model: root.bucketKeys
 
-                required property var modelData
-
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Theme.keyboard.keySpacing
-
-                Repeater {
-                    model: pairRow.modelData
-
-                    PairKey {}
-                }
+                BucketKey {}
             }
-        }
-
-        Row {
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Theme.keyboard.keySpacing
 
             ThemedKeyboardKey {
                 objectName: "t9PairShift"
+                x: root.letterCell(layouts.qwerty[2][0]).x - Theme.keyboard.keySpacing
+                   - root.qwertySpecialWidth
+                y: parent.height - height
                 width: root.qwertySpecialWidth
                 height: root.qwertyKeyHeight
                 special: true
@@ -526,14 +625,11 @@ Rectangle {
                 onActivated: root.pressShift()
             }
 
-            Repeater {
-                model: root.pairRows[root.pairRows.length - 1]
-
-                PairKey {}
-            }
-
             ThemedKeyboardKey {
                 objectName: "t9PairBackspace"
+                x: root.letterCell(layouts.qwerty[2][layouts.qwerty[2].length - 1]).x
+                   + root.qwertyUnit + Theme.keyboard.keySpacing
+                y: parent.height - height
                 width: root.qwertySpecialWidth
                 height: root.qwertyKeyHeight
                 special: true
@@ -558,8 +654,16 @@ Rectangle {
                 onActivated: root.toggleSymbols()
             }
 
-            PairKey {
-                modelData: root.punctuationKey
+            ThemedKeyboardKey {
+                objectName: "t9PairPunctuation"
+                width: root.qwertyUnit
+                height: root.qwertyKeyHeight
+                label: root.punctuationKey.letters
+                value: root.punctuationKey.value
+                showsPreview: false
+                alternates: root.punctuationKey.characters
+                onTouched: root.keyTapped()
+                onActivated: (value) => root.activateGroupKey(root.punctuationKey, value)
             }
 
             ThemedKeyboardKey {
