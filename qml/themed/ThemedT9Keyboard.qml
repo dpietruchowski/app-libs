@@ -226,21 +226,26 @@ Rectangle {
         var known = word.candidates.indexOf(accepted) >= 0
         root.resetWord()
         root.buffer.commitComposition()
-        if (known)
+        if (known) {
             root.predictor.learn(accepted)
+            word.accepted = accepted
+        }
     }
 
     function learnTypedWord() {
-        if (!root.predictionAvailable || root.predictiveEnabled || !root.buffer)
+        if (!root.predictionAvailable || !root.buffer)
             return
         var typed = root.buffer.text.substring(0, root.buffer.cursorPosition).match(/[A-Za-z]+$/)
-        if (typed)
+        if (typed && typed[0] !== word.accepted)
             root.predictor.learn(typed[0])
     }
 
     function finishWord() {
-        root.acceptWord()
-        root.learnTypedWord()
+        if (word.codes !== "")
+            root.acceptWord()
+        else
+            root.learnTypedWord()
+        word.accepted = ""
     }
 
     function resetWord() {
@@ -404,6 +409,7 @@ Rectangle {
         property string codes: ""
         property var candidates: []
         property string shown: ""
+        property string accepted: ""
         property bool updating: false
     }
 
