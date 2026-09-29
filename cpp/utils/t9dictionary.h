@@ -30,6 +30,7 @@ public:
     bool contains(const QString& word) const;
     int size() const;
     QStringList candidates(const QString& digits, int limit) const;
+    QStringList candidatesForGroups(const QStringList& groups, int limit) const;
 
 private:
     struct Entry
@@ -44,14 +45,23 @@ private:
         Usage usage;
     };
 
+    using EntryIterator = std::vector<Entry>::const_iterator;
+
     std::string_view digitsOf(const Entry& entry) const;
+    std::string_view wordOf(const Entry& entry) const;
     std::vector<Entry>::const_iterator find(const std::string& letters,
                                             const std::string& digits) const;
     Entry append(const std::string& letters, const std::string& digits);
     Usage usageOf(const Entry& entry) const;
+    void collectMatches(EntryIterator first, EntryIterator last, std::size_t depth,
+                        const std::vector<std::string>& groups, std::vector<Ranked>& exact,
+                        std::vector<Ranked>& longer) const;
+    QStringList rankedWords(std::vector<Ranked>& exact, std::vector<Ranked>& longer,
+                            int limit) const;
 
     std::string m_letters;
     std::string m_digits;
     std::vector<Entry> m_entries;
+    std::vector<Entry> m_alphabetical;
     QHash<quint32, Usage> m_usage;
 };

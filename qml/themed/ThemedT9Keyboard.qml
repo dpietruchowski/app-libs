@@ -16,17 +16,47 @@ Rectangle {
     property var predictor: null
     property bool predictiveEnabled: true
     property int candidateLimit: 8
+    property string keyLayout: "phone"
+    property var bucketRows: layouts.t9QwertyPairs
 
     readonly property var groups: symbolsActive ? symbolGroups : letterGroups
     readonly property var digitKeys: [root.punctuation].concat(root.groups).map((group, index) => ({
-        digit: String(index + 1),
-        hint: group,
+        name: String(index + 1),
+        code: String(index + 1),
+        letters: group,
         value: group + String(index + 1),
-        characters: Array.from(group + String(index + 1))
+        characters: Array.from(group + String(index + 1)),
+        predictive: index > 0
     }))
+    readonly property var pairRows: {
+        var count = 0
+        return root.bucketRows.map(row => row.map(group => ({
+            name: group,
+            code: (++count).toString(36),
+            letters: group,
+            value: group,
+            characters: Array.from(group),
+            predictive: true
+        })))
+    }
+    readonly property var punctuationKey: ({
+        name: "punctuation",
+        code: "",
+        letters: root.punctuation.substring(0, 3),
+        value: root.punctuation,
+        characters: Array.from(root.punctuation),
+        predictive: false
+    })
+    readonly property bool qwertyShape: keyLayout === "qwerty" && !symbolsActive
+    readonly property var keyMap: (qwertyShape ? [].concat(...pairRows) : digitKeys)
+        .filter(key => key.predictive)
+        .reduce((map, key) => Object.assign(map, { [key.code]: key.letters }), {})
     readonly property real innerWidth: width - 2 * Theme.keyboard.padding
     readonly property real unit: (innerWidth - 3 * Theme.keyboard.keySpacing)
                                  / (3 + Theme.keyboard.t9SideKeyUnits)
+    readonly property real qwertyUnit: (innerWidth - 9 * Theme.keyboard.keySpacing) / 10
+    readonly property real qwertySpecialWidth: qwertyUnit * Theme.keyboard.specialKeyUnits
+    readonly property real qwertyKeyHeight: Theme.keyboard.keyHeight
     readonly property real sideWidth: unit * Theme.keyboard.t9SideKeyUnits
     readonly property real keyHeight: Theme.keyboard.t9KeyHeight
     readonly property real tallKeyHeight: 2 * keyHeight + Theme.keyboard.rowSpacing
@@ -74,23 +104,24 @@ Rectangle {
     }
 
     function lookUpCandidates() {
-        word.candidates = root.predictor.candidates(word.digits, root.candidateLimit)
+        var groups = Array.from(word.codes).map(code => root.keyMap[code])
+        word.candidates = root.predictor.candidatesForGroups(groups, root.candidateLimit)
     }
 
-    function typeDigit(digit, letters) {
-        if (!root.buffer)
+    function typeCode(code) {
+        if (!root.buffer || !(code in root.keyMap))
             return
         var previous = word.shown
-        word.digits += digit
+        word.codes += code
         root.lookUpCandidates()
         root.showWord(word.candidates.length > 0
-                      ? word.candidates[0].substring(0, word.digits.length)
-                      : previous + letters.charAt(0))
+                      ? word.candidates[0].substring(0, word.codes.length)
+                      : previous + root.keyMap[code].charAt(0))
     }
 
-    function eraseDigit() {
-        word.digits = word.digits.slice(0, -1)
-        if (word.digits === "") {
+    function eraseCode() {
+        word.codes = word.codes.slice(0, -1)
+        if (word.codes === "") {
             root.showWord("")
             root.resetWord()
             return
@@ -98,7 +129,7 @@ Rectangle {
         var previous = word.shown
         root.lookUpCandidates()
         root.showWord(word.candidates.length > 0
-                      ? word.candidates[0].substring(0, word.digits.length)
+                      ? word.candidates[0].substring(0, word.codes.length)
                       : previous.slice(0, -1))
     }
 
@@ -108,7 +139,7 @@ Rectangle {
     }
 
     function acceptWord() {
-        if (word.digits === "")
+        if (word.codes === "")
             return
         var accepted = word.shown
         var known = word.candidates.indexOf(accepted) >= 0
@@ -132,14 +163,62 @@ Rectangle {
     }
 
     function resetWord() {
-        word.digits = ""
+        word.codes = ""
         word.candidates = []
         word.shown = ""
     }
 
+    function activateGroupKey(key, value) {
+        if (value === key.value && root.predicting && key.predictive) {
+            root.typeCode(key.code)
+            return
+        }
+        root.acceptWord()
+        if (value === key.value)
+            root.compose(key.characters)
+        else
+            root.typeKey(value)
+    }
+
+    function pressShift() {
+        root.acceptWord()
+        root.tapShift()
+    }
+
+    function typeSpace(value) {
+        if (!root.buffer)
+            return
+        root.finishWord()
+        root.buffer.insert(value)
+    }
+
+    function pressBackspace() {
+        if (!root.buffer)
+            return
+        if (word.codes !== "")
+            root.eraseCode()
+        else
+            root.buffer.backspace()
+    }
+
+    function pressEnter() {
+        if (!root.buffer)
+            return
+        root.finishWord()
+        root.buffer.submit()
+    }
+
+    function toggleSymbols() {
+        root.acceptWord()
+        if (root.buffer)
+            root.buffer.commitComposition()
+        root.symbolsActive = !root.symbolsActive
+    }
+
     objectName: "t9Keyboard"
     implicitWidth: Theme.applicationWidth
-    implicitHeight: candidateBarSpace + 4 * keyHeight + 3 * Theme.keyboard.rowSpacing
+    implicitHeight: candidateBarSpace + 4 * (qwertyShape ? qwertyKeyHeight : keyHeight)
+                    + 3 * Theme.keyboard.rowSpacing
                     + 2 * Theme.keyboard.padding
     color: Theme.keyboard.background
 
@@ -147,9 +226,50 @@ Rectangle {
         if (!root.predicting)
             root.acceptWord()
     }
+    onKeyLayoutChanged: root.acceptWord()
 
     ThemedKeyboardLayouts {
         id: layouts
+    }
+
+    component PairKey: ThemedKeyboardKey {
+        id: pairKey
+
+        required property var modelData
+
+        objectName: "t9Pair_" + modelData.name
+        width: modelData.predictive
+               ? modelData.characters.length * (root.qwertyUnit + Theme.keyboard.keySpacing)
+                 - Theme.keyboard.keySpacing
+               : root.qwertyUnit
+        height: root.qwertyKeyHeight
+        label: modelData.predictive ? "" : modelData.letters
+        value: modelData.value
+        showsPreview: false
+        upperCase: root.upperCase
+        alternates: modelData.characters
+        onTouched: root.keyTapped()
+        onActivated: (value) => root.activateGroupKey(modelData, value)
+
+        Row {
+            anchors.verticalCenter: parent.verticalCenter
+            visible: pairKey.label === ""
+            spacing: Theme.keyboard.keySpacing
+
+            Repeater {
+                model: pairKey.modelData.characters
+
+                Text {
+                    required property string modelData
+
+                    width: root.qwertyUnit
+                    horizontalAlignment: Text.AlignHCenter
+                    text: pairKey.displayed(modelData)
+                    font.pixelSize: Theme.keyboard.fontSize
+                    color: pairKey.contentColor
+                }
+            }
+        }
     }
 
     QtObject {
@@ -159,7 +279,7 @@ Rectangle {
 
     QtObject {
         id: word
-        property string digits: ""
+        property string codes: ""
         property var candidates: []
         property string shown: ""
         property bool updating: false
@@ -169,7 +289,7 @@ Rectangle {
         target: root.buffer
 
         function onCompositionChanged() {
-            if (!word.updating && word.digits !== "" && !root.buffer.composing)
+            if (!word.updating && word.codes !== "" && !root.buffer.composing)
                 root.resetWord()
         }
     }
@@ -192,7 +312,7 @@ Rectangle {
         ListView {
             id: candidateList
             objectName: "t9Candidates"
-            width: root.innerWidth - root.sideWidth - Theme.keyboard.keySpacing
+            width: root.innerWidth - 2 * (root.sideWidth + Theme.keyboard.keySpacing)
             height: Theme.keyboard.candidateBarHeight
             orientation: ListView.Horizontal
             clip: true
@@ -239,6 +359,16 @@ Rectangle {
         }
 
         ThemedKeyboardKey {
+            objectName: "t9KeyShape"
+            width: root.sideWidth
+            height: Theme.keyboard.candidateBarHeight
+            special: true
+            label: root.keyLayout === "qwerty" ? "3×3" : "qw"
+            onTouched: root.keyTapped()
+            onActivated: root.keyLayout = root.keyLayout === "qwerty" ? "phone" : "qwerty"
+        }
+
+        ThemedKeyboardKey {
             objectName: "t9KeyPredictive"
             width: root.sideWidth
             height: Theme.keyboard.candidateBarHeight
@@ -256,6 +386,7 @@ Rectangle {
     Row {
         x: Theme.keyboard.padding
         y: Theme.keyboard.padding + root.candidateBarSpace
+        visible: !root.qwertyShape
         spacing: Theme.keyboard.keySpacing
 
         Grid {
@@ -268,29 +399,18 @@ Rectangle {
 
                 ThemedKeyboardKey {
                     required property var modelData
-                    required property int index
 
-                    objectName: "t9Key_" + modelData.digit
+                    objectName: "t9Key_" + modelData.name
                     width: root.unit
                     height: root.keyHeight
-                    label: modelData.digit
-                    hint: modelData.hint
+                    label: modelData.code
+                    hint: modelData.letters
                     value: modelData.value
                     showsPreview: false
                     upperCase: root.upperCase
                     alternates: modelData.characters
                     onTouched: root.keyTapped()
-                    onActivated: (value) => {
-                        if (value === modelData.value && root.predicting && index > 0) {
-                            root.typeDigit(modelData.digit, modelData.hint)
-                            return
-                        }
-                        root.acceptWord()
-                        if (value === modelData.value)
-                            root.compose(modelData.characters)
-                        else
-                            root.typeKey(value)
-                    }
+                    onActivated: (value) => root.activateGroupKey(modelData, value)
                 }
             }
 
@@ -307,10 +427,7 @@ Rectangle {
                 accented: root.buffer !== null
                           && root.buffer.shiftState === KeyboardBuffer.ShiftState.Once
                 onTouched: root.keyTapped()
-                onActivated: {
-                    root.acceptWord()
-                    root.tapShift()
-                }
+                onActivated: root.pressShift()
             }
 
             ThemedKeyboardKey {
@@ -323,12 +440,7 @@ Rectangle {
                 showsPreview: false
                 alternates: ["0"]
                 onTouched: root.keyTapped()
-                onActivated: (value) => {
-                    if (!root.buffer)
-                        return
-                    root.finishWord()
-                    root.buffer.insert(value)
-                }
+                onActivated: (value) => root.typeSpace(value)
             }
 
             ThemedKeyboardKey {
@@ -338,12 +450,7 @@ Rectangle {
                 special: true
                 label: root.symbolsActive ? root.languageLayout.layerLabel : "?123"
                 onTouched: root.keyTapped()
-                onActivated: {
-                    root.acceptWord()
-                    if (root.buffer)
-                        root.buffer.commitComposition()
-                    root.symbolsActive = !root.symbolsActive
-                }
+                onActivated: root.toggleSymbols()
             }
         }
 
@@ -358,14 +465,7 @@ Rectangle {
                 repeats: true
                 iconSource: Theme.keyboard.backspaceIcon
                 onTouched: root.keyTapped()
-                onActivated: {
-                    if (!root.buffer)
-                        return
-                    if (word.digits !== "")
-                        root.eraseDigit()
-                    else
-                        root.buffer.backspace()
-                }
+                onActivated: root.pressBackspace()
             }
 
             ThemedKeyboardKey {
@@ -377,12 +477,112 @@ Rectangle {
                 label: root.enterLabel
                 iconSource: root.enterLabel === "" ? Theme.keyboard.enterIcon : ""
                 onTouched: root.keyTapped()
-                onActivated: {
-                    if (!root.buffer)
-                        return
-                    root.finishWord()
-                    root.buffer.submit()
+                onActivated: root.pressEnter()
+            }
+        }
+    }
+
+    Column {
+        x: Theme.keyboard.padding
+        y: Theme.keyboard.padding + root.candidateBarSpace
+        width: root.innerWidth
+        visible: root.qwertyShape
+        spacing: Theme.keyboard.rowSpacing
+
+        Repeater {
+            model: root.pairRows.slice(0, -1)
+
+            Row {
+                id: pairRow
+
+                required property var modelData
+
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: Theme.keyboard.keySpacing
+
+                Repeater {
+                    model: pairRow.modelData
+
+                    PairKey {}
                 }
+            }
+        }
+
+        Row {
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.keyboard.keySpacing
+
+            ThemedKeyboardKey {
+                objectName: "t9PairShift"
+                width: root.qwertySpecialWidth
+                height: root.qwertyKeyHeight
+                special: true
+                iconSource: Theme.keyboard.shiftIcon
+                active: root.buffer !== null
+                        && root.buffer.shiftState === KeyboardBuffer.ShiftState.Locked
+                accented: root.buffer !== null
+                          && root.buffer.shiftState === KeyboardBuffer.ShiftState.Once
+                onTouched: root.keyTapped()
+                onActivated: root.pressShift()
+            }
+
+            Repeater {
+                model: root.pairRows[root.pairRows.length - 1]
+
+                PairKey {}
+            }
+
+            ThemedKeyboardKey {
+                objectName: "t9PairBackspace"
+                width: root.qwertySpecialWidth
+                height: root.qwertyKeyHeight
+                special: true
+                repeats: true
+                iconSource: Theme.keyboard.backspaceIcon
+                onTouched: root.keyTapped()
+                onActivated: root.pressBackspace()
+            }
+        }
+
+        Row {
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.keyboard.keySpacing
+
+            ThemedKeyboardKey {
+                objectName: "t9PairLayer"
+                width: root.qwertySpecialWidth
+                height: root.qwertyKeyHeight
+                special: true
+                label: "?123"
+                onTouched: root.keyTapped()
+                onActivated: root.toggleSymbols()
+            }
+
+            PairKey {
+                modelData: root.punctuationKey
+            }
+
+            ThemedKeyboardKey {
+                objectName: "t9PairSpace"
+                width: root.innerWidth - 2 * root.qwertySpecialWidth - root.qwertyUnit
+                       - 3 * Theme.keyboard.keySpacing
+                height: root.qwertyKeyHeight
+                value: " "
+                showsPreview: false
+                onTouched: root.keyTapped()
+                onActivated: (value) => root.typeSpace(value)
+            }
+
+            ThemedKeyboardKey {
+                objectName: "t9PairEnter"
+                width: root.qwertySpecialWidth
+                height: root.qwertyKeyHeight
+                special: true
+                active: true
+                label: root.enterLabel
+                iconSource: root.enterLabel === "" ? Theme.keyboard.enterIcon : ""
+                onTouched: root.keyTapped()
+                onActivated: root.pressEnter()
             }
         }
     }

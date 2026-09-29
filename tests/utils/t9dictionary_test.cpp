@@ -158,6 +158,45 @@ TEST(T9DictionaryTest, SetUsageRestoresStoredCountsAndAddsUnknownWords)
     EXPECT_EQ(dictionary.learn("hood", 30), (T9Dictionary::Usage { 5, 30 }));
 }
 
+TEST(T9DictionaryTest, GroupsMatchWordsWithOneLetterFromEachGroup)
+{
+    T9Dictionary dictionary;
+    dictionary.setWords({ "we", "re", "ww", "qe", "wet", "west", "rest", "as" });
+
+    EXPECT_EQ(dictionary.candidatesForGroups({ "qw", "er" }, 10),
+              QStringList({ "we", "qe", "wet", "west" }));
+}
+
+TEST(T9DictionaryTest, GroupsRankLikeDigits)
+{
+    T9Dictionary dictionary;
+    dictionary.setWords({ "the", "yhe", "then", "there" });
+    dictionary.learn("yhe", 1);
+
+    EXPECT_EQ(dictionary.candidatesForGroups({ "ty", "gh", "er" }, 3),
+              QStringList({ "yhe", "the", "then" }));
+}
+
+TEST(T9DictionaryTest, GroupsAreCaseInsensitiveAndSkipNonLetters)
+{
+    T9Dictionary dictionary;
+    dictionary.setWords({ "go", "in" });
+
+    EXPECT_EQ(dictionary.candidatesForGroups({ "GH4", "Op" }, 5), QStringList({ "go" }));
+    EXPECT_TRUE(dictionary.candidatesForGroups({ "gh", "12" }, 5).isEmpty());
+    EXPECT_TRUE(dictionary.candidatesForGroups({}, 5).isEmpty());
+}
+
+TEST(T9DictionaryTest, GroupsFindLearnedUnknownWords)
+{
+    T9Dictionary dictionary;
+    dictionary.setWords({ "cat" });
+
+    dictionary.learn("qwop", 1);
+
+    EXPECT_EQ(dictionary.candidatesForGroups({ "qw", "qw" }, 5), QStringList({ "qwop" }));
+}
+
 TEST(T9DictionaryTest, SetWordsResetsUsage)
 {
     T9Dictionary dictionary = sampleDictionary();

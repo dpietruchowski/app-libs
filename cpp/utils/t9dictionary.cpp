@@ -97,6 +97,11 @@ void T9Dictionary::setWords(const QStringList& words)
                                 { return keyOfEntry(left) == keyOfEntry(right); }),
                     m_entries.end());
     m_entries.shrink_to_fit();
+
+    m_alphabetical = m_entries;
+    std::sort(m_alphabetical.begin(), m_alphabetical.end(),
+              [this](const Entry& left, const Entry& right)
+              { return wordOf(left) < wordOf(right); });
 }
 
 void T9Dictionary::setUsage(const QString& word, const Usage& usage)
@@ -169,7 +174,71 @@ QStringList T9Dictionary::candidates(const QString& digits, int limit) const
     {
         (it->length == key.size() ? exact : longer).push_back({ *it, usageOf(*it) });
     }
+    return rankedWords(exact, longer, limit);
+}
 
+QStringList T9Dictionary::candidatesForGroups(const QStringList& groups, int limit) const
+{
+    if (groups.isEmpty() || limit <= 0)
+    {
+        return {};
+    }
+    std::vector<std::string> letterGroups;
+    letterGroups.reserve(static_cast<std::size_t>(groups.size()));
+    for (const QString& group : groups)
+    {
+        std::string letters;
+        for (const QChar character : group)
+        {
+            const char16_t lower = character.toLower().unicode();
+            if (lower >= u'a' && lower <= u'z')
+            {
+                letters.push_back(static_cast<char>(lower));
+            }
+        }
+        if (letters.empty())
+        {
+            return {};
+        }
+        letterGroups.push_back(std::move(letters));
+    }
+
+    std::vector<Ranked> exact;
+    std::vector<Ranked> longer;
+    collectMatches(m_alphabetical.begin(), m_alphabetical.end(), 0, letterGroups, exact, longer);
+    return rankedWords(exact, longer, limit);
+}
+
+void T9Dictionary::collectMatches(EntryIterator first, EntryIterator last, std::size_t depth,
+                                  const std::vector<std::string>& groups,
+                                  std::vector<Ranked>& exact, std::vector<Ranked>& longer) const
+{
+    if (depth == groups.size())
+    {
+        for (auto it = first; it != last; ++it)
+        {
+            (it->length == depth ? exact : longer).push_back({ *it, usageOf(*it) });
+        }
+        return;
+    }
+    for (const char letter : groups[depth])
+    {
+        const auto from
+            = std::lower_bound(first, last, letter, [this, depth](const Entry& entry, char value)
+                               { return entry.length <= depth || wordOf(entry)[depth] < value; });
+        const auto to
+            = std::upper_bound(from, last, letter, [this, depth](char value, const Entry& entry)
+                               { return value < wordOf(entry)[depth]; });
+        if (from != to)
+        {
+            collectMatches(from, to, depth + 1, groups, exact, longer);
+        }
+    }
+}
+
+QStringList T9Dictionary::rankedWords(std::vector<Ranked>& exact, std::vector<Ranked>& longer,
+                                      int limit) const
+{
     const auto rank = [](const Ranked& ranked)
     { return std::tuple(-ranked.usage.count, -ranked.usage.lastUsed, ranked.entry.offset); };
     const auto rankedBefore
@@ -204,6 +273,11 @@ std::string_view T9Dictionary::digitsOf(const Entry& entry) const
     return std::string_view(m_digits).substr(entry.offset, entry.length);
 }
 
+std::string_view T9Dictionary::wordOf(const Entry& entry) const
+{
+    return std::string_view(m_letters).substr(entry.offset, entry.length);
+}
+
 std::vector<T9Dictionary::Entry>::const_iterator T9Dictionary::find(const std::string& letters,
                                                                     const std::string& digits) const
 {
@@ -230,6 +304,10 @@ T9Dictionary::Entry T9Dictionary::append(const std::string& letters, const std::
                                            [this](const Entry& left, const Entry& right)
                                            { return digitsOf(left) < digitsOf(right); });
     m_entries.insert(position, entry);
+    m_alphabetical.insert(std::upper_bound(m_alphabetical.begin(), m_alphabetical.end(), entry,
+                                           [this](const Entry& left, const Entry& right)
+                                           { return wordOf(left) < wordOf(right); }),
+                          entry);
     return entry;
 }
 

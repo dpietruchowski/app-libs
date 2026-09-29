@@ -27,6 +27,12 @@ QtObject {
 
     readonly property var t9Latin: ["abc", "def", "ghi", "jkl", "mno", "pqrs", "tuv", "wxyz"]
 
+    readonly property var t9QwertyPairs: [
+        ["qw", "er", "ty", "ui", "op"],
+        ["as", "df", "gh", "jk", "l"],
+        ["zx", "cv", "bn", "m"]
+    ]
+
     readonly property var fallback: ({
         letters: qwerty,
         alternates: symbolAlternates,
