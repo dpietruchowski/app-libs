@@ -120,42 +120,46 @@ Rectangle {
             })
     }
 
-    function bucketPieces(cells) {
+    function withoutStraightCorners(points) {
+        return points.filter((point, index) => {
+            var previous = points[(index + points.length - 1) % points.length]
+            var next = points[(index + 1) % points.length]
+            var turn = (point.x - previous.x) * (next.y - point.y)
+                       - (point.y - previous.y) * (next.x - point.x)
+            return Math.abs(turn) > 0.01
+        })
+    }
+
+    function bucketOutline(cells) {
         var spans = root.rowSpans(cells)
-        var across = spans.filter(span => span.right - span.left > root.qwertyUnit).map(span => ({
-            x: span.left + root.qwertyUnit / 2,
-            y: span.y,
-            width: span.right - span.left - root.qwertyUnit,
-            height: root.qwertyKeyHeight,
-            rounded: false
-        }))
-        var down = spans.slice(1)
-            .map((lower, index) => ({ upper: spans[index], lower: lower }))
-            .filter(pair => pair.lower.row === pair.upper.row + 1)
-            .map(pair => ({
-                x: Math.max(pair.upper.left, pair.lower.left),
-                y: pair.upper.y + root.qwertyKeyHeight / 2,
-                width: Math.min(pair.upper.right, pair.lower.right)
-                       - Math.max(pair.upper.left, pair.lower.left),
-                height: pair.lower.y - pair.upper.y,
-                rounded: false
-            }))
-            .filter(piece => piece.width > 0)
-        return cells.map(cell => ({
-            x: cell.x,
-            y: cell.y,
-            width: cell.width,
-            height: cell.height,
-            rounded: true
-        })).concat(across, down)
+        var height = root.qwertyKeyHeight
+        var rightSide = [].concat(...spans.map(span => [
+            { x: span.right, y: span.y },
+            { x: span.right, y: span.y + height }
+        ]))
+        var leftSide = [].concat(...spans.slice().reverse().map(span => [
+            { x: span.left, y: span.y + height },
+            { x: span.left, y: span.y }
+        ]))
+        return root.withoutStraightCorners(rightSide.concat(leftSide))
+    }
+
+    function polygonContains(points, point) {
+        return points.reduce((inside, corner, index) => {
+            var previous = points[(index + points.length - 1) % points.length]
+            var crosses = (corner.y > point.y) !== (previous.y > point.y)
+                          && point.x < (previous.x - corner.x) * (point.y - corner.y)
+                                       / (previous.y - corner.y) + corner.x
+            return crosses ? !inside : inside
+        }, false)
     }
 
     function bucketKey(letters, code) {
         var cells = Array.from(letters).map(letter => root.letterCell(letter))
             .filter(cell => cell !== null)
-        var pieces = root.bucketPieces(cells)
-        var left = Math.min(...pieces.map(piece => piece.x))
-        var top = Math.min(...pieces.map(piece => piece.y))
+        var outline = root.bucketOutline(cells)
+        var left = Math.min(...outline.map(point => point.x))
+        var top = Math.min(...outline.map(point => point.y))
         var relative = (item) => Object.assign({}, item, { x: item.x - left, y: item.y - top })
         return {
             name: letters,
@@ -166,10 +170,10 @@ Rectangle {
             predictive: true,
             x: left,
             y: top,
-            width: Math.max(...pieces.map(piece => piece.x + piece.width)) - left,
-            height: Math.max(...pieces.map(piece => piece.y + piece.height)) - top,
+            width: Math.max(...outline.map(point => point.x)) - left,
+            height: Math.max(...outline.map(point => point.y)) - top,
             cells: cells.map(relative),
-            pieces: pieces.map(relative)
+            outline: outline.map(relative)
         }
     }
 
@@ -321,20 +325,32 @@ Rectangle {
         width: modelData.width
         height: modelData.height
         z: pressed ? 1 : 0
+        onPressedChanged: outlineCanvas.requestPaint()
+        onModelDataChanged: outlineCanvas.requestPaint()
 
-        Repeater {
-            model: bucketKey.modelData.pieces
-
-            Rectangle {
-                required property var modelData
-
-                x: modelData.x
-                y: modelData.y
-                width: modelData.width
-                height: modelData.height
-                radius: modelData.rounded ? Theme.keyboard.keyRadius : 0
-                color: bucketKey.pressed ? Theme.keyboard.keyPressedBackground
-                                         : Theme.keyboard.keyBackground
+        Canvas {
+            id: outlineCanvas
+            anchors.fill: parent
+            onPaint: {
+                var context = getContext("2d")
+                context.reset()
+                var points = bucketKey.modelData.outline
+                var count = points.length
+                var last = points[count - 1]
+                context.beginPath()
+                context.moveTo((last.x + points[0].x) / 2, (last.y + points[0].y) / 2)
+                points.forEach((point, index) => {
+                    var previous = points[(index + count - 1) % count]
+                    var next = points[(index + 1) % count]
+                    var radius = Math.min(Theme.keyboard.keyRadius,
+                                          Math.hypot(point.x - previous.x, point.y - previous.y) / 2,
+                                          Math.hypot(next.x - point.x, next.y - point.y) / 2)
+                    context.arcTo(point.x, point.y, next.x, next.y, radius)
+                })
+                context.closePath()
+                context.fillStyle = bucketKey.pressed ? Theme.keyboard.keyPressedBackground
+                                                      : Theme.keyboard.keyBackground
+                context.fill()
             }
         }
 
@@ -364,10 +380,7 @@ Rectangle {
             preventStealing: true
             containmentMask: QtObject {
                 function contains(point: point): bool {
-                    return bucketKey.modelData.pieces.some(piece => point.x >= piece.x
-                                                           && point.x <= piece.x + piece.width
-                                                           && point.y >= piece.y
-                                                           && point.y <= piece.y + piece.height)
+                    return root.polygonContains(bucketKey.modelData.outline, point)
                 }
             }
             onPressed: {
