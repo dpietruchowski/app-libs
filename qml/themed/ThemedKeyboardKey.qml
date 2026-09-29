@@ -17,8 +17,10 @@ Item {
     property bool showsPreview: !special
     property var alternates: []
 
+    property real popupCellWidth: width * Theme.keyboard.previewScale
+    property real popupHeight: height * Theme.keyboard.previewScale
+
     readonly property bool pressed: area.pressed
-    readonly property real popupCellWidth: width * Theme.keyboard.previewScale
     readonly property color contentColor: active ? Theme.keyboard.activeKeyText
                                         : accented ? Theme.keyboard.accentedKeyText
                                         : Theme.keyboard.keyText
@@ -28,6 +30,15 @@ Item {
 
     function displayed(text) {
         return root.upperCase ? text.toUpperCase() : text
+    }
+
+    function popupX(popupWidth) {
+        var centered = (root.width - popupWidth) / 2
+        var left = root.mapToItem(null, centered, 0).x
+        var margin = Theme.keyboard.keySpacing
+        var overflowRight = left + popupWidth - (root.Window.width - margin)
+        var overflowLeft = margin - left
+        return centered + (overflowLeft > 0 ? overflowLeft : overflowRight > 0 ? -overflowRight : 0)
     }
 
     implicitWidth: Theme.keyboard.keyHeight
@@ -102,9 +113,8 @@ Item {
         visible: false
         anchors.bottom: parent.top
         anchors.bottomMargin: Theme.keyboard.keySpacing
-        anchors.horizontalCenter: parent.horizontalCenter
         width: alternatesRow.width
-        height: root.height * Theme.keyboard.previewScale
+        height: root.popupHeight
         radius: Theme.keyboard.keyRadius
         color: Theme.keyboard.previewBackground
         border.width: Theme.border.thin
@@ -168,6 +178,7 @@ Item {
         onPressAndHold: {
             if (root.alternates.length > 0) {
                 alternatesPopup.highlighted = 0
+                alternatesPopup.x = root.popupX(root.alternates.length * root.popupCellWidth)
                 alternatesPopup.visible = true
                 consumed = true
                 KeyboardHaptics.longPress()

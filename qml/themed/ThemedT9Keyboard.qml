@@ -512,6 +512,7 @@ Rectangle {
         spacing: Theme.keyboard.keySpacing
 
         Grid {
+            z: 1
             columns: 3
             columnSpacing: Theme.keyboard.keySpacing
             rowSpacing: Theme.keyboard.rowSpacing
@@ -529,6 +530,8 @@ Rectangle {
                     hint: modelData.letters
                     value: modelData.value
                     showsPreview: false
+                    popupCellWidth: root.qwertyUnit * Theme.keyboard.previewScale
+                    popupHeight: root.qwertyKeyHeight * Theme.keyboard.previewScale
                     upperCase: root.upperCase
                     alternates: modelData.characters
                     onTouched: root.keyTapped()
