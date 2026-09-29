@@ -165,6 +165,12 @@ Item {
 
         property bool consumed: false
 
+        function highlightAlternateAt(x, y) {
+            var point = area.mapToItem(alternatesRow, x, y)
+            var index = Math.floor(point.x / root.popupCellWidth)
+            alternatesPopup.highlighted = Math.max(0, Math.min(root.alternates.length - 1, index))
+        }
+
         anchors.fill: parent
         preventStealing: true
         pressAndHoldInterval: Theme.keyboard.repeatDelay
@@ -175,10 +181,10 @@ Item {
             root.touched()
         }
 
-        onPressAndHold: {
+        onPressAndHold: (mouse) => {
             if (root.alternates.length > 0) {
-                alternatesPopup.highlighted = 0
                 alternatesPopup.x = root.popupX(root.alternates.length * root.popupCellWidth)
+                area.highlightAlternateAt(mouse.x, mouse.y)
                 alternatesPopup.visible = true
                 consumed = true
                 KeyboardHaptics.longPress()
@@ -191,11 +197,8 @@ Item {
         }
 
         onPositionChanged: (mouse) => {
-            if (!alternatesPopup.visible)
-                return
-            var point = area.mapToItem(alternatesRow, mouse.x, mouse.y)
-            var index = Math.floor(point.x / root.popupCellWidth)
-            alternatesPopup.highlighted = Math.max(0, Math.min(root.alternates.length - 1, index))
+            if (alternatesPopup.visible)
+                area.highlightAlternateAt(mouse.x, mouse.y)
         }
 
         onReleased: {
