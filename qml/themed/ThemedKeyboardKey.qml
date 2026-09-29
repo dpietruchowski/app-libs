@@ -6,6 +6,7 @@ Item {
     id: root
 
     property string label: ""
+    property string hint: ""
     property string value: label
     property url iconSource: ""
     property bool special: false
@@ -43,11 +44,23 @@ Item {
     }
 
     Text {
+        id: labelText
         anchors.centerIn: parent
+        anchors.verticalCenterOffset: root.hint === "" ? 0 : -hintText.height / 2
         visible: root.iconSource.toString() === ""
         text: root.displayed(root.label)
         font.pixelSize: root.special ? Theme.keyboard.specialFontSize : Theme.keyboard.fontSize
         color: root.contentColor
+    }
+
+    Text {
+        id: hintText
+        anchors.top: labelText.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+        visible: root.hint !== ""
+        text: root.displayed(root.hint)
+        font.pixelSize: Theme.keyboard.hintFontSize
+        color: root.active ? root.contentColor : Theme.keyboard.hintText
     }
 
     ThemedIcon {

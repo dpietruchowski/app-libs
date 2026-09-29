@@ -204,3 +204,161 @@ TEST(KeyboardBufferTest, ClearEmptiesTextAndResetsCursor)
     EXPECT_TRUE(buffer.text().isEmpty());
     EXPECT_EQ(buffer.cursorPosition(), 0);
 }
+
+TEST(KeyboardBufferTest, NothingIsComposingUntilComposeIsCalled)
+{
+    KeyboardBuffer buffer;
+    QSignalSpy compositionSpy(&buffer, &KeyboardBuffer::compositionChanged);
+
+    buffer.typeKey("a");
+    buffer.backspace();
+    buffer.submit();
+
+    EXPECT_FALSE(buffer.composing());
+    EXPECT_EQ(buffer.compositionLength(), 0);
+    EXPECT_EQ(compositionSpy.count(), 0);
+}
+
+TEST(KeyboardBufferTest, ComposeInsertsFirstCharacterAndMarksIt)
+{
+    KeyboardBuffer buffer;
+    buffer.setText("ko");
+
+    buffer.compose({ "t", "u", "v" });
+
+    EXPECT_EQ(buffer.text(), "kot");
+    EXPECT_TRUE(buffer.composing());
+    EXPECT_EQ(buffer.compositionStart(), 2);
+    EXPECT_EQ(buffer.compositionLength(), 1);
+}
+
+TEST(KeyboardBufferTest, ComposingSameGroupCyclesTheCharacter)
+{
+    KeyboardBuffer buffer;
+    const QStringList group { "a", "b", "c" };
+
+    buffer.compose(group);
+    buffer.compose(group);
+    buffer.compose(group);
+    EXPECT_EQ(buffer.text(), "c");
+
+    buffer.compose(group);
+    EXPECT_EQ(buffer.text(), "a");
+    EXPECT_EQ(buffer.cursorPosition(), 1);
+}
+
+TEST(KeyboardBufferTest, ComposingAnotherGroupCommitsThePreviousCharacter)
+{
+    KeyboardBuffer buffer;
+
+    buffer.compose({ "a", "b", "c" });
+    buffer.compose({ "a", "b", "c" });
+    buffer.compose({ "d", "e", "f" });
+
+    EXPECT_EQ(buffer.text(), "bd");
+    EXPECT_EQ(buffer.compositionStart(), 1);
+}
+
+TEST(KeyboardBufferTest, SameGroupAfterCommitStartsNewCharacter)
+{
+    KeyboardBuffer buffer;
+    const QStringList group { "a", "b", "c" };
+
+    buffer.compose(group);
+    buffer.commitComposition();
+    buffer.compose(group);
+
+    EXPECT_EQ(buffer.text(), "aa");
+    EXPECT_TRUE(buffer.composing());
+}
+
+TEST(KeyboardBufferTest, SingleCharacterGroupTypesWithoutComposing)
+{
+    KeyboardBuffer buffer;
+
+    buffer.compose({ "1" });
+    buffer.compose({ "1" });
+
+    EXPECT_EQ(buffer.text(), "11");
+    EXPECT_FALSE(buffer.composing());
+}
+
+TEST(KeyboardBufferTest, ShiftOnceUppercasesWholeComposedCharacter)
+{
+    KeyboardBuffer buffer;
+    const QStringList group { "a", "b", "c", "ą" };
+    buffer.toggleShift();
+
+    buffer.compose(group);
+    buffer.compose(group);
+    buffer.compose(group);
+    buffer.compose(group);
+
+    EXPECT_EQ(buffer.text(), "Ą");
+    EXPECT_EQ(buffer.shiftState(), KeyboardBuffer::ShiftState::Off);
+
+    buffer.compose({ "d", "e", "f" });
+    EXPECT_EQ(buffer.text(), "Ąd");
+}
+
+TEST(KeyboardBufferTest, ComposeReplacesOnlyTheComposedCharacterInsideText)
+{
+    KeyboardBuffer buffer;
+    buffer.setText("kt");
+    buffer.setCursorPosition(1);
+    const QStringList group { "m", "n", "o" };
+
+    buffer.compose(group);
+    buffer.compose(group);
+    buffer.compose(group);
+
+    EXPECT_EQ(buffer.text(), "kot");
+    EXPECT_EQ(buffer.cursorPosition(), 2);
+}
+
+TEST(KeyboardBufferTest, EditingCommitsComposition)
+{
+    KeyboardBuffer buffer;
+    const QStringList group { "a", "b", "c" };
+
+    buffer.compose(group);
+    buffer.insert(" ");
+    EXPECT_FALSE(buffer.composing());
+
+    buffer.compose(group);
+    buffer.backspace();
+    EXPECT_EQ(buffer.text(), "a ");
+    EXPECT_FALSE(buffer.composing());
+
+    buffer.compose(group);
+    buffer.moveCursor(-1);
+    EXPECT_FALSE(buffer.composing());
+
+    buffer.compose(group);
+    buffer.toggleShift();
+    EXPECT_FALSE(buffer.composing());
+}
+
+TEST(KeyboardBufferTest, SubmitCommitsCompositionAndEmitsText)
+{
+    KeyboardBuffer buffer;
+    QSignalSpy submittedSpy(&buffer, &KeyboardBuffer::submitted);
+
+    buffer.compose({ "a", "b", "c" });
+    buffer.submit();
+
+    EXPECT_FALSE(buffer.composing());
+    ASSERT_EQ(submittedSpy.count(), 1);
+    EXPECT_EQ(submittedSpy.at(0).at(0).toString(), "a");
+}
+
+TEST(KeyboardBufferTest, SetTextEndsComposition)
+{
+    KeyboardBuffer buffer;
+
+    buffer.compose({ "a", "b", "c" });
+    buffer.setText("");
+    buffer.compose({ "a", "b", "c" });
+
+    EXPECT_EQ(buffer.text(), "a");
+}

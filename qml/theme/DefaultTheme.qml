@@ -465,6 +465,12 @@ QtObject {
         readonly property int repeatDelay: 400
         readonly property int repeatInterval: 60
         readonly property int doubleTapInterval: 300
+        readonly property int multiTapTimeout: 900
+        readonly property int t9KeyHeight: theme.scaled(52)
+        readonly property real t9SideKeyUnits: 0.75
+        readonly property int hintFontSize: theme.fontSize.small
+        readonly property color hintText: theme.colors.textSecondary
+        readonly property color composingUnderline: theme.colors.primary
         readonly property color background: theme.isNightMode ? "#141414" : "#E4E5E8"
         readonly property color keyBackground: theme.isNightMode ? "#2D2D2D" : "#FFFFFF"
         readonly property color specialKeyBackground: theme.isNightMode ? "#242424" : "#C9CBD0"

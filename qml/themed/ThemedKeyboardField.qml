@@ -94,6 +94,20 @@ Rectangle {
         font: content.font
     }
 
+    TextMetrics {
+        id: beforeComposition
+        font: content.font
+        text: root.buffer && root.buffer.composing
+              ? root.text.substring(0, root.buffer.compositionStart) : ""
+    }
+
+    TextMetrics {
+        id: composition
+        font: content.font
+        text: root.buffer && root.buffer.composing
+              ? root.text.substr(root.buffer.compositionStart, root.buffer.compositionLength) : ""
+    }
+
     Item {
         id: viewport
 
@@ -124,6 +138,16 @@ Rectangle {
             text: root.text
             font.pixelSize: Theme.fontSize.medium
             color: Theme.colors.textPrimary
+        }
+
+        Rectangle {
+            objectName: root.objectName === "" ? "" : root.objectName + "Composition"
+            visible: root.buffer !== null && root.buffer.composing
+            x: content.x + beforeComposition.advanceWidth
+            y: content.y + content.height
+            width: composition.advanceWidth
+            height: Theme.border.medium
+            color: Theme.keyboard.composingUnderline
         }
 
         ThemedCaret {

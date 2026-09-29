@@ -9,26 +9,39 @@ KeyboardBuffer::KeyboardBuffer(QObject* parent)
 
 QString KeyboardBuffer::text() const { return m_text; }
 
-void KeyboardBuffer::setText(const QString& text) { apply(text, static_cast<int>(text.size())); }
+void KeyboardBuffer::setText(const QString& text)
+{
+    commitComposition();
+    apply(text, static_cast<int>(text.size()));
+}
 
 int KeyboardBuffer::cursorPosition() const { return m_cursorPosition; }
 
 void KeyboardBuffer::setCursorPosition(int position)
 {
-    const int clamped = std::clamp(position, 0, static_cast<int>(m_text.size()));
-    if (clamped == m_cursorPosition)
-        return;
-
-    m_cursorPosition = clamped;
-    emit cursorPositionChanged();
+    commitComposition();
+    placeCursor(position);
 }
 
 KeyboardBuffer::ShiftState KeyboardBuffer::shiftState() const { return m_shiftState; }
 
 bool KeyboardBuffer::upperCase() const { return m_shiftState != ShiftState::Off; }
 
+bool KeyboardBuffer::composing() const { return !m_composition.isEmpty(); }
+
+int KeyboardBuffer::compositionStart() const
+{
+    return composing() ? m_compositionStart : m_cursorPosition;
+}
+
+int KeyboardBuffer::compositionLength() const
+{
+    return composing() ? m_cursorPosition - m_compositionStart : 0;
+}
+
 void KeyboardBuffer::insert(const QString& text)
 {
+    commitComposition();
     if (text.isEmpty())
         return;
 
@@ -46,6 +59,7 @@ void KeyboardBuffer::typeKey(const QString& key)
 
 void KeyboardBuffer::backspace()
 {
+    commitComposition();
     const int start = previousBoundary(m_cursorPosition);
     if (start == m_cursorPosition)
         return;
@@ -57,6 +71,7 @@ void KeyboardBuffer::backspace()
 
 void KeyboardBuffer::deleteForward()
 {
+    commitComposition();
     const int end = nextBoundary(m_cursorPosition);
     if (end == m_cursorPosition)
         return;
@@ -76,20 +91,67 @@ void KeyboardBuffer::moveCursor(int steps)
     setCursorPosition(position);
 }
 
-void KeyboardBuffer::clear() { apply(QString(), 0); }
+void KeyboardBuffer::clear()
+{
+    commitComposition();
+    apply(QString(), 0);
+}
 
 void KeyboardBuffer::toggleShift()
 {
+    commitComposition();
     setShiftState(m_shiftState == ShiftState::Off ? ShiftState::Once : ShiftState::Off);
 }
 
-void KeyboardBuffer::lockShift() { setShiftState(ShiftState::Locked); }
+void KeyboardBuffer::lockShift()
+{
+    commitComposition();
+    setShiftState(ShiftState::Locked);
+}
 
 void KeyboardBuffer::submit()
 {
+    commitComposition();
     const QString trimmed = m_text.trimmed();
     if (!trimmed.isEmpty())
         emit submitted(trimmed);
+}
+
+void KeyboardBuffer::compose(const QStringList& characters)
+{
+    if (characters.isEmpty())
+        return;
+    if (characters.size() == 1) {
+        typeKey(characters.first());
+        return;
+    }
+
+    QString updated = m_text;
+    if (characters == m_composition) {
+        m_compositionIndex = (m_compositionIndex + 1) % static_cast<int>(m_composition.size());
+        updated.replace(m_compositionStart, compositionLength(), composedCharacter());
+    } else {
+        commitComposition();
+        m_composition = characters;
+        m_compositionIndex = 0;
+        m_compositionStart = m_cursorPosition;
+        m_compositionUpperCase = upperCase();
+        if (m_shiftState == ShiftState::Once)
+            setShiftState(ShiftState::Off);
+        updated.insert(m_compositionStart, composedCharacter());
+    }
+    apply(updated, m_compositionStart + static_cast<int>(composedCharacter().size()));
+    emit compositionChanged();
+}
+
+void KeyboardBuffer::commitComposition()
+{
+    if (m_composition.isEmpty())
+        return;
+
+    m_composition.clear();
+    m_compositionIndex = 0;
+    emit compositionChanged();
 }
 
 int KeyboardBuffer::previousBoundary(int position) const
@@ -119,7 +181,17 @@ void KeyboardBuffer::apply(const QString& text, int cursorPosition)
     m_text = text;
     if (textDiffers)
         emit textChanged();
-    setCursorPosition(cursorPosition);
+    placeCursor(cursorPosition);
+}
+
+void KeyboardBuffer::placeCursor(int position)
+{
+    const int clamped = std::clamp(position, 0, static_cast<int>(m_text.size()));
+    if (clamped == m_cursorPosition)
+        return;
+
+    m_cursorPosition = clamped;
+    emit cursorPositionChanged();
 }
 
 void KeyboardBuffer::setShiftState(ShiftState state)
@@ -129,4 +201,10 @@ void KeyboardBuffer::setShiftState(ShiftState state)
 
     m_shiftState = state;
     emit shiftStateChanged();
+}
+
+QString KeyboardBuffer::composedCharacter() const
+{
+    const QString& character = m_composition.at(m_compositionIndex);
+    return m_compositionUpperCase ? character.toUpper() : character;
 }

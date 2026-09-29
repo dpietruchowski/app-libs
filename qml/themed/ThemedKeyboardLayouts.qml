@@ -21,9 +21,16 @@ QtObject {
         ["z", "x", "c", "v", "b", "n", "m"]
     ]
 
+    readonly property string t9Punctuation: ".,?!'-\":"
+
+    readonly property var t9Symbols: ["@#&", "*+=", "-_/", "()", ":;", "\"'", "%$€", "<>"]
+
+    readonly property var t9Latin: ["abc", "def", "ghi", "jkl", "mno", "pqrs", "tuv", "wxyz"]
+
     readonly property var fallback: ({
         letters: qwerty,
         alternates: symbolAlternates,
+        t9: t9Latin,
         layerLabel: "ABC"
     })
 
@@ -41,6 +48,7 @@ QtObject {
                 "z": ["ż", "ź"],
                 "\"": ["„", "”"]
             }),
+            t9: ["abcąć", "defę", "ghi", "jklł", "mnońó", "pqrsś", "tuv", "wxyzźż"],
             layerLabel: "ABC"
         },
         es: {
@@ -59,6 +67,7 @@ QtObject {
                 "!": ["¡"],
                 "\"": ["«", "»"]
             }),
+            t9: ["abcá", "defé", "ghií", "jkl", "mnoñó", "pqrs", "tuvúü", "wxyz"],
             layerLabel: "ABC"
         },
         fr: {
@@ -77,6 +86,7 @@ QtObject {
                 "y": ["ÿ"],
                 "\"": ["«", "»"]
             }),
+            t9: ["abcàâæç", "deféèêë", "ghiîï", "jkl", "mnoôœ", "pqrs", "tuvùûü", "wxyzÿ"],
             layerLabel: "ABC"
         },
         ru: {
@@ -90,6 +100,7 @@ QtObject {
                 "ь": ["ъ"],
                 "\"": ["«", "»"]
             }),
+            t9: ["абвг", "деёжз", "ийкл", "мноп", "рсту", "фхцч", "шщъы", "ьэюя"],
             layerLabel: "АБВ"
         },
         uk: {
@@ -103,6 +114,7 @@ QtObject {
                 "і": ["ї"],
                 "\"": ["«", "»"]
             }),
+            t9: ["абвгґ", "деєжз", "иіїйкл", "мноп", "рсту", "фхцч", "шщь", "юя"],
             layerLabel: "АБВ"
         }
     })
