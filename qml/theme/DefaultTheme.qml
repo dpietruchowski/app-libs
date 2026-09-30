@@ -513,6 +513,7 @@ QtObject {
         readonly property string send: "qrc:/Themed/Icons/send.svg"
         readonly property string chat: "qrc:/Themed/Icons/chat.svg"
         readonly property string back: "qrc:/Themed/Icons/previous.svg"
+        readonly property string backspace: "qrc:/Themed/Icons/backspace.svg"
         readonly property string next: "qrc:/Themed/Icons/next.svg"
         readonly property string chevronUp: "qrc:/Themed/Icons/chevron-up.svg"
         readonly property string chevronDown: "qrc:/Themed/Icons/chevron-down.svg"
