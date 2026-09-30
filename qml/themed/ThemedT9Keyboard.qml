@@ -288,7 +288,7 @@ Rectangle {
         ListView {
             id: candidateList
             objectName: "t9Candidates"
-            width: root.innerWidth - 2 * (root.sideWidth + Theme.keyboard.keySpacing)
+            width: root.innerWidth - (root.sideWidth + Theme.keyboard.keySpacing)
             height: Theme.keyboard.candidateBarHeight
             orientation: ListView.Horizontal
             clip: true
