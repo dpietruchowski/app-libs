@@ -74,9 +74,14 @@ if [ "$CLEAR_BUILD" = true ]; then
     rm -rf "$ANDROID_BUILD_DIR"
 fi
 
+AUTOMATION=OFF
+if [ "$BUILD_TYPE" = Debug ]; then
+    AUTOMATION=ON
+fi
+
 mkdir -p "$ANDROID_BUILD_DIR"
 
 ensure_android_image
 
 android_run "$ANDROID_IMAGE_TAG" \
-    sh -c "qt-cmake /home/user/project -G Ninja -B /home/user/build -DCMAKE_BUILD_TYPE=${BUILD_TYPE} && cmake --build /home/user/build --config ${BUILD_TYPE} ${BUILD_TARGET}"
+    sh -c "qt-cmake /home/user/project -G Ninja -B /home/user/build -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DLIBS_AUTOMATION=${AUTOMATION} && cmake --build /home/user/build --config ${BUILD_TYPE} ${BUILD_TARGET}"
