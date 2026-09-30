@@ -20,7 +20,7 @@ public:
         bool operator==(const Usage&) const = default;
     };
 
-    static QString digitsFor(const QString& word);
+    static QString normalized(const QString& word);
 
     void setWords(const QStringList& words);
     void setUsage(const QString& word, const Usage& usage);
@@ -29,7 +29,6 @@ public:
     Usage usage(const QString& word) const;
     bool contains(const QString& word) const;
     int size() const;
-    QStringList candidates(const QString& digits, int limit) const;
     QStringList candidatesForGroups(const QStringList& groups, int limit) const;
 
 private:
@@ -47,21 +46,17 @@ private:
 
     using EntryIterator = std::vector<Entry>::const_iterator;
 
-    std::string_view digitsOf(const Entry& entry) const;
-    std::string_view wordOf(const Entry& entry) const;
-    std::vector<Entry>::const_iterator find(const std::string& letters,
-                                            const std::string& digits) const;
-    Entry append(const std::string& letters, const std::string& digits);
+    std::u16string_view wordOf(const Entry& entry) const;
+    EntryIterator find(std::u16string_view word) const;
+    Entry append(std::u16string_view word);
     Usage usageOf(const Entry& entry) const;
     void collectMatches(EntryIterator first, EntryIterator last, std::size_t depth,
-                        const std::vector<std::string>& groups, std::vector<Ranked>& exact,
+                        const std::vector<std::u16string>& groups, std::vector<Ranked>& exact,
                         std::vector<Ranked>& longer) const;
     QStringList rankedWords(std::vector<Ranked>& exact, std::vector<Ranked>& longer,
                             int limit) const;
 
-    std::string m_letters;
-    std::string m_digits;
+    std::u16string m_letters;
     std::vector<Entry> m_entries;
-    std::vector<Entry> m_alphabetical;
     QHash<quint32, Usage> m_usage;
 };

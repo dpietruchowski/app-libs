@@ -27,14 +27,6 @@ QtObject {
 
     readonly property var t9Latin: ["abc", "def", "ghi", "jkl", "mno", "pqrs", "tuv", "wxyz"]
 
-    readonly property var t9QwertyPairs: [
-        ["qw", "er", "ty", "ui", "op"],
-        ["as", "df", "gh", "jk", "l"],
-        ["zx", "cv", "bn", "m"]
-    ]
-
-    readonly property var t9QwertyTriangles: ["qwa", "zsx", "edr", "cfv", "tyg", "bhn", "uij", "mk", "opl"]
-
     readonly property var fallback: ({
         letters: qwerty,
         alternates: symbolAlternates,
@@ -95,6 +87,71 @@ QtObject {
                 "\"": ["«", "»"]
             }),
             t9: ["abcàâæç", "deféèêë", "ghiîï", "jkl", "mnoôœ", "pqrs", "tuvùûü", "wxyzÿ"],
+            layerLabel: "ABC"
+        },
+        de: {
+            letters: [
+                ["q", "w", "e", "r", "t", "z", "u", "i", "o", "p", "ü"],
+                ["a", "s", "d", "f", "g", "h", "j", "k", "l", "ö", "ä"],
+                ["y", "x", "c", "v", "b", "n", "m"]
+            ],
+            alternates: Object.assign({}, symbolAlternates, {
+                "s": ["ß"],
+                "\"": ["„", "“"]
+            }),
+            t9: ["abcä", "def", "ghi", "jkl", "mnoö", "pqrsß", "tuvü", "wxyz"],
+            layerLabel: "ABC"
+        },
+        it: {
+            letters: qwerty,
+            alternates: Object.assign({}, symbolAlternates, {
+                "a": ["à"],
+                "e": ["è", "é"],
+                "i": ["ì"],
+                "o": ["ò"],
+                "u": ["ù"],
+                "\"": ["«", "»"]
+            }),
+            t9: ["abcà", "defèé", "ghiì", "jkl", "mnoò", "pqrs", "tuvù", "wxyz"],
+            layerLabel: "ABC"
+        },
+        pt: {
+            letters: qwerty,
+            alternates: Object.assign({}, symbolAlternates, {
+                "a": ["á", "à", "â", "ã"],
+                "c": ["ç"],
+                "e": ["é", "ê"],
+                "i": ["í"],
+                "o": ["ó", "ô", "õ"],
+                "u": ["ú", "ü"],
+                "\"": ["«", "»"]
+            }),
+            t9: ["abcáàâãç", "deféê", "ghií", "jkl", "mnoóôõ", "pqrs", "tuvúü", "wxyz"],
+            layerLabel: "ABC"
+        },
+        ro: {
+            letters: qwerty,
+            alternates: Object.assign({}, symbolAlternates, {
+                "a": ["ă", "â"],
+                "i": ["î"],
+                "s": ["ș"],
+                "t": ["ț"],
+                "\"": ["„", "”"]
+            }),
+            t9: ["abcăâ", "def", "ghiî", "jkl", "mno", "pqrsș", "tuvț", "wxyz"],
+            layerLabel: "ABC"
+        },
+        tr: {
+            letters: qwerty,
+            alternates: Object.assign({}, symbolAlternates, {
+                "c": ["ç"],
+                "g": ["ğ"],
+                "i": ["ı"],
+                "o": ["ö"],
+                "s": ["ş"],
+                "u": ["ü"]
+            }),
+            t9: ["abcç", "def", "ghiğı", "jkl", "mnoö", "pqrsş", "tuvü", "wxyz"],
             layerLabel: "ABC"
         },
         ru: {

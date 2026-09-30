@@ -6,127 +6,122 @@
 namespace
 {
 
-constexpr std::string_view kDigitForLetter = "22233344455566677778889999";
+constexpr char16_t kApostrophe = u'\'';
+constexpr char16_t kTypographicApostrophe = u'’';
+constexpr char16_t kHyphen = u'-';
 
-std::string lettersOf(const QString& word)
+bool isJoiner(char16_t character) { return character == kApostrophe || character == kHyphen; }
+
+char16_t folded(QChar character)
 {
-    std::string letters;
+    const char16_t lower = character.toLower().unicode();
+    return lower == kTypographicApostrophe ? kApostrophe : lower;
+}
+
+std::u16string lettersOf(const QString& word)
+{
+    std::u16string letters;
     letters.reserve(static_cast<std::size_t>(word.size()));
-    for (const QChar character : word)
+    for (const QChar character : word.trimmed())
     {
-        const char16_t lower = character.toLower().unicode();
-        if (lower < u'a' || lower > u'z')
+        const char16_t letter = folded(character);
+        if (isJoiner(letter))
+        {
+            if (letters.empty() || isJoiner(letters.back()))
+            {
+                return {};
+            }
+        }
+        else if (!QChar(letter).isLetter())
         {
             return {};
         }
-        letters.push_back(static_cast<char>(lower));
+        letters.push_back(letter);
+    }
+    if (!letters.empty() && isJoiner(letters.back()))
+    {
+        return {};
     }
     return letters;
 }
 
-std::string digitsOfLetters(const std::string& letters)
+std::u16string groupOf(const QString& group)
 {
-    std::string digits;
-    digits.reserve(letters.size());
-    for (const char letter : letters)
+    std::u16string letters;
+    for (const QChar character : group)
     {
-        digits.push_back(kDigitForLetter[static_cast<std::size_t>(letter - 'a')]);
-    }
-    return digits;
-}
-
-std::string keyOf(const QString& digits)
-{
-    std::string key;
-    key.reserve(static_cast<std::size_t>(digits.size()));
-    for (const QChar character : digits)
-    {
-        const char16_t digit = character.unicode();
-        if (digit < u'2' || digit > u'9')
+        const char16_t letter = folded(character);
+        if (isJoiner(letter) || QChar(letter).isLetter())
         {
-            return {};
+            letters.push_back(letter);
         }
-        key.push_back(static_cast<char>(digit));
     }
-    return key;
+    return letters;
 }
 
 }
 
-QString T9Dictionary::digitsFor(const QString& word)
+QString T9Dictionary::normalized(const QString& word)
 {
-    return QString::fromLatin1(digitsOfLetters(lettersOf(word)));
+    const std::u16string letters = lettersOf(word);
+    return QString(reinterpret_cast<const QChar*>(letters.data()),
+                   static_cast<qsizetype>(letters.size()));
 }
 
 void T9Dictionary::setWords(const QStringList& words)
 {
     m_letters.clear();
-    m_digits.clear();
     m_entries.clear();
     m_usage.clear();
     m_entries.reserve(static_cast<std::size_t>(words.size()));
 
     for (const QString& word : words)
     {
-        const std::string letters = lettersOf(word.trimmed());
+        const std::u16string letters = lettersOf(word);
         if (letters.empty())
         {
             continue;
         }
-        const Entry entry { static_cast<quint32>(m_letters.size()),
-                            static_cast<quint32>(letters.size()) };
+        m_entries.push_back(
+            { static_cast<quint32>(m_letters.size()), static_cast<quint32>(letters.size()) });
         m_letters += letters;
-        m_digits += digitsOfLetters(letters);
-        m_entries.push_back(entry);
     }
 
-    const auto keyOfEntry = [this](const Entry& entry)
-    {
-        return std::pair(digitsOf(entry),
-                         std::string_view(m_letters).substr(entry.offset, entry.length));
-    };
     std::sort(m_entries.begin(), m_entries.end(),
-              [&keyOfEntry](const Entry& left, const Entry& right)
+              [this](const Entry& left, const Entry& right)
               {
-                  const auto leftKey = keyOfEntry(left);
-                  const auto rightKey = keyOfEntry(right);
-                  return leftKey != rightKey ? leftKey < rightKey : left.offset < right.offset;
+                  const auto leftWord = wordOf(left);
+                  const auto rightWord = wordOf(right);
+                  return leftWord != rightWord ? leftWord < rightWord : left.offset < right.offset;
               });
     m_entries.erase(std::unique(m_entries.begin(), m_entries.end(),
-                                [&keyOfEntry](const Entry& left, const Entry& right)
-                                { return keyOfEntry(left) == keyOfEntry(right); }),
+                                [this](const Entry& left, const Entry& right)
+                                { return wordOf(left) == wordOf(right); }),
                     m_entries.end());
     m_entries.shrink_to_fit();
-
-    m_alphabetical = m_entries;
-    std::sort(m_alphabetical.begin(), m_alphabetical.end(),
-              [this](const Entry& left, const Entry& right)
-              { return wordOf(left) < wordOf(right); });
 }
 
 void T9Dictionary::setUsage(const QString& word, const Usage& usage)
 {
-    const std::string letters = lettersOf(word.trimmed());
+    const std::u16string letters = lettersOf(word);
     if (letters.empty())
     {
         return;
     }
-    const std::string digits = digitsOfLetters(letters);
-    const auto found = find(letters, digits);
-    const Entry entry = found != m_entries.end() ? *found : append(letters, digits);
+    const auto found = find(letters);
+    const Entry entry = found != m_entries.end() ? *found : append(letters);
     m_usage.insert(entry.offset, usage);
 }
 
 T9Dictionary::Usage T9Dictionary::learn(const QString& word, qint64 usedAt)
 {
-    const std::string letters = lettersOf(word.trimmed());
+    const std::u16string letters = lettersOf(word);
     if (letters.empty())
     {
         return {};
     }
-    const std::string digits = digitsOfLetters(letters);
-    const auto found = find(letters, digits);
-    const Entry entry = found != m_entries.end() ? *found : append(letters, digits);
+    const auto found = find(letters);
+    const Entry entry = found != m_entries.end() ? *found : append(letters);
     Usage& usage = m_usage[entry.offset];
     ++usage.count;
     usage.lastUsed = usedAt;
@@ -135,47 +130,22 @@ T9Dictionary::Usage T9Dictionary::learn(const QString& word, qint64 usedAt)
 
 T9Dictionary::Usage T9Dictionary::usage(const QString& word) const
 {
-    const std::string letters = lettersOf(word.trimmed());
+    const std::u16string letters = lettersOf(word);
     if (letters.empty())
     {
         return {};
     }
-    const auto found = find(letters, digitsOfLetters(letters));
+    const auto found = find(letters);
     return found != m_entries.end() ? usageOf(*found) : Usage();
 }
 
 bool T9Dictionary::contains(const QString& word) const
 {
-    const std::string letters = lettersOf(word.trimmed());
-    return !letters.empty() && find(letters, digitsOfLetters(letters)) != m_entries.end();
+    const std::u16string letters = lettersOf(word);
+    return !letters.empty() && find(letters) != m_entries.end();
 }
 
 int T9Dictionary::size() const { return static_cast<int>(m_entries.size()); }
-
-QStringList T9Dictionary::candidates(const QString& digits, int limit) const
-{
-    const std::string key = keyOf(digits);
-    if (key.empty() || limit <= 0)
-    {
-        return {};
-    }
-
-    const auto digitsBefore
-        = [this](const Entry& entry, std::string_view value) { return digitsOf(entry) < value; };
-    const auto first
-        = std::lower_bound(m_entries.begin(), m_entries.end(), std::string_view(key), digitsBefore);
-    const std::string pastPrefix = key + ':';
-    const auto last
-        = std::lower_bound(first, m_entries.end(), std::string_view(pastPrefix), digitsBefore);
-
-    std::vector<Ranked> exact;
-    std::vector<Ranked> longer;
-    for (auto it = first; it != last; ++it)
-    {
-        (it->length == key.size() ? exact : longer).push_back({ *it, usageOf(*it) });
-    }
-    return rankedWords(exact, longer, limit);
-}
 
 QStringList T9Dictionary::candidatesForGroups(const QStringList& groups, int limit) const
 {
@@ -183,19 +153,11 @@ QStringList T9Dictionary::candidatesForGroups(const QStringList& groups, int lim
     {
         return {};
     }
-    std::vector<std::string> letterGroups;
+    std::vector<std::u16string> letterGroups;
     letterGroups.reserve(static_cast<std::size_t>(groups.size()));
     for (const QString& group : groups)
     {
-        std::string letters;
-        for (const QChar character : group)
-        {
-            const char16_t lower = character.toLower().unicode();
-            if (lower >= u'a' && lower <= u'z')
-            {
-                letters.push_back(static_cast<char>(lower));
-            }
-        }
+        std::u16string letters = groupOf(group);
         if (letters.empty())
         {
             return {};
@@ -205,12 +167,12 @@ QStringList T9Dictionary::candidatesForGroups(const QStringList& groups, int lim
 
     std::vector<Ranked> exact;
     std::vector<Ranked> longer;
-    collectMatches(m_alphabetical.begin(), m_alphabetical.end(), 0, letterGroups, exact, longer);
+    collectMatches(m_entries.begin(), m_entries.end(), 0, letterGroups, exact, longer);
     return rankedWords(exact, longer, limit);
 }
 
 void T9Dictionary::collectMatches(EntryIterator first, EntryIterator last, std::size_t depth,
-                                  const std::vector<std::string>& groups,
+                                  const std::vector<std::u16string>& groups,
                                   std::vector<Ranked>& exact, std::vector<Ranked>& longer) const
 {
     if (depth == groups.size())
@@ -221,14 +183,14 @@ void T9Dictionary::collectMatches(EntryIterator first, EntryIterator last, std::
         }
         return;
     }
-    for (const char letter : groups[depth])
+    for (const char16_t letter : groups[depth])
     {
-        const auto from
-            = std::lower_bound(first, last, letter, [this, depth](const Entry& entry, char value)
-                               { return entry.length <= depth || wordOf(entry)[depth] < value; });
-        const auto to
-            = std::upper_bound(from, last, letter, [this, depth](char value, const Entry& entry)
-                               { return value < wordOf(entry)[depth]; });
+        const auto from = std::lower_bound(first, last, letter,
+                                           [this, depth](const Entry& entry, char16_t value)
+                                           { return entry.length <= depth || wordOf(entry)[depth] < value; });
+        const auto to = std::upper_bound(from, last, letter,
+                                         [this, depth](char16_t value, const Entry& entry)
+                                         { return value < wordOf(entry)[depth]; });
         if (from != to)
         {
             collectMatches(from, to, depth + 1, groups, exact, longer);
@@ -253,9 +215,10 @@ QStringList T9Dictionary::rankedWords(std::vector<Ranked>& exact, std::vector<Ra
 
     QStringList words;
     words.reserve(static_cast<qsizetype>(std::min(wanted, exact.size()) + completions));
-    const auto appendWord = [this, &words](const Ranked& ranked) {
-        words.append(
-            QString::fromLatin1(m_letters.data() + ranked.entry.offset, ranked.entry.length));
+    const auto appendWord = [this, &words](const Ranked& ranked)
+    {
+        words.append(QString(reinterpret_cast<const QChar*>(m_letters.data() + ranked.entry.offset),
+                             static_cast<qsizetype>(ranked.entry.length)));
     };
     for (std::size_t i = 0; i < exact.size() && i < wanted; ++i)
     {
@@ -268,46 +231,28 @@ QStringList T9Dictionary::rankedWords(std::vector<Ranked>& exact, std::vector<Ra
     return words;
 }
 
-std::string_view T9Dictionary::digitsOf(const Entry& entry) const
+std::u16string_view T9Dictionary::wordOf(const Entry& entry) const
 {
-    return std::string_view(m_digits).substr(entry.offset, entry.length);
+    return std::u16string_view(m_letters).substr(entry.offset, entry.length);
 }
 
-std::string_view T9Dictionary::wordOf(const Entry& entry) const
+T9Dictionary::EntryIterator T9Dictionary::find(std::u16string_view word) const
 {
-    return std::string_view(m_letters).substr(entry.offset, entry.length);
+    const auto found = std::lower_bound(m_entries.begin(), m_entries.end(), word,
+                                        [this](const Entry& entry, std::u16string_view value)
+                                        { return wordOf(entry) < value; });
+    return found != m_entries.end() && wordOf(*found) == word ? found : m_entries.end();
 }
 
-std::vector<T9Dictionary::Entry>::const_iterator T9Dictionary::find(const std::string& letters,
-                                                                    const std::string& digits) const
-{
-    const std::string_view key(digits);
-    const auto first = std::lower_bound(m_entries.begin(), m_entries.end(), key,
-                                        [this](const Entry& entry, std::string_view value)
-                                        { return digitsOf(entry) < value; });
-    const auto last = std::upper_bound(first, m_entries.end(), key,
-                                       [this](std::string_view value, const Entry& entry)
-                                       { return value < digitsOf(entry); });
-    const auto found = std::find_if(
-        first, last, [this, &letters](const Entry& entry)
-        { return std::string_view(m_letters).substr(entry.offset, entry.length) == letters; });
-    return found != last ? found : m_entries.end();
-}
-
-T9Dictionary::Entry T9Dictionary::append(const std::string& letters, const std::string& digits)
+T9Dictionary::Entry T9Dictionary::append(std::u16string_view word)
 {
     const Entry entry { static_cast<quint32>(m_letters.size()),
-                        static_cast<quint32>(letters.size()) };
-    m_letters += letters;
-    m_digits += digits;
-    const auto position = std::upper_bound(m_entries.begin(), m_entries.end(), entry,
-                                           [this](const Entry& left, const Entry& right)
-                                           { return digitsOf(left) < digitsOf(right); });
-    m_entries.insert(position, entry);
-    m_alphabetical.insert(std::upper_bound(m_alphabetical.begin(), m_alphabetical.end(), entry,
-                                           [this](const Entry& left, const Entry& right)
-                                           { return wordOf(left) < wordOf(right); }),
-                          entry);
+                        static_cast<quint32>(word.size()) };
+    m_letters += word;
+    m_entries.insert(std::upper_bound(m_entries.begin(), m_entries.end(), entry,
+                                      [this](const Entry& left, const Entry& right)
+                                      { return wordOf(left) < wordOf(right); }),
+                     entry);
     return entry;
 }
 
