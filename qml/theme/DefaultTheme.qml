@@ -507,6 +507,8 @@ QtObject {
         readonly property string settings: "qrc:/Themed/Icons/settings.svg"
         readonly property string sliders: "qrc:/Themed/Icons/sliders.svg"
         readonly property string edit: "qrc:/Themed/Icons/edit.svg"
+        readonly property string keyboard: "qrc:/Themed/Icons/keyboard.svg"
+        readonly property string circularTiles: "qrc:/Themed/Icons/circular-tiles.svg"
         readonly property string home: "qrc:/Themed/Icons/home.svg"
         readonly property string list: "qrc:/Themed/Icons/list.svg"
         readonly property string deck: "qrc:/Themed/Icons/deck.svg"
