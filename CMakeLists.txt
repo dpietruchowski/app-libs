@@ -42,6 +42,7 @@ add_subdirectory(cpp/dbtoolkit)
 add_subdirectory(cpp/eventbus)
 add_subdirectory(cpp/texttospeech)
 add_subdirectory(cpp/agent)
+add_subdirectory(cpp/diagram)
 
 if(LIBS_AUTOMATION)
     add_subdirectory(cpp/automation)
