@@ -1,19 +1,17 @@
 #include "sequencelayout.h"
 
+#include "diagram/layoutsupport.h"
+
 #include <algorithm>
 #include <cmath>
-#include <functional>
 
 namespace diagram
 {
 namespace
 {
-    struct WrappedText
-    {
-        QStringList lines;
-        qreal width = 0;
-        qreal height = 0;
-    };
+    using layouting::fairWidths;
+    using layouting::wholePixels;
+    using layouting::WrappedText;
 
     struct OpenGroup
     {
@@ -35,28 +33,6 @@ namespace
         return label.isEmpty() ? QString() : QLatin1Char('[') + label + QLatin1Char(']');
     }
 
-    qreal wholePixels(qreal value) { return std::ceil(value - 0.001); }
-
-    QList<qreal> fairWidths(const QList<qreal>& minimal, qreal usable)
-    {
-        QList<qreal> widest = minimal;
-        std::sort(widest.begin(), widest.end(), std::greater<>());
-        qreal remaining = usable;
-        qsizetype shared = widest.size();
-        for (const qreal width : std::as_const(widest))
-        {
-            if (width <= remaining / qreal(shared))
-                break;
-            remaining -= width;
-            --shared;
-        }
-        const qreal share = shared > 0 ? remaining / qreal(shared) : 0;
-        QList<qreal> widths;
-        for (const qreal width : minimal)
-            widths.append(std::max(width, share));
-        return widths;
-    }
-
     class SequenceLayouter
     {
     public:
@@ -65,6 +41,7 @@ namespace
             : m_diagram(diagram)
             , m_style(style)
             , m_measurer(measurer)
+            , m_wrapper(style, measurer)
             , m_availableWidth(availableWidth)
         {
         }
@@ -136,16 +113,7 @@ namespace
 
         qreal actorWidth() const { return m_style.actorHeight * 0.6; }
 
-        qreal widestWord(const QString& text) const
-        {
-            qreal widest = 0;
-            for (const QString& paragraph : text.split(QLatin1Char('\n')))
-            {
-                for (const QString& word : paragraph.split(QLatin1Char(' '), Qt::SkipEmptyParts))
-                    widest = std::max(widest, measured(word));
-            }
-            return widest;
-        }
+        qreal widestWord(const QString& text) const { return m_wrapper.widestWord(text); }
 
         qreal lifelineX(int index) const
         {
@@ -167,59 +135,13 @@ namespace
             return std::max(m_style.margin, std::min(left, contentRight() - width));
         }
 
-        qreal minimumWrapWidth() const { return 2 * qreal(m_style.fontPixelSize); }
+        qreal minimumWrapWidth() const { return m_wrapper.minimumWrapWidth(); }
 
-        qreal measured(const QString& text) const
-        {
-            return m_measurer.width(text) * m_style.textSafety;
-        }
+        qreal measured(const QString& text) const { return m_wrapper.measured(text); }
 
         WrappedText wrap(const QString& text, qreal maxWidth) const
         {
-            WrappedText wrapped;
-            const QString trimmed = text.trimmed();
-            if (trimmed.isEmpty())
-                return wrapped;
-            const qreal limit = std::max(maxWidth, minimumWrapWidth());
-            for (const QString& paragraph : trimmed.split(QLatin1Char('\n')))
-                wrapParagraph(paragraph, limit, wrapped.lines);
-            for (const QString& line : std::as_const(wrapped.lines))
-                wrapped.width = std::max(wrapped.width, measured(line));
-            wrapped.height = qreal(wrapped.lines.size()) * m_measurer.lineHeight();
-            return wrapped;
-        }
-
-        void wrapParagraph(const QString& paragraph, qreal limit, QStringList& lines) const
-        {
-            QString line;
-            for (const QString& word : paragraph.split(QLatin1Char(' '), Qt::SkipEmptyParts))
-            {
-                const QString candidate = line.isEmpty() ? word : line + QLatin1Char(' ') + word;
-                if (measured(candidate) <= limit)
-                {
-                    line = candidate;
-                    continue;
-                }
-                if (!line.isEmpty())
-                    lines.append(line);
-                line = breakLongWord(word, limit, lines);
-            }
-            lines.append(line);
-        }
-
-        QString breakLongWord(const QString& word, qreal limit, QStringList& lines) const
-        {
-            QString piece;
-            for (const QChar character : word)
-            {
-                if (!piece.isEmpty() && measured(piece + character) > limit)
-                {
-                    lines.append(piece);
-                    piece.clear();
-                }
-                piece += character;
-            }
-            return piece;
+            return m_wrapper.wrap(text, maxWidth);
         }
 
         void addText(const WrappedText& text, const QRectF& bounds, Qt::Alignment align,
@@ -487,14 +409,8 @@ namespace
 
             const qreal frameWidth = frame.right - frame.left;
             const WrappedText keyword = wrap(group.keyword, frameWidth - 2 * m_style.padding);
-            const qreal tabWidth = keyword.width + 2 * m_style.padding;
-            const qreal tabHeight = keyword.height + m_style.padding;
-            const QRectF tab(frame.left, frame.top, tabWidth, tabHeight);
-            m_items.append(SceneRect { tab, 0, ColorRole::BoxFill, ColorRole::GroupStroke, false });
-            addText(keyword,
-                    tab.adjusted(m_style.padding, m_style.padding / 2, -m_style.padding,
-                                 -m_style.padding / 2),
-                    Qt::AlignLeft);
+            const QRectF tab = layouting::placeFrameTab(m_items, keyword, m_style,
+                                                        QPointF(frame.left, frame.top));
 
             const qreal besideTab = frame.right - tab.right() - 2 * m_style.padding;
             const bool below = besideTab < minimumWrapWidth();
@@ -545,6 +461,7 @@ namespace
         const SequenceDiagram& m_diagram;
         const DiagramStyle& m_style;
         const TextMeasurer& m_measurer;
+        layouting::TextWrapper m_wrapper;
         qreal m_availableWidth = 0;
         QList<qreal> m_columnWidths;
         QList<qreal> m_columnLefts;

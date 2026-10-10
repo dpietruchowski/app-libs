@@ -1,7 +1,7 @@
 #include "diagramsvgprovider.h"
 
-#include "diagram/sequencelayout.h"
-#include "diagram/sequenceparser.h"
+#include "diagram/diagramlayout.h"
+#include "diagram/diagramparser.h"
 #include "diagram/svgscenewriter.h"
 #include "diagram/textmeasurer.h"
 
@@ -128,11 +128,11 @@ void DiagramSvgProvider::parse()
         setError(QString());
         setWarnings({});
     }
-    else if (const auto parsed = SequenceParser::parse(m_text); parsed.isSuccess())
+    else if (const auto parsed = DiagramParser::parse(m_text); parsed.isSuccess())
     {
         m_diagram = parsed.value();
         setError(QString());
-        setWarnings(m_diagram->warnings);
+        setWarnings(warningsOf(*m_diagram));
     }
     else
     {
@@ -160,7 +160,7 @@ void DiagramSvgProvider::layOut()
     if (m_diagram && m_availableWidth > 0)
     {
         const FontTextMeasurer measurer(m_style.font());
-        m_scene = SequenceLayout::layout(*m_diagram, m_style, layoutWidth(), measurer);
+        m_scene = DiagramLayout::layout(*m_diagram, m_style, layoutWidth(), measurer);
         m_laidOutWidth = layoutWidth();
     }
     write();

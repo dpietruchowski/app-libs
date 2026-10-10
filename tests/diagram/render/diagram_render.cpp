@@ -2,8 +2,8 @@
 #include <QGuiApplication>
 #include <QTextStream>
 
-#include "diagram/sequencelayout.h"
-#include "diagram/sequenceparser.h"
+#include "diagram/diagramlayout.h"
+#include "diagram/diagramparser.h"
 #include "diagram/svgscenewriter.h"
 
 using namespace diagram;
@@ -47,13 +47,13 @@ int main(int argc, char** argv)
         err << "cannot read " << args.at(1) << "\n";
         return 1;
     }
-    const auto diagram = SequenceParser::parse(QString::fromUtf8(input.readAll()));
+    const auto diagram = DiagramParser::parse(QString::fromUtf8(input.readAll()));
     if (diagram.isFailure())
     {
         err << diagram.error() << "\n";
         return 1;
     }
-    for (const QString& warning : diagram.value().warnings)
+    for (const QString& warning : warningsOf(diagram.value()))
         err << "warning: " << warning << "\n";
 
     const qreal width = args.size() > 3 ? args.at(3).toDouble() : 360;
@@ -61,7 +61,7 @@ int main(int argc, char** argv)
     const qreal pixelRatio = args.size() > 5 ? args.at(5).toDouble() : 1;
     const DiagramStyle style;
     const FontTextMeasurer measurer(style.font());
-    const Scene scene = SequenceLayout::layout(diagram.value(), style, width, measurer);
+    const Scene scene = DiagramLayout::layout(diagram.value(), style, width, measurer);
     const QString svg
         = SvgSceneWriter::write(scene, night ? nightPalette() : DiagramPalette {}, pixelRatio);
 

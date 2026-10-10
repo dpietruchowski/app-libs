@@ -1,9 +1,9 @@
 #pragma once
 
+#include "diagram/diagram.h"
 #include "diagram/diagrampalette.h"
 #include "diagram/diagramstyle.h"
 #include "diagram/scene.h"
-#include "diagram/sequencediagram.h"
 
 #include <QObject>
 #include <QStringList>
@@ -88,7 +88,7 @@ private:
     DiagramStyle m_style;
     QVariantMap m_colors;
     DiagramPalette m_palette;
-    std::optional<SequenceDiagram> m_diagram;
+    std::optional<Diagram> m_diagram;
     std::optional<Scene> m_scene;
     int m_laidOutWidth = 0;
     QString m_svgSource;

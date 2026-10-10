@@ -1,12 +1,14 @@
 # Diagram — text to SVG
 
-Status: revision 4. Steps 1–4 of the plan are implemented; this text describes the code as built.
+Status: revision 5. Steps 1–4 of the plan are implemented, and the activity diagram has been added
+next to the sequence diagram; this text describes the code as built.
 
 ## Goal
 
 A course pasted from a chat must be able to carry its own diagrams. The chat writes a short
-text description, and the app lays it out and draws it on the device, offline. The first
-supported kind is the sequence diagram.
+text description, and the app lays it out and draws it on the device, offline. The supported
+kinds are the sequence diagram and the activity diagram (new PlantUML syntax); the first
+meaningful line of the text decides which one it is.
 
 The syntax is a subset of PlantUML. A model already writes it without extra instructions, and
 the author can preview the same text in real PlantUML on the desktop. **Only the syntax is
@@ -23,19 +25,31 @@ are our own implementation.
 - Data only: the pasted text describes a diagram and can never execute anything.
 - `libs` is shared with another app, so everything is additive: a new directory and a new
   target, and nothing existing changes.
-- Rendering stays cheap. The SVG uses only `rect`, `line`, `polyline`, `polygon` and `text`, with no
-  filters, gradients, masks or CSS, so it stays within what Qt Svg (SVG Tiny 1.2) draws.
+- Rendering stays cheap. The SVG uses only `rect`, `line`, `polyline`, `polygon`, `ellipse` and
+  `text`, with no filters, gradients, masks or CSS, so it stays within what Qt Svg (SVG Tiny 1.2)
+  draws.
 
 ## Pipeline
 
 ```
-text ──parse──▶ SequenceDiagram ──layout(width, style, measurer)──▶ Scene ──write(palette, pixelRatio)──▶ SVG
+text ──parse──▶ Diagram ──layout(width, style, measurer)──▶ Scene ──write(palette, pixelRatio)──▶ SVG
+        (SequenceDiagram | ActivityDiagram)
 ```
+
+`DiagramParser::parse` looks at the first meaningful line, skipping the `@startuml` marker, the
+title, comments and the ignored directives, and hands the text to `ActivityParser` or to
+`SequenceParser`. `Diagram` is `std::variant<SequenceDiagram, ActivityDiagram>`, and
+`DiagramLayout::layout` visits it. The two parsers and the two layouts keep their own public
+API, so each kind can still be used and tested alone.
 
 | Stage | Input → output | Depends on |
 |---|---|---|
+| `DiagramParser` | `QString` → `Result<Diagram>` | the two parsers |
 | `SequenceParser` | `QString` → `Result<SequenceDiagram>` | Qt Core, `app_async` (`Result`) |
+| `ActivityParser` | `QString` → `Result<ActivityDiagram>` | Qt Core, `app_async` (`Result`) |
+| `DiagramLayout` | `Diagram` + `DiagramStyle` + width + `TextMeasurer` → `Scene` | the two layouts |
 | `SequenceLayout` | diagram + `DiagramStyle` + width + `TextMeasurer` → `Scene` | Qt Core, Qt Gui (`DiagramStyle::font()`) |
+| `ActivityLayout` | diagram + `DiagramStyle` + width + `TextMeasurer` → `Scene` | Qt Core, Qt Gui |
 | `SvgSceneWriter` | `Scene` + `DiagramPalette` + pixel ratio → `QString` | Qt Core, Qt Gui (`QColor`) |
 | `FontTextMeasurer` | implements `TextMeasurer` with `QFontMetricsF` | Qt Gui |
 
@@ -43,20 +57,27 @@ The library does not link `Qt6::Svg`. The writer only builds a string, and its t
 output with `QXmlStreamReader`. The only test that uses `QSvgRenderer` is a smoke test.
 
 `Scene` is the seam because it lets layout and writing be tested separately, and because a theme
-change only re-runs the writer. It can also later serve an activity layout or a QML emitter.
-Those are possibilities only: no field is added to `Scene` for them now.
+change only re-runs the writer. Both layouts produce it, and a QML emitter could later read it.
 
 ## Directory and target
 
 ```
 libs/cpp/diagram/            target app_diagram (STATIC; PUBLIC Qt6::Core, Qt6::Gui, app_async)
+    diagram.h                Diagram variant + warningsOf
+    diagramparser.h/.cpp     kind detection and dispatch
+    parsersupport.h/.cpp     helpers shared by both parsers: patterns, skipped blocks, error texts
     sequencediagram.h        model: participants, steps, warnings
     sequenceparser.h/.cpp
+    activitydiagram.h        model: a tree of nodes
+    activityparser.h/.cpp
     scene.h                  geometry primitives + colour roles
     textmeasurer.h/.cpp      interface, plus FontTextMeasurer
     diagramstyle.h           sizes, gaps, font family and size (the only source of both)
     diagrampalette.h         role → QColor
+    layoutsupport.h/.cpp     text wrapping, fair widths and the frame tab, shared by both layouts
+    diagramlayout.h/.cpp     visits the variant
     sequencelayout.h/.cpp
+    activitylayout.h/.cpp
     svgscenewriter.h/.cpp
     diagramsvgprovider.h/.cpp  QObject for QML: text + width + colours → data: URL + image size
 libs/tests/diagram/          diagram_tests (GoogleTest), FakeTextMeasurer
@@ -119,7 +140,10 @@ open group, a group, note or block left unclosed at the end, `return` with no op
 `note right : …` with no message before it. Parsing stops at the first error, reported as
 `Line N: …`. `Result<T>` carries one string, and one precise error is enough for the user to
 fix the text in the chat. This is a deliberate choice. Common mistakes get a hint in the
-message: a two-way `<->`, a gate `[->`, `ref over`, and an unquoted name with spaces. A diagram
+message. Valid PlantUML that this app does not draw (a two-way `<->`, a gate `[->`, `ref over`)
+says so: `"<line>" is valid PlantUML, but this app does not support <feature>. <How to rewrite
+it>.` An unquoted name with spaces gets its own hint, and any other unknown statement lists what a
+sequence diagram understands, so the user can paste the error back to a chat model. A diagram
 without participants is the one error without a line number. Input longer than 20 000
 characters is rejected before parsing, and a diagram with more than 300 steps is rejected at the
 line that crosses the limit, so pasted text can never produce an image too tall to rasterize.
@@ -162,7 +186,9 @@ enum class ArrowHead { None, Filled, Open };
 struct SceneRect { QRectF rect; qreal radius; std::optional<ColorRole> fill; std::optional<ColorRole> stroke; bool dashed; };
 struct SceneLine { QList<QPointF> points; ColorRole color; bool dashed; ArrowHead head; };
 struct SceneText { QRectF bounds; Qt::Alignment align; QStringList lines; ColorRole color; };
-using SceneItem = std::variant<SceneRect, SceneLine, SceneText>;
+struct SceneEllipse { QRectF rect; std::optional<ColorRole> fill; std::optional<ColorRole> stroke; };
+struct ScenePolygon { QList<QPointF> points; std::optional<ColorRole> fill; std::optional<ColorRole> stroke; };
+using SceneItem = std::variant<SceneRect, SceneLine, SceneText, SceneEllipse, ScenePolygon>;
 struct Scene {
     QSizeF size;
     QString fontFamily; qreal fontPixelSize; qreal lineHeight; qreal ascent; qreal arrowHeadSize;
@@ -187,7 +213,10 @@ The writer drops characters that XML 1.0 forbids (control characters other than 
 breaks, U+FFFE, U+FFFF), so text pasted from anywhere still yields a well-formed document. A
 filled arrow head is a polygon without a stroke, so its tip ends exactly on the lifeline. A `SceneLine` with
 more than two points is a polyline (self loops, the actor figure); its head sits on the last
-segment.
+segment. `SceneEllipse` is written as `<ellipse cx cy rx ry>` and `ScenePolygon` as `<polygon
+points>` (nothing is written for fewer than three points); both use the same fill and stroke
+roles as `SceneRect`. The activity layout uses them for the start and stop symbols and for the
+condition diamonds.
 
 ## Layout (sequence): from the width inwards
 
@@ -247,6 +276,141 @@ Invariants, each checked by tests:
 - `y` is strictly increasing across steps;
 - group frames nest properly, so an inner frame lies inside its outer frame.
 
+## Activity diagram
+
+The activity diagram is a flowchart of actions, written in the new PlantUML activity syntax. It
+shares the pipeline, the `Scene`, the colour roles and the writer with the sequence diagram; only
+its parser, its model and its layout are its own.
+
+### Syntax
+
+**Understood:**
+
+```
+@startuml / @enduml                          optional
+title Order handling
+start
+:Receive the order;                          an action; a text can span lines until one ends in `;`
+                                             and `\n` breaks a line
+note right : text                            also `note left`; attached to the action before it,
+note left                                    and the multi-line form is closed by `end note`
+...
+end note
+-> validated;                                a label on the arrow into the next element
+if (Paid?) then (yes)                        `then (guard)` is optional
+  :Ship it;
+elseif (Voucher?) then (maybe)
+  :Apply it;
+else (no)
+  :Reject it;
+  detach                                     also `kill`: the branch ends, nothing joins after it
+endif
+while (More items?) is (yes)
+  :Pack the next item;
+endwhile (no)
+repeat :First step;                          `repeat` alone is fine too
+  :Next step;
+repeat while (Failed?) is (yes) not (no)
+fork
+  :One;
+fork again
+  :Two;
+end fork                                     also `end merge`
+partition "Checkout" {                       nestable; the name may be quoted or bare
+  :Charge the card;
+}
+stop                                         also `end`, drawn as a circle with a cross
+```
+
+The SDL shapes `< > | / ] }` that can end an action in place of `;` are drawn as a plain action.
+Limits: 20 000 characters and 300 elements.
+
+**Ignored, with a warning:** a colour in front of an action (`#red:text;`), arrow styling
+(`-[#red]->`; its label is kept), SDL shapes, `skinparam` (also as a block), `hide`, `show`,
+`scale`, `header`, `footer`, `caption`, `!` directives, `legend … endlegend` and `<style> …
+</style>`. Comments are skipped without a warning. The shared helpers in `parsersupport` handle
+these, so both parsers treat them in the same way.
+
+**Error:** parsing stops at the first one, reported as `Line N: …`, and every message names what
+is wrong and how to write it instead, because the user pastes it back to a chat model.
+
+- Valid PlantUML that this app does not draw: `Line N: "<line>" is valid PlantUML, but this app
+  does not support <feature>. <How to rewrite it>.` The features are swimlanes, `switch`, the old
+  activity syntax, `goto`/`label` and connectors, `split`, `break`, `backward`, `is`/`equals`
+  conditions and floating notes. A note that does not directly follow an action is its own error,
+  because real PlantUML would silently drop it.
+- A statement that is none of the above: `unknown statement "<line>". An activity diagram here
+  understands: …`. A known keyword written wrongly gets the form it should have instead
+  (`"if x" is not a valid "if" statement. Write it as: if (condition) then (yes).`).
+- Structure: `"endif" without an open "if"`, `"else" after "else" in the "if" opened at line M`,
+  a closer that does not match the innermost open block, and a block, action or note left open at
+  the end (reported at the last line, naming the line that opened it). A diagram with no element
+  is the one error without a line number.
+
+### Model
+
+```cpp
+struct ActivityElement { ActivityNode node; QString incomingLabel; int line; };
+using ActivityBlock = std::vector<ActivityElement>;
+using ActivityNode = std::variant<ActivityStart, ActivityStop, ActivityAction, ActivityBranchEnd,
+                                  ActivityIf, ActivityWhile, ActivityRepeat, ActivityFork,
+                                  ActivityPartition>;
+struct ActivityDiagram { QString title; ActivityBlock body; QStringList warnings; };
+```
+
+The model is a tree: `ActivityIf` holds one block per branch (the last may be the `else`),
+`ActivityFork` one block per branch, and `ActivityWhile`, `ActivityRepeat` and `ActivityPartition`
+one block each. `incomingLabel` is the label of the connector that leads into the element.
+`ActivityAction` carries its optional note. `ActivityBranchEnd` (`detach`, `kill`) draws nothing
+and only tells the layout that the flow does not continue.
+
+### Layout (activity)
+
+The flow runs down one axis, and every block is laid out against a budget on each side of that
+axis, a left and a right one that need not be equal. Text wraps to the budget exactly as in the sequence layout, so a narrower width
+gives more lines and never smaller text.
+
+- **Nodes.** An action is a rounded box, a condition a hexagon, `start` a filled circle, `stop` a
+  circle with a dot, `end` a circle with a cross, a fork a filled bar at the top and at the
+  bottom. A connector is a line with a filled head, and every flow connector ends on the top edge
+  of the node it leads to; elbows are used when the target is off the axis. A connector label sits
+  to the right of the connector and makes the gap taller when it needs the room.
+- **Notes** sit beside their action, on the requested side, and widen the block on that side only.
+  The action wraps within the budget of the other side first, and the note takes what is left of
+  its own side, never less than its minimum.
+- **If.** One column per condition, with the diamonds in a row and `elseif` diamonds chained by
+  an arrow from the side of the previous one. An `else` has no diamond, only a column. An `if`
+  without `else` gets a narrow empty column, so the "no" path has a line to follow. The columns
+  join in a merge line below the deepest one; branches that end do not join.
+- **While.** The condition on top, the body below it, the loop-back connector on the right and the
+  exit on the left, both in gutters of `style.loopGutter`. **Repeat** starts with a small diamond
+  and ends with the condition diamond; its loop-back connector runs up the right side.
+- **Fork.** The branches are columns under a bar and join at a second bar.
+- **Partition.** A frame with a tab, like a sequence group, inset by `style.groupInset` for each
+  level of nesting (up to `style.maxGroupIndent`, and never deeper than the width allows).
+- **Widths.** A block is measured as a pair of extents, left and right of its axis, at its minimum
+  (no word broken) and at its natural size. A column of an `if` or a `fork` is as wide as its left
+  and right extent together, columns abut by extents, and each column's axis sits at its own left
+  extent, so a one-sided column (an action with a note) is not padded to symmetry. Every column
+  gets its minimum, and the spare width is split in proportion to natural minus minimum, on each
+  side separately, so the spare goes to the side whose content wraps. A group of columns is placed
+  as near the centre of its budget as the budgets allow, and the whole diagram is centred as one
+  piece, so its top-level axis may be off-centre. The measurements are made once per block, so the
+  cost grows with the size of the diagram times its nesting, not exponentially.
+- **When it does not fit.** The scene is laid out at the minimums and comes out wider than the
+  viewport, and the integration scales the image down, as for the sequence diagram. A partition
+  frame is not inset in that case if that makes the scene narrower.
+
+Invariants, each checked by tests:
+
+- every primitive lies inside `scene.size`;
+- the `scene.size` width is at most the available width, except when even the minimum is wider;
+- no two text `bounds` overlap, and no text overlaps a node it does not belong to;
+- every flow connector ends on the top edge of a node, the loop-back and `elseif` connectors on a
+  side vertex of a diamond;
+- partition frames nest properly;
+- a narrower width gives more lines and the same font size.
+
 ## Sharpness on a high-DPR screen
 
 Phones have a device pixel ratio of about 2.6 to 3. The writer emits the root element as
@@ -272,8 +436,17 @@ already go through the same path at their logical size.
   and may outgrow their arrow, that side notes sit beside their lifeline or fall back to `over`,
   that self messages turn to the roomier side, that long tokens are broken by character, that
   deep nesting stays inside the scene, and that too many participants take the overflow path.
-- **Writer:** golden SVG strings for small scenes. Also checks, with `QXmlStreamReader`, that the
-  output is well-formed XML using only the allowed elements and attributes.
+- **Activity parser:** every form, every warning, and every error with its exact text and line,
+  including the "is valid PlantUML, but this app does not support" wording and the limits.
+  **Kind detection:** `DiagramParser` picks the right parser for the first meaningful line.
+- **Activity layout:** the invariants listed above at widths of 120 to 720, the overflow case,
+  deep nesting, and a few exact geometries (start and stop, an action, a note beside it). One-sided
+  content: a fork branch with a note does not starve the next branch, an `if` column with a note is
+  wider than a short neighbour without overlapping it, and a top-level action with a note stays
+  inside the scene at every width.
+- **Writer:** golden SVG strings for small scenes, including `<ellipse>` and `<polygon>`. Also
+  checks, with `QXmlStreamReader`, that the output is well-formed XML using only the allowed
+  elements and attributes.
 - **Smoke test:** `QSvgRenderer` loads the writer's output, checks its size and viewBox, and
   paints it into a `QImage`: the background colour is where it belongs and a reasonable share of
   pixels carries ink. `isValid()` alone only proves the XML parses, because Qt Svg skips unknown

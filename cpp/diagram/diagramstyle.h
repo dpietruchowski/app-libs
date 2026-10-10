@@ -24,6 +24,12 @@ struct DiagramStyle
     qreal boxRadius = 4;
     qreal actorHeight = 32;
     int repeatFootAfterSteps = 8;
+    qreal nodeRadius = 10;
+    qreal flowGap = 18;
+    qreal diamondPoint = 12;
+    qreal forkBarHeight = 4;
+    qreal loopGutter = 18;
+    qreal actionRadius = 10;
 
     QFont font() const
     {

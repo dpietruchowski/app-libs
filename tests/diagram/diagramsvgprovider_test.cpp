@@ -179,6 +179,38 @@ TEST(DiagramSvgProviderTest, PassesTheWarningsOn)
     EXPECT_TRUE(provider.warnings().first().startsWith(QStringLiteral("Line 1:")));
 }
 
+TEST(DiagramSvgProviderTest, DrawsAnActivityDiagram)
+{
+    DiagramSvgProvider provider;
+    configure(provider,
+              QStringLiteral("@startuml\nstart\n:Do it;\nif (ok?) then (yes)\n:Next;\nelse (no)\n"
+                             "stop\nendif\nstop\n@enduml\n"),
+              360);
+
+    EXPECT_TRUE(provider.error().isEmpty());
+    ASSERT_FALSE(provider.svgSource().isEmpty());
+    const QString svg = decoded(provider.svgSource());
+    EXPECT_TRUE(svg.contains(QStringLiteral("<ellipse")));
+    EXPECT_TRUE(svg.contains(QStringLiteral("<polygon")));
+    EXPECT_TRUE(svg.contains(QStringLiteral(">Do it</text>")));
+    EXPECT_GT(provider.imageHeight(), 0);
+}
+
+TEST(DiagramSvgProviderTest, ReportsAnActivityErrorAndItsWarnings)
+{
+    DiagramSvgProvider provider;
+    configure(provider, QStringLiteral("skinparam monochrome true\nstart\n|Lane|\n"), 360);
+
+    EXPECT_TRUE(
+        provider.error().startsWith(QStringLiteral("Line 3: \"|Lane|\" is valid PlantUML")));
+    EXPECT_TRUE(provider.svgSource().isEmpty());
+
+    provider.setText(QStringLiteral("skinparam monochrome true\nstart\nstop\n"));
+    EXPECT_TRUE(provider.error().isEmpty());
+    ASSERT_EQ(provider.warnings().size(), 1);
+    EXPECT_TRUE(provider.warnings().first().startsWith(QStringLiteral("Line 1:")));
+}
+
 TEST(DiagramSvgProviderTest, ColoursChangeOnlyTheColours)
 {
     DiagramSvgProvider provider;

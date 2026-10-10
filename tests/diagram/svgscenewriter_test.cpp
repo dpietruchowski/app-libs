@@ -2,6 +2,8 @@
 #include <QXmlStreamReader>
 #include <gtest/gtest.h>
 
+#include "diagram/diagramlayout.h"
+#include "diagram/diagramparser.h"
 #include "diagram/sequencelayout.h"
 #include "diagram/sequenceparser.h"
 #include "diagram/svgscenewriter.h"
@@ -115,6 +117,37 @@ TEST(SvgSceneWriterTest, AHeadOnALoopPointsAlongItsLastSegment)
     EXPECT_TRUE(svg.contains(QStringLiteral("<polygon points=\"42,33.6 50,30 42,26.4\"")));
 }
 
+TEST(SvgSceneWriterTest, AnEllipseIsWrittenByItsCentreAndRadii)
+{
+    Scene scene = smallScene();
+    scene.items = {
+        SceneEllipse { QRectF(10, 20, 20, 12), ColorRole::Line, std::nullopt },
+        SceneEllipse { QRectF(0, 0, 8, 8), std::nullopt, ColorRole::BoxStroke },
+    };
+    const QString svg = SvgSceneWriter::write(scene, DiagramPalette {});
+
+    EXPECT_TRUE(svg.contains(
+        QStringLiteral("<ellipse cx=\"20\" cy=\"26\" rx=\"10\" ry=\"6\" fill=\"#444444\"/>")));
+    EXPECT_TRUE(svg.contains(QStringLiteral(
+        "<ellipse cx=\"4\" cy=\"4\" rx=\"4\" ry=\"4\" fill=\"none\" stroke=\"#555f7a\"/>")));
+}
+
+TEST(SvgSceneWriterTest, APolygonListsItsPointsAndNeedsThreeOfThem)
+{
+    Scene scene = smallScene();
+    scene.items = {
+        ScenePolygon { { QPointF(0, 5), QPointF(5, 0), QPointF(10, 5), QPointF(5, 10) },
+                       ColorRole::BoxFill,
+                       ColorRole::BoxStroke },
+        ScenePolygon { { QPointF(0, 0), QPointF(1, 1) }, ColorRole::BoxFill, std::nullopt },
+    };
+    const QString svg = SvgSceneWriter::write(scene, DiagramPalette {});
+
+    EXPECT_TRUE(svg.contains(QStringLiteral("<polygon points=\"0,5 5,0 10,5 5,10\" "
+                                            "fill=\"#eef0f8\" stroke=\"#555f7a\"/>")));
+    EXPECT_EQ(svg.count(QStringLiteral("<polygon")), 1);
+}
+
 TEST(SvgSceneWriterTest, DropsCharactersThatXmlForbids)
 {
     Scene scene = smallScene();
@@ -176,8 +209,34 @@ TEST(SvgSceneWriterTest, AFullDiagramIsWellFormedAndUsesOnlyTinyElements)
     const QSet<QString> allowed { QStringLiteral("svg"),      QStringLiteral("g"),
                                   QStringLiteral("rect"),     QStringLiteral("line"),
                                   QStringLiteral("polyline"), QStringLiteral("polygon"),
-                                  QStringLiteral("text") };
+                                  QStringLiteral("ellipse"),  QStringLiteral("text") };
     EXPECT_TRUE(allowed.contains(summary.elements))
         << summary.elements.values().join(' ').toStdString();
     EXPECT_FALSE(svg.contains(QStringLiteral("nan")));
+}
+
+TEST(SvgSceneWriterTest, AnActivityDiagramIsWellFormedAndUsesOnlyTinyElements)
+{
+    const FakeTextMeasurer measurer;
+    const auto diagram = DiagramParser::parse(
+        QStringLiteral("title T & <co>\nstart\n:a;\nnote right : n\nif (x?) then (yes)\n:b;\n"
+                       "else (no)\nwhile (w?) is (y)\n:c;\nendwhile (n)\nendif\nfork\n:d;\n"
+                       "fork again\n:e;\nend fork\nrepeat\n:f;\nrepeat while (g?)\n"
+                       "partition P {\n:h;\n}\nstop\n"));
+    ASSERT_TRUE(diagram.isSuccess()) << diagram.error().toStdString();
+    const QString svg = SvgSceneWriter::write(
+        DiagramLayout::layout(diagram.value(), DiagramStyle {}, 360, measurer), DiagramPalette {},
+        3);
+
+    const XmlSummary summary = summarize(svg);
+    EXPECT_TRUE(summary.wellFormed);
+    const QSet<QString> allowed { QStringLiteral("svg"),      QStringLiteral("g"),
+                                  QStringLiteral("rect"),     QStringLiteral("line"),
+                                  QStringLiteral("polyline"), QStringLiteral("polygon"),
+                                  QStringLiteral("ellipse"),  QStringLiteral("text") };
+    EXPECT_TRUE(allowed.contains(summary.elements))
+        << summary.elements.values().join(' ').toStdString();
+    EXPECT_TRUE(summary.elements.contains(QStringLiteral("ellipse")));
+    EXPECT_FALSE(svg.contains(QStringLiteral("nan")));
+    EXPECT_FALSE(svg.contains(QStringLiteral("inf")));
 }

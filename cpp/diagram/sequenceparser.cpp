@@ -1,5 +1,7 @@
 #include "sequenceparser.h"
 
+#include "diagram/parsersupport.h"
+
 #include <QRegularExpression>
 
 #include <optional>
@@ -8,31 +10,17 @@ namespace diagram
 {
 namespace
 {
-    using Error = std::optional<QString>;
+    using parsing::Error;
+    using parsing::fragment;
+    using parsing::labelText;
+    using parsing::normalized;
+    using parsing::statement;
     using Handled = std::optional<Error>;
 
     const QString kName = QStringLiteral(R"((?:"[^"]+"|[\w.]+))");
     const QString kArrow = QStringLiteral(R"((<<?-(?:\[[^\]]*\])?-?|-(?:\[[^\]]*\])?-?>>?))");
     const QString kGroupKeywords = QStringLiteral("alt|opt|loop|par|break|critical|group");
-    constexpr qsizetype kMaxLength = 20000;
     constexpr qsizetype kMaxSteps = 300;
-
-    QRegularExpression::PatternOptions patternOptions()
-    {
-        return QRegularExpression::CaseInsensitiveOption
-            | QRegularExpression::UseUnicodePropertiesOption;
-    }
-
-    QRegularExpression statement(const QString& source)
-    {
-        return QRegularExpression(QStringLiteral("^") + source + QStringLiteral("$"),
-                                  patternOptions());
-    }
-
-    QRegularExpression fragment(const QString& source)
-    {
-        return QRegularExpression(source, patternOptions());
-    }
 
     QString unquoted(const QString& token)
     {
@@ -43,21 +31,6 @@ namespace
     }
 
     bool isQuoted(const QString& token) { return token.startsWith(QLatin1Char('"')); }
-
-    QString labelText(const QString& raw)
-    {
-        QString text = raw.trimmed();
-        text.replace(QStringLiteral("\\n"), QStringLiteral("\n"));
-        return text;
-    }
-
-    QString normalized(QString text)
-    {
-        text.remove(QChar(0xFEFF));
-        for (const QChar quote : { QChar(0x201C), QChar(0x201D), QChar(0x201E) })
-            text.replace(quote, QLatin1Char('"'));
-        return text;
-    }
 
     ParticipantKind participantKind(const QString& keyword)
     {
@@ -75,50 +48,13 @@ namespace
         return NotePlacement::Over;
     }
 
-    struct SkippedBlock
-    {
-        QString name;
-        QRegularExpression start;
-        QRegularExpression end;
-        bool countsBraces = false;
-        bool warns = true;
-    };
-
-    const QList<SkippedBlock>& skippedBlocks()
-    {
-        static const QList<SkippedBlock> blocks {
-            { QStringLiteral("comment"), fragment(QStringLiteral(R"(^/')")),
-              fragment(QStringLiteral(R"('/)")), false, false },
-            { QStringLiteral("skinparam"), fragment(QStringLiteral(R"(^skinparam\b.*\{)")),
-              QRegularExpression(), true, true },
-            { QStringLiteral("legend"), fragment(QStringLiteral(R"(^legend\b)")),
-              fragment(QStringLiteral(R"(end\s*legend)")), false, true },
-            { QStringLiteral("style"), fragment(QStringLiteral(R"(^<style>)")),
-              fragment(QStringLiteral(R"(</style>)")), false, true },
-        };
-        return blocks;
-    }
-
-    struct OpenBlock
-    {
-        const SkippedBlock* block = nullptr;
-        int startLine = 0;
-        int depth = 0;
-    };
-
-    int braceBalance(const QString& line)
-    {
-        return int(line.count(QLatin1Char('{'))) - int(line.count(QLatin1Char('}')));
-    }
-
     class SequenceReader
     {
     public:
         Result<SequenceDiagram> read(const QString& text)
         {
-            if (text.size() > kMaxLength)
-                return Result<SequenceDiagram>::failure(
-                    QStringLiteral("The diagram is longer than %1 characters").arg(kMaxLength));
+            if (text.size() > parsing::kMaxLength)
+                return Result<SequenceDiagram>::failure(parsing::tooLongMessage());
             const QStringList lines = normalized(text).split(QLatin1Char('\n'));
             for (qsizetype index = 0; index < lines.size(); ++index)
             {
@@ -137,9 +73,9 @@ namespace
     private:
         Error readLine(const QString& line)
         {
-            if (m_openBlock)
+            if (m_skippedBlocks.isOpen())
             {
-                continueBlock(line);
+                m_skippedBlocks.continueWith(line);
                 return std::nullopt;
             }
             if (m_openNote)
@@ -148,15 +84,17 @@ namespace
                 return std::nullopt;
             if (const auto handled = readMessage(line))
                 return *handled;
-            if (startBlock(line))
+            if (const auto warning = m_skippedBlocks.start(line, m_lineNumber))
+            {
+                if (!warning->isEmpty())
+                    warn(*warning);
                 return std::nullopt;
+            }
             return readStatement(line);
         }
 
         Error readStatement(const QString& line)
         {
-            static const QRegularExpression startEnd
-                = statement(QStringLiteral(R"(@(start|end)uml\b.*)"));
             static const QRegularExpression endBox = statement(QStringLiteral(R"(end\s+box)"));
             static const QRegularExpression title = statement(QStringLiteral(R"(title\s+(.+))"));
             static const QRegularExpression divider
@@ -164,7 +102,7 @@ namespace
             static const QRegularExpression delay
                 = statement(QStringLiteral(R"(\.\.\.\s*(.*?)\s*(?:\.\.\.)?)"));
 
-            if (startEnd.match(line).hasMatch() || endBox.match(line).hasMatch())
+            if (parsing::isDiagramMarker(line) || endBox.match(line).hasMatch())
                 return std::nullopt;
             if (const auto match = title.match(line); match.hasMatch())
             {
@@ -404,55 +342,27 @@ namespace
             static const QRegularExpression spacedName
                 = fragment(QStringLiteral(R"(^[^"\s:]+(\s+[^"\s:-]+)+\s*(-+>|<-+))"));
 
-            const QString unknown = QStringLiteral("unknown statement \"%1\"").arg(line);
             if (twoWay.match(line).hasMatch())
-                return unknown
-                    + QStringLiteral("; two-way arrows are not supported, write two messages");
+                return parsing::unsupportedFeature(line, QStringLiteral("two-way arrows"),
+                                                   QStringLiteral("Write two messages"));
             if (outside.match(line).hasMatch())
-                return unknown
-                    + QStringLiteral("; messages from outside ([-> or ->]) are not supported, "
-                                     "name the sender");
+                return parsing::unsupportedFeature(
+                    line, QStringLiteral("messages from outside the diagram ([-> or ->])"),
+                    QStringLiteral("Name the sender with a participant"));
             if (reference.match(line).hasMatch())
-                return unknown
-                    + QStringLiteral("; \"ref\" is not supported, use \"note over\" instead");
+                return parsing::unsupportedFeature(line, QStringLiteral("ref boxes"),
+                                                   QStringLiteral("Use \"note over\" instead"));
             if (spacedName.match(line).hasMatch())
-                return unknown
-                    + QStringLiteral("; names with spaces must be quoted, "
-                                     "for example \"Web Browser\" -> Server");
-            return unknown;
-        }
-
-        bool startBlock(const QString& line)
-        {
-            for (const SkippedBlock& block : skippedBlocks())
-            {
-                const auto match = block.start.match(line);
-                if (!match.hasMatch())
-                    continue;
-                if (block.warns)
-                    warn(QStringLiteral("\"%1\" block ignored").arg(block.name));
-                OpenBlock open { &block, m_lineNumber, braceBalance(line) };
-                const bool closed = block.countsBraces
-                    ? open.depth <= 0
-                    : block.end.match(line, match.capturedEnd()).hasMatch();
-                if (!closed)
-                    m_openBlock = open;
-                return true;
-            }
-            return false;
-        }
-
-        void continueBlock(const QString& line)
-        {
-            if (m_openBlock->block->countsBraces)
-            {
-                m_openBlock->depth += braceBalance(line);
-                if (m_openBlock->depth <= 0)
-                    m_openBlock.reset();
-                return;
-            }
-            if (m_openBlock->block->end.match(line).hasMatch())
-                m_openBlock.reset();
+                return QStringLiteral("unknown statement \"%1\". Names with spaces must be quoted, "
+                                      "for example \"Web Browser\" -> Server.")
+                    .arg(line);
+            return QStringLiteral(
+                       "unknown statement \"%1\". A sequence diagram here understands: "
+                       "participant/actor/database/entity/boundary/control/collections/queue, "
+                       "-> --> ->> <-, note left of/right of/over, "
+                       "alt/else/opt/loop/par/break/critical/group/end, == divider ==, "
+                       "... delay ..., return, title.")
+                .arg(line);
         }
 
         Error finish()
@@ -460,10 +370,10 @@ namespace
             if (m_openNote)
                 return lineErrorAt(m_openNoteLine,
                                    QStringLiteral("note is not closed with \"end note\""));
-            if (m_openBlock)
+            if (const auto unclosed = m_skippedBlocks.unclosed())
                 return lineErrorAt(
-                    m_openBlock->startLine,
-                    QStringLiteral("\"%1\" block is not closed").arg(m_openBlock->block->name));
+                    unclosed->first,
+                    QStringLiteral("\"%1\" block is not closed").arg(unclosed->second));
             if (!m_openGroups.isEmpty())
             {
                 const auto& [line, keyword] = m_openGroups.last();
@@ -515,7 +425,7 @@ namespace
 
         static Error lineErrorAt(int line, const QString& text)
         {
-            return QStringLiteral("Line %1: %2").arg(line).arg(text);
+            return parsing::lineErrorText(line, text);
         }
 
         SequenceDiagram m_diagram;
@@ -526,7 +436,7 @@ namespace
         std::optional<Note> m_openNote;
         int m_openNoteLine = 0;
         QStringList m_noteLines;
-        std::optional<OpenBlock> m_openBlock;
+        parsing::SkippedBlocks m_skippedBlocks;
     };
 }
 

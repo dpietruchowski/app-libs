@@ -143,6 +143,23 @@ namespace
             addHead(line);
         }
 
+        void add(const SceneEllipse& ellipse)
+        {
+            const QRectF& r = ellipse.rect;
+            m_out += QStringLiteral("<ellipse cx=\"%1\" cy=\"%2\" rx=\"%3\" ry=\"%4\"%5/>\n")
+                         .arg(num(r.center().x()), num(r.center().y()), num(r.width() / 2),
+                              num(r.height() / 2), paint(ellipse.fill, ellipse.stroke, false));
+        }
+
+        void add(const ScenePolygon& polygon)
+        {
+            if (polygon.points.size() < 3)
+                return;
+            m_out
+                += QStringLiteral("<polygon points=\"%1\"%2/>\n")
+                       .arg(pointList(polygon.points), paint(polygon.fill, polygon.stroke, false));
+        }
+
         void addHead(const SceneLine& line)
         {
             if (line.head == ArrowHead::None)

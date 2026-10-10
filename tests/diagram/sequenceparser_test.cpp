@@ -382,20 +382,25 @@ TEST(SequenceParserTest, ReadsATitle)
 
 TEST(SequenceParserTest, ReportsAnUnknownStatementWithItsLine)
 {
-    EXPECT_EQ(parseError(QStringLiteral("A -> B\nwhatever\n")),
-              QStringLiteral("Line 2: unknown statement \"whatever\""));
+    const QString error = parseError(QStringLiteral("A -> B\nwhatever\n"));
+    EXPECT_TRUE(error.startsWith(QStringLiteral("Line 2: unknown statement \"whatever\". ")));
+    EXPECT_TRUE(error.contains(QStringLiteral("A sequence diagram here understands: ")));
 }
 
 TEST(SequenceParserTest, HintsHowToFixCommonMistakes)
 {
-    EXPECT_TRUE(
-        parseError(QStringLiteral("A <-> B\n")).endsWith(QStringLiteral("write two messages")));
-    EXPECT_TRUE(
-        parseError(QStringLiteral("[-> A : x\n")).contains(QStringLiteral("name the sender")));
-    EXPECT_TRUE(
-        parseError(QStringLiteral("A ->] : x\n")).contains(QStringLiteral("name the sender")));
-    EXPECT_TRUE(
-        parseError(QStringLiteral("ref over A, B : x\n")).contains(QStringLiteral("note over")));
+    EXPECT_EQ(parseError(QStringLiteral("A <-> B\n")),
+              QStringLiteral("Line 1: \"A <-> B\" is valid PlantUML, but this app does not "
+                             "support two-way arrows. Write two messages."));
+    EXPECT_EQ(parseError(QStringLiteral("[-> A : x\n")),
+              QStringLiteral("Line 1: \"[-> A : x\" is valid PlantUML, but this app does not "
+                             "support messages from outside the diagram ([-> or ->]). Name the "
+                             "sender with a participant."));
+    EXPECT_TRUE(parseError(QStringLiteral("A ->] : x\n"))
+                    .contains(QStringLiteral("Name the sender with a participant")));
+    EXPECT_EQ(parseError(QStringLiteral("ref over A, B : x\n")),
+              QStringLiteral("Line 1: \"ref over A, B : x\" is valid PlantUML, but this app does "
+                             "not support ref boxes. Use \"note over\" instead."));
     EXPECT_TRUE(parseError(QStringLiteral("Web Browser -> Server : x\n"))
                     .contains(QStringLiteral("must be quoted")));
 }

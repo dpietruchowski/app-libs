@@ -58,7 +58,21 @@ struct SceneText
     ColorRole color = ColorRole::Text;
 };
 
-using SceneItem = std::variant<SceneRect, SceneLine, SceneText>;
+struct SceneEllipse
+{
+    QRectF rect;
+    std::optional<ColorRole> fill;
+    std::optional<ColorRole> stroke;
+};
+
+struct ScenePolygon
+{
+    QList<QPointF> points;
+    std::optional<ColorRole> fill;
+    std::optional<ColorRole> stroke;
+};
+
+using SceneItem = std::variant<SceneRect, SceneLine, SceneText, SceneEllipse, ScenePolygon>;
 
 struct Scene
 {
