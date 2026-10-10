@@ -9,6 +9,7 @@
 #include <QGuiApplication>
 #include <QHostAddress>
 #include <QImage>
+#include <QInputMethod>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -26,9 +27,98 @@
 #include <QVariant>
 
 #include <algorithm>
+#include <functional>
+
+#ifdef Q_OS_ANDROID
+#include <QJniObject>
+#include <QtCore/qcoreapplication_platform.h>
+#endif
 
 namespace
 {
+#ifdef Q_OS_ANDROID
+void runOnDecorView(std::function<void(const QJniObject&)> action)
+{
+    QNativeInterface::QAndroidApplication::runOnAndroidMainThread(
+        [action]()
+        {
+            const QJniObject activity = QNativeInterface::QAndroidApplication::context();
+            const QJniObject window =
+                activity.callObjectMethod("getWindow", "()Landroid/view/Window;");
+            if (!window.isValid())
+                return;
+            const QJniObject decor =
+                window.callObjectMethod("getDecorView", "()Landroid/view/View;");
+            if (decor.isValid())
+                action(decor);
+        });
+}
+
+void runOnContentView(std::function<void(const QJniObject&)> action)
+{
+    runOnDecorView(
+        [action](const QJniObject& decor)
+        {
+            constexpr jint androidContentId = 0x01020002;
+            const QJniObject content = decor.callObjectMethod(
+                "findViewById", "(I)Landroid/view/View;", androidContentId);
+            if (content.isValid())
+                action(content);
+        });
+}
+
+void dispatchMotion(const QJniObject& view, jlong downTime, jlong eventTime, jint action,
+    jfloat x, jfloat y)
+{
+    constexpr jint sourceTouchscreen = 0x00001002;
+    QJniObject event = QJniObject::callStaticObjectMethod("android/view/MotionEvent", "obtain",
+        "(JJIFFI)Landroid/view/MotionEvent;", downTime, eventTime, action, x, y, jint(0));
+    event.callMethod<void>("setSource", "(I)V", sourceTouchscreen);
+    view.callMethod<jboolean>(
+        "dispatchTouchEvent", "(Landroid/view/MotionEvent;)Z", event.object());
+    event.callMethod<void>("recycle");
+}
+
+void nativeTap(const QPointF& physical)
+{
+    runOnContentView(
+        [physical](const QJniObject& content)
+        {
+            constexpr jint actionDown = 0;
+            constexpr jint actionUp = 1;
+            const jlong now = QJniObject::callStaticMethod<jlong>("android/os/SystemClock",
+                "uptimeMillis");
+            const auto x = jfloat(physical.x());
+            const auto y = jfloat(physical.y());
+            dispatchMotion(content, now, now, actionDown, x, y);
+            dispatchMotion(content, now, now + 60, actionUp, x, y);
+        });
+}
+
+void hideImeLikeUser()
+{
+    runOnDecorView(
+        [](const QJniObject& decor)
+        {
+            const QJniObject context = QNativeInterface::QAndroidApplication::context();
+            const QJniObject serviceName = QJniObject::fromString("input_method");
+            const QJniObject imm = context.callObjectMethod("getSystemService",
+                "(Ljava/lang/String;)Ljava/lang/Object;", serviceName.object<jstring>());
+            const QJniObject token =
+                decor.callObjectMethod("getWindowToken", "()Landroid/os/IBinder;");
+            if (!imm.isValid() || !token.isValid())
+                return;
+            imm.callMethod<jboolean>(
+                "hideSoftInputFromWindow", "(Landroid/os/IBinder;I)Z", token.object(), jint(0));
+        });
+}
+
+QPointF toPhysical(QQuickWindow* window, const QPointF& scene)
+{
+    return scene * window->devicePixelRatio();
+}
+#endif
+
 QList<QObject*> childObjects(QObject* obj)
 {
     QList<QObject*> result = obj->children();
@@ -719,6 +809,46 @@ QJsonObject UiAutomationServer::handleCommand(const QJsonObject& request)
         sendMouse(QEvent::MouseButtonRelease, path.last(), Qt::LeftButton, Qt::NoButton);
         return makeOk();
     }
+
+    if (cmd == "imestate")
+    {
+        QInputMethod* inputMethod = QGuiApplication::inputMethod();
+        QJsonObject response = makeOk();
+        response["visible"] = inputMethod->isVisible();
+        response["keyboardHeight"] = inputMethod->keyboardRectangle().height();
+        QObject* focus = QGuiApplication::focusObject();
+        response["focusObject"] = focus ? focus->objectName() : QString();
+        return response;
+    }
+
+#ifdef Q_OS_ANDROID
+    if (cmd == "nativeclick" || cmd == "nativetap")
+    {
+        if (m_engine->rootObjects().isEmpty())
+            return makeError("no root object");
+        auto* window = qobject_cast<QQuickWindow*>(m_engine->rootObjects().first());
+        if (!window)
+            return makeError("root is not a window");
+
+        QPointF scene(request["x"].toDouble(), request["y"].toDouble());
+        if (cmd == "nativeclick")
+        {
+            auto* item = qobject_cast<QQuickItem*>(findByObjectName(name));
+            if (!item)
+                return makeError("visual item not found: " + name);
+            scrollIntoView(item);
+            scene = item->mapToScene(QPointF(item->width() / 2.0, item->height() / 2.0));
+        }
+        nativeTap(toPhysical(window, scene));
+        return makeOk();
+    }
+
+    if (cmd == "imehide")
+    {
+        hideImeLikeUser();
+        return makeOk();
+    }
+#endif
 
     return makeError("unknown command: " + cmd);
 }
