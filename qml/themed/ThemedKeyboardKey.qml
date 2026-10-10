@@ -17,8 +17,8 @@ Item {
     property bool showsPreview: !special
     property var alternates: []
     property var swipes: []
-    property real swipeArcStart: 180
-    property real swipeArcSpan: 360
+    property real swipeArcStart: -90
+    property real swipeArcSpan: 180
 
     property real popupCellWidth: width * Theme.keyboard.previewScale
     property real popupHeight: height * Theme.keyboard.previewScale
@@ -213,6 +213,7 @@ Item {
         id: area
 
         property bool consumed: false
+        property int felt: -1
 
         function highlightAlternateAt(x, y) {
             var point = area.mapToItem(alternatesRow, x, y)
@@ -226,6 +227,7 @@ Item {
 
         onPressed: {
             consumed = false
+            felt = -1
             KeyboardHaptics.keyPress()
             root.touched()
         }
@@ -257,7 +259,10 @@ Item {
                 swipePreview.x = root.popupX(swipePreview.width)
             swipePreview.highlighted = index
             consumed = true
-            KeyboardHaptics.keyPress()
+            if (index !== felt) {
+                felt = index
+                KeyboardHaptics.keyPress()
+            }
         }
 
         onPositionChanged: (mouse) => {
