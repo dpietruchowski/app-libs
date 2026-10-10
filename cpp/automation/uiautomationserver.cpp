@@ -547,8 +547,7 @@ QJsonObject UiAutomationServer::handleCommand(const QJsonObject& request)
         auto* item = qobject_cast<QQuickItem*>(target);
         if (!item)
             return makeError("object is not a visual item: " + name);
-        if (!scrollIntoView(item))
-            return makeError("no scrollable ancestor for: " + name);
+        scrollIntoView(item);
 
         const QPointF topLeft = item->mapToScene(QPointF(0.0, 0.0));
         QJsonObject response = makeOk();
@@ -679,6 +678,42 @@ QJsonObject UiAutomationServer::handleCommand(const QJsonObject& request)
         QMouseEvent release(QEvent::MouseButtonRelease, scene, scene, global, Qt::LeftButton,
             Qt::NoButton, Qt::NoModifier);
         QGuiApplication::sendEvent(window, &release);
+        return makeOk();
+    }
+
+    if (cmd == "drag")
+    {
+        if (m_engine->rootObjects().isEmpty())
+            return makeError("no root object");
+        auto* window = qobject_cast<QQuickWindow*>(m_engine->rootObjects().first());
+        if (!window)
+            return makeError("root is not a window");
+        QList<QPointF> path;
+        for (const QJsonValue& point : request["points"].toArray())
+        {
+            const QJsonArray coordinates = point.toArray();
+            path.append(QPointF(coordinates.at(0).toDouble(), coordinates.at(1).toDouble()));
+        }
+        if (path.size() < 2)
+            return makeError("drag needs at least two points");
+        const int steps = qMax(1, request["steps"].toInt(10));
+        auto sendMouse = [&](QEvent::Type type, const QPointF& scene, Qt::MouseButton button,
+                             Qt::MouseButtons buttons)
+        {
+            const QPointF global = QPointF(window->mapToGlobal(scene.toPoint()));
+            QMouseEvent event(type, scene, scene, global, button, buttons, Qt::NoModifier);
+            QGuiApplication::sendEvent(window, &event);
+        };
+        sendMouse(QEvent::MouseButtonPress, path.first(), Qt::LeftButton, Qt::LeftButton);
+        for (int segment = 1; segment < path.size(); ++segment)
+        {
+            const QPointF from = path[segment - 1];
+            const QPointF to = path[segment];
+            for (int step = 1; step <= steps; ++step)
+                sendMouse(QEvent::MouseMove, from + (to - from) * step / steps, Qt::NoButton,
+                    Qt::LeftButton);
+        }
+        sendMouse(QEvent::MouseButtonRelease, path.last(), Qt::LeftButton, Qt::NoButton);
         return makeOk();
     }
 

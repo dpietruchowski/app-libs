@@ -16,6 +16,9 @@ Item {
     property bool repeats: false
     property bool showsPreview: !special
     property var alternates: []
+    property var swipes: []
+    property real swipeArcStart: 180
+    property real swipeArcSpan: 360
 
     property real popupCellWidth: width * Theme.keyboard.previewScale
     property real popupHeight: height * Theme.keyboard.previewScale
@@ -39,6 +42,27 @@ Item {
         var overflowRight = left + popupWidth - (root.Window.width - margin)
         var overflowLeft = margin - left
         return centered + (overflowLeft > 0 ? overflowLeft : overflowRight > 0 ? -overflowRight : 0)
+    }
+
+    function swipeIndexAt(x, y) {
+        var angle = Math.atan2(y - root.height / 2, x - root.width / 2) * 180 / Math.PI
+        var count = root.swipes.length
+        var step = root.swipeArcSpan / (root.swipeArcSpan >= 360 ? count : Math.max(1, count - 1))
+        var nearest = 0
+        var nearestDistance = 360
+        for (var index = 0; index < count; ++index) {
+            var center = root.swipeArcStart + index * step
+            var distance = Math.abs((((angle - center) % 360) + 540) % 360 - 180)
+            if (distance < nearestDistance) {
+                nearest = index
+                nearestDistance = distance
+            }
+        }
+        return nearest
+    }
+
+    function isOutside(x, y) {
+        return x < 0 || y < 0 || x > root.width || y > root.height
     }
 
     implicitWidth: Theme.keyboard.keyHeight
@@ -150,6 +174,31 @@ Item {
         }
     }
 
+    Rectangle {
+        id: swipePreview
+        objectName: root.objectName === "" ? "" : root.objectName + "Swipe"
+
+        property int highlighted: -1
+        readonly property string character: highlighted >= 0 ? root.swipes[highlighted] : ""
+
+        visible: highlighted >= 0
+        anchors.bottom: parent.top
+        anchors.bottomMargin: Theme.keyboard.keySpacing
+        width: root.popupCellWidth
+        height: root.popupHeight
+        radius: Theme.keyboard.keyRadius
+        color: Theme.keyboard.activeKeyBackground
+        border.width: Theme.border.thin
+        border.color: Theme.keyboard.previewBorder
+
+        Text {
+            anchors.centerIn: parent
+            text: root.displayed(swipePreview.character)
+            font.pixelSize: Math.round(Theme.keyboard.fontSize * Theme.keyboard.previewScale)
+            color: Theme.keyboard.activeKeyText
+        }
+    }
+
     Timer {
         id: repeatTimer
         interval: Theme.keyboard.repeatInterval
@@ -196,16 +245,37 @@ Item {
             }
         }
 
+        function trackSwipe(x, y) {
+            if (!root.isOutside(x, y)) {
+                swipePreview.highlighted = -1
+                return
+            }
+            var index = root.swipeIndexAt(x, y)
+            if (index === swipePreview.highlighted)
+                return
+            if (swipePreview.highlighted < 0)
+                swipePreview.x = root.popupX(swipePreview.width)
+            swipePreview.highlighted = index
+            consumed = true
+            KeyboardHaptics.keyPress()
+        }
+
         onPositionChanged: (mouse) => {
             if (alternatesPopup.visible)
                 area.highlightAlternateAt(mouse.x, mouse.y)
+            else if (root.swipes.length > 0 && !repeatTimer.running)
+                area.trackSwipe(mouse.x, mouse.y)
         }
 
         onReleased: {
             repeatTimer.stop()
+            var swiped = swipePreview.character
+            swipePreview.highlighted = -1
             if (alternatesPopup.visible) {
                 alternatesPopup.visible = false
                 root.activated(root.alternates[alternatesPopup.highlighted])
+            } else if (swiped !== "") {
+                root.activated(swiped)
             } else if (!consumed && containsMouse) {
                 root.activated(root.value)
             }
@@ -214,6 +284,7 @@ Item {
         onCanceled: {
             repeatTimer.stop()
             alternatesPopup.visible = false
+            swipePreview.highlighted = -1
         }
     }
 }

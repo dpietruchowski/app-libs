@@ -25,6 +25,10 @@ Rectangle {
         letters: group,
         value: group + String(index + 1),
         characters: Array.from(group + String(index + 1)),
+        swipes: index > 0 ? Array.from(group).filter(character => character.normalize("NFD").length === 1)
+                                             .concat(String(index + 1))
+                          : [],
+        leftEdge: index % 3 === 0,
         predictive: index > 0
     }))
     readonly property var keyMap: root.digitKeys
@@ -377,6 +381,9 @@ Rectangle {
                     popupHeight: Theme.keyboard.keyHeight * Theme.keyboard.previewScale
                     upperCase: root.upperCase
                     alternates: modelData.characters
+                    swipes: modelData.swipes
+                    swipeArcStart: modelData.leftEdge ? -90 : 180
+                    swipeArcSpan: modelData.leftEdge ? 180 : 360
                     onTouched: root.keyTapped()
                     onActivated: (value) => root.activateGroupKey(modelData, value)
                 }
