@@ -22,6 +22,7 @@ QtObject {
     ]
 
     readonly property string t9Punctuation: ".,?!'-\":"
+    readonly property string t9PunctuationSwipes: "'-."
 
     readonly property var t9Symbols: ["@#&", "*+=", "-_/", "()", ":;", "\"'", "%$€", "<>"]
 

@@ -258,6 +258,34 @@ class UiDriver:
     def tap(self, x, y):
         return self.rpc(cmd="tap", x=x, y=y)
 
+    def drag(self, points, steps=10):
+        """Press at the first (x, y), move through the others and release at the last.
+
+        Each segment is walked in `steps` mouse moves, so a press, a path out of
+        an item and back in, and the release all arrive as one gesture.
+        """
+        return self.rpc(cmd="drag", points=[[x, y] for x, y in points], steps=steps)
+
+    def native_click(self, name):
+        """Android only: tap the item's center with a real MotionEvent.
+
+        Goes through the activity's view hierarchy like a finger would, so
+        Android-side effects (soft keyboard, focus) happen too.
+        """
+        return self.rpc(cmd="nativeclick", name=name)
+
+    def native_tap(self, x, y):
+        """Android only: real MotionEvent tap at window (scene) coordinates."""
+        return self.rpc(cmd="nativetap", x=x, y=y)
+
+    def ime_hide(self):
+        """Android only: hide the soft keyboard the way the user does (Back)."""
+        return self.rpc(cmd="imehide")
+
+    def ime_state(self):
+        """Return {visible, keyboardHeight, focusObject} of the input method."""
+        return self.rpc(cmd="imestate")
+
     def key(self, name, text=""):
         """Send a key press/release to the window, e.g. Tab, Down, Return, Shift+Tab.
 
@@ -284,7 +312,8 @@ class UiDriver:
         """Scroll the nearest scrollable ancestor until the item is in view.
 
         `click` does this by itself, so you only need `scrollto` to read an
-        off-screen item's on-screen position. Returns the item's scene {x, y}.
+        item's on-screen position. Returns the item's scene {x, y} (top-left),
+        also for an item with no scrollable ancestor.
         """
         return self.rpc(cmd="scrollto", name=name)
 
@@ -364,7 +393,8 @@ def coerce(value):
 def run_shell(driver):
     print("Connected. Commands: dump | find <s> | click <name> | get <name> <prop> |")
     print("  set <name> <prop> <value> | invoke <name> <method> [args...] |")
-    print("  tap <x> <y> | key <sequence> [text] | scroll <name> <dy> [dx] |")
+    print("  tap <x> <y> | drag <x1> <y1> <x2> <y2> [<x3> <y3> ...] |")
+    print("  key <sequence> [text] | scroll <name> <dy> [dx] |")
     print("  scrollto <name> | screenshot <path> |")
     print("  get_time | set_time <iso> | advance_time <days> | reset_time | quit")
     while True:
@@ -407,6 +437,23 @@ def dispatch(driver, cmd, args):
     elif cmd == "tap":
         driver.tap(coerce(args[0]), coerce(args[1]))
         print("ok")
+    elif cmd == "drag":
+        values = [coerce(a) for a in args]
+        driver.drag(list(zip(values[0::2], values[1::2])))
+        print("ok")
+    elif cmd == "nativeclick":
+        driver.native_click(args[0])
+        print("ok")
+    elif cmd == "nativetap":
+        driver.native_tap(coerce(args[0]), coerce(args[1]))
+        print("ok")
+    elif cmd == "imehide":
+        driver.ime_hide()
+        print("ok")
+    elif cmd == "imestate":
+        state = driver.ime_state()
+        print(f"visible={state['visible']} height={state['keyboardHeight']} "
+              f"focus={state['focusObject']!r}")
     elif cmd == "key":
         driver.key(args[0], args[1] if len(args) > 1 else "")
         print("ok")
