@@ -2,6 +2,7 @@
 
 #include "diagram/diagramlayout.h"
 #include "diagram/diagramparser.h"
+#include "diagram/layoutsupport.h"
 #include "diagram/svgscenewriter.h"
 #include "diagram/textmeasurer.h"
 
@@ -78,8 +79,24 @@ void DiagramSvgProvider::setAvailableWidth(int width)
     if (layoutWidth() != m_laidOutWidth || hadWidth != (m_availableWidth > 0))
         layOut();
     else
-        updateImageSize();
+        refreshForWidth();
     emit availableWidthChanged();
+}
+
+void DiagramSvgProvider::setFillWidth(bool fill)
+{
+    if (m_fillWidth == fill)
+        return;
+    m_fillWidth = fill;
+    refreshForWidth();
+    emit fillWidthChanged();
+}
+
+void DiagramSvgProvider::refreshForWidth()
+{
+    if (m_fillWidth)
+        write();
+    updateImageSize();
 }
 
 void DiagramSvgProvider::setPixelRatio(qreal ratio)
@@ -147,9 +164,21 @@ int DiagramSvgProvider::layoutWidth() const
     return std::max(kWidthStep, m_availableWidth / kWidthStep * kWidthStep);
 }
 
-qreal DiagramSvgProvider::effectivePixelRatio() const
+Scene DiagramSvgProvider::displayedScene() const
 {
-    const qreal area = m_scene->size.width() * m_scene->size.height();
+    const qreal spare = m_availableWidth - m_scene->size.width();
+    if (!m_fillWidth || spare < 1)
+        return *m_scene;
+    Scene filled = *m_scene;
+    filled.size.setWidth(m_availableWidth);
+    filled.items.clear();
+    layouting::appendShifted(filled.items, m_scene->items, std::floor(spare / 2), 0);
+    return filled;
+}
+
+qreal DiagramSvgProvider::effectivePixelRatio(const Scene& scene) const
+{
+    const qreal area = scene.size.width() * scene.size.height();
     return std::clamp(std::sqrt(kMaxImagePixels / area), qreal(1), m_pixelRatio);
 }
 
@@ -172,7 +201,8 @@ void DiagramSvgProvider::write()
     QString source;
     if (m_scene && !m_scene->size.isEmpty())
     {
-        const QString svg = SvgSceneWriter::write(*m_scene, m_palette, effectivePixelRatio());
+        const Scene scene = displayedScene();
+        const QString svg = SvgSceneWriter::write(scene, m_palette, effectivePixelRatio(scene));
         source = QStringLiteral("data:image/svg+xml;utf8,")
             + QString::fromLatin1(svg.toUtf8().toPercentEncoding());
     }
@@ -188,7 +218,7 @@ void DiagramSvgProvider::updateImageSize()
     int height = 0;
     if (m_scene && !m_scene->size.isEmpty())
     {
-        const QSizeF scene = m_scene->size;
+        const QSizeF scene = displayedScene().size;
         width = std::min(m_availableWidth, int(std::ceil(scene.width())));
         height = qRound(scene.height() * qreal(width) / scene.width());
     }

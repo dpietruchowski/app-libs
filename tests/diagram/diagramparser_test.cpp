@@ -27,6 +27,20 @@ bool isBlock(const QString& text)
     return result.isSuccess() && std::holds_alternative<BlockDiagram>(result.value());
 }
 
+bool isState(const QString& text)
+{
+    const auto result = DiagramParser::parse(text);
+    EXPECT_TRUE(result.isSuccess()) << (result.isFailure() ? result.error().toStdString() : "");
+    return result.isSuccess() && std::holds_alternative<StateDiagram>(result.value());
+}
+
+bool isClass(const QString& text)
+{
+    const auto result = DiagramParser::parse(text);
+    EXPECT_TRUE(result.isSuccess()) << (result.isFailure() ? result.error().toStdString() : "");
+    return result.isSuccess() && std::holds_alternative<ClassDiagram>(result.value());
+}
+
 QString parseError(const QString& text)
 {
     const auto result = DiagramParser::parse(text);
@@ -159,6 +173,80 @@ TEST(DiagramParserTest, UnsupportedBlockFormsAreRoutedToTheBlockParser)
                     .contains(QStringLiteral("does not support \"cloud\" elements")));
 }
 
+TEST(DiagramParserTest, AStateDiagramIsRecognisedByItsFirstInstruction)
+{
+    EXPECT_TRUE(isState(QStringLiteral("[*] --> Ready\nReady --> [*]\n")));
+    EXPECT_TRUE(isState(QStringLiteral("state Ready\nReady --> Running\n")));
+    EXPECT_TRUE(isState(QStringLiteral("state \"Long name\" as Long\nLong --> Next\n")));
+    EXPECT_TRUE(isState(QStringLiteral("@startuml\n"
+                                       "' comment\n"
+                                       "title Machine\n"
+                                       "[*] --> Ready\n"
+                                       "@enduml\n")));
+}
+
+TEST(DiagramParserTest, ATransitionAloneStaysASequenceDiagram)
+{
+    EXPECT_TRUE(isSequence(QStringLiteral("A --> B\nB --> A : back\n")));
+    EXPECT_TRUE(isSequence(QStringLiteral("Ready -> Running\n")));
+}
+
+TEST(DiagramParserTest, UnsupportedStateFormsAreRoutedToTheStateParser)
+{
+    EXPECT_TRUE(parseError(QStringLiteral("[*] --> A\nA --> [H]\n"))
+                    .contains(QStringLiteral("does not support history states")));
+    EXPECT_TRUE(parseError(QStringLiteral("state Pick <<choice>>\n"))
+                    .contains(QStringLiteral("does not support stereotypes")));
+    EXPECT_TRUE(parseError(QStringLiteral("state A #red\n"))
+                    .contains(QStringLiteral("does not support state colours")));
+    EXPECT_TRUE(parseError(QStringLiteral("state M {\nstate A\n--\nstate B\n}\n"))
+                    .contains(QStringLiteral("does not support concurrent regions")));
+    EXPECT_TRUE(parseError(QStringLiteral("hide empty description\n[*] --> A\n"))
+                    .contains(QStringLiteral("does not support \"hide\" and \"show\"")));
+}
+
+TEST(DiagramParserTest, AClassDiagramIsRecognisedByItsFirstInstruction)
+{
+    EXPECT_TRUE(isClass(QStringLiteral("class Task\nTask --> Mm\n")));
+    EXPECT_TRUE(isClass(QStringLiteral("struct task_struct {\n  pid : int\n}\n")));
+    EXPECT_TRUE(isClass(QStringLiteral("enum Color {\n  RED\n}\n")));
+    EXPECT_TRUE(isClass(QStringLiteral("abstract class Shape\nShape <|-- Circle\n")));
+    EXPECT_TRUE(isClass(QStringLiteral("class \"Long name\" as Long\nLong --> Next\n")));
+    EXPECT_TRUE(isClass(QStringLiteral("@startuml\n"
+                                       "' comment\n"
+                                       "title Memory\n"
+                                       "struct A\n"
+                                       "@enduml\n")));
+}
+
+TEST(DiagramParserTest, AnInterfaceInsideAClassDiagramIsFine)
+{
+    EXPECT_TRUE(
+        isClass(QStringLiteral("class Circle\ninterface Drawable\nDrawable <|.. Circle\n")));
+}
+
+TEST(DiagramParserTest, AnInterfaceAsTheFirstLineStillGoesToTheBlockParser)
+{
+    EXPECT_TRUE(parseError(QStringLiteral("interface Drawable\nclass Circle\n"))
+                    .contains(QStringLiteral("does not support interfaces")));
+}
+
+TEST(DiagramParserTest, ParticipantsNamedLikeClassKeywordsStayInSequenceDiagrams)
+{
+    EXPECT_TRUE(isSequence(QStringLiteral("Class -> Struct : go\n")));
+    EXPECT_TRUE(isSequence(QStringLiteral("Enum -> Class\n")));
+}
+
+TEST(DiagramParserTest, UnsupportedClassFormsAreRoutedToTheClassParser)
+{
+    EXPECT_TRUE(parseError(QStringLiteral("class A <<entity>>\n"))
+                    .contains(QStringLiteral("does not support stereotypes")));
+    EXPECT_TRUE(parseError(QStringLiteral("class A {\n  {static} x : int\n}\n"))
+                    .contains(QStringLiteral("does not support member modifiers")));
+    EXPECT_TRUE(parseError(QStringLiteral("class A\npackage p {\n}\n"))
+                    .contains(QStringLiteral("does not support \"package\" and \"namespace\"")));
+}
+
 TEST(DiagramParserTest, ErrorsComeFromTheParserOfTheDetectedKind)
 {
     EXPECT_TRUE(parseError(QStringLiteral("rectangle A\nwhatever\n"))
@@ -167,6 +255,10 @@ TEST(DiagramParserTest, ErrorsComeFromTheParserOfTheDetectedKind)
                     .contains(QStringLiteral("An activity diagram here understands")));
     EXPECT_TRUE(parseError(QStringLiteral("A -> B\nwhatever\n"))
                     .contains(QStringLiteral("A sequence diagram here understands")));
+    EXPECT_TRUE(parseError(QStringLiteral("[*] --> A\nwhatever\n"))
+                    .contains(QStringLiteral("A state diagram here understands")));
+    EXPECT_TRUE(parseError(QStringLiteral("class A\nwhatever\n"))
+                    .contains(QStringLiteral("A class diagram here understands")));
 }
 
 TEST(DiagramParserTest, WarningsOfEitherKindAreReachableThroughOneFunction)
@@ -182,4 +274,12 @@ TEST(DiagramParserTest, WarningsOfEitherKindAreReachableThroughOneFunction)
     const auto blocks = DiagramParser::parse(QStringLiteral("skinparam x 1\nrectangle A\n"));
     ASSERT_TRUE(blocks.isSuccess());
     EXPECT_EQ(warningsOf(blocks.value()).size(), 1);
+
+    const auto states = DiagramParser::parse(QStringLiteral("[*] -up-> A\n"));
+    ASSERT_TRUE(states.isSuccess());
+    EXPECT_EQ(warningsOf(states.value()).size(), 1);
+
+    const auto classes = DiagramParser::parse(QStringLiteral("scale 2\nclass A\n"));
+    ASSERT_TRUE(classes.isSuccess());
+    EXPECT_EQ(warningsOf(classes.value()).size(), 1);
 }

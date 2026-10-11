@@ -24,6 +24,7 @@ class DiagramSvgProvider : public QObject
     Q_PROPERTY(
         int fontPixelSize READ fontPixelSize WRITE setFontPixelSize NOTIFY fontPixelSizeChanged)
     Q_PROPERTY(QVariantMap colors READ colors WRITE setColors NOTIFY colorsChanged)
+    Q_PROPERTY(bool fillWidth READ fillWidth WRITE setFillWidth NOTIFY fillWidthChanged)
     Q_PROPERTY(QString svgSource READ svgSource NOTIFY svgSourceChanged)
     Q_PROPERTY(int imageWidth READ imageWidth NOTIFY imageSizeChanged)
     Q_PROPERTY(int imageHeight READ imageHeight NOTIFY imageSizeChanged)
@@ -54,6 +55,9 @@ public:
     QVariantMap colors() const { return m_colors; }
     void setColors(const QVariantMap& colors);
 
+    bool fillWidth() const { return m_fillWidth; }
+    void setFillWidth(bool fill);
+
     QString svgSource() const { return m_svgSource; }
     int imageWidth() const { return m_imageWidth; }
     int imageHeight() const { return m_imageHeight; }
@@ -67,6 +71,7 @@ signals:
     void fontFamilyChanged();
     void fontPixelSizeChanged();
     void colorsChanged();
+    void fillWidthChanged();
     void svgSourceChanged();
     void imageSizeChanged();
     void errorChanged();
@@ -77,8 +82,10 @@ private:
     void layOut();
     void write();
     void updateImageSize();
+    void refreshForWidth();
     int layoutWidth() const;
-    qreal effectivePixelRatio() const;
+    Scene displayedScene() const;
+    qreal effectivePixelRatio(const Scene& scene) const;
     void setError(const QString& error);
     void setWarnings(const QStringList& warnings);
 
@@ -88,6 +95,7 @@ private:
     DiagramStyle m_style;
     QVariantMap m_colors;
     DiagramPalette m_palette;
+    bool m_fillWidth = false;
     std::optional<Diagram> m_diagram;
     std::optional<Scene> m_scene;
     int m_laidOutWidth = 0;

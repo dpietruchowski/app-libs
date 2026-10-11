@@ -2,8 +2,10 @@
 
 #include "diagram/activityparser.h"
 #include "diagram/blockparser.h"
+#include "diagram/classparser.h"
 #include "diagram/parsersupport.h"
 #include "diagram/sequenceparser.h"
+#include "diagram/stateparser.h"
 
 #include <QRegularExpression>
 #include <QStringList>
@@ -39,6 +41,20 @@ namespace
         static const QRegularExpression starts = fragment(QStringLiteral(
             R"(^((rectangle|node|component|database|package|folder|frame|cloud|interface|storage|)"
             R"(artifact)\s+("|\w)|\[[\w"]))"));
+        return starts.match(line).hasMatch();
+    }
+
+    bool startsAStateDiagram(const QString& line)
+    {
+        static const QRegularExpression starts
+            = fragment(QStringLiteral(R"(^(\[\*\]|state\s+("|\w)))"));
+        return starts.match(line).hasMatch();
+    }
+
+    bool startsAClassDiagram(const QString& line)
+    {
+        static const QRegularExpression starts
+            = fragment(QStringLiteral(R"(^(abstract\s+class|class|struct|enum)\s+("|\w))"));
         return starts.match(line).hasMatch();
     }
 
@@ -125,6 +141,18 @@ namespace
         return line && startsAnActivity(*line);
     }
 
+    bool isStateText(const QString& text)
+    {
+        const auto line = firstBodyLine(bodyLines(text));
+        return line && startsAStateDiagram(*line);
+    }
+
+    bool isClassText(const QString& text)
+    {
+        const auto line = firstBodyLine(bodyLines(text));
+        return line && startsAClassDiagram(*line);
+    }
+
     bool isBlockText(const QString& text)
     {
         const QStringList body = bodyLines(text);
@@ -143,6 +171,20 @@ Result<Diagram> DiagramParser::parse(const QString& text)
         if (blocks.isFailure())
             return Result<Diagram>::failure(blocks.error());
         return Result<Diagram>::success(blocks.value());
+    }
+    if (isStateText(text))
+    {
+        const auto states = StateParser::parse(text);
+        if (states.isFailure())
+            return Result<Diagram>::failure(states.error());
+        return Result<Diagram>::success(states.value());
+    }
+    if (isClassText(text))
+    {
+        const auto classes = ClassParser::parse(text);
+        if (classes.isFailure())
+            return Result<Diagram>::failure(classes.error());
+        return Result<Diagram>::success(classes.value());
     }
     if (isActivityText(text))
     {

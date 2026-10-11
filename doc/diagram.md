@@ -7,8 +7,9 @@ diagram have been added next to the sequence diagram; this text describes the co
 
 A course pasted from a chat must be able to carry its own diagrams. The chat writes a short
 text description, and the app lays it out and draws it on the device, offline. The supported
-kinds are the sequence diagram, the activity diagram (new PlantUML syntax) and the block
-diagram (a subset of the PlantUML component and deployment diagram); the first meaningful line of
+kinds are the sequence diagram, the activity diagram (new PlantUML syntax), the block diagram (a
+subset of the PlantUML component and deployment diagram), the state diagram and the class diagram
+(a subset aimed at data structures and how they point to each other); the first meaningful line of
 the text decides which one it is.
 
 The syntax is a subset of PlantUML. A model already writes it without extra instructions, and
@@ -34,26 +35,30 @@ are our own implementation.
 
 ```
 text ──parse──▶ Diagram ──layout(width, style, measurer)──▶ Scene ──write(palette, pixelRatio)──▶ SVG
-        (SequenceDiagram | ActivityDiagram | BlockDiagram)
+        (SequenceDiagram | ActivityDiagram | BlockDiagram | StateDiagram | ClassDiagram)
 ```
 
 `DiagramParser::parse` looks at the first meaningful line, skipping the `@startuml` marker, the
-title, comments and the ignored directives, and hands the text to `BlockParser`, to
-`ActivityParser` or to `SequenceParser`. `Diagram` is
-`std::variant<SequenceDiagram, ActivityDiagram, BlockDiagram>`, and `DiagramLayout::layout` visits
-it. The three parsers and the three layouts keep their own public API, so each kind can still be
-used and tested alone.
+title, comments and the ignored directives, and hands the text to `BlockParser`, `StateParser`,
+`ClassParser`, `ActivityParser` or `SequenceParser`. `Diagram` is
+`std::variant<SequenceDiagram, ActivityDiagram, BlockDiagram, StateDiagram, ClassDiagram>`, and
+`DiagramLayout::layout` visits it. The parsers and the layouts keep their own public API, so each
+kind can still be used and tested alone.
 
 | Stage | Input → output | Depends on |
 |---|---|---|
-| `DiagramParser` | `QString` → `Result<Diagram>` | the three parsers |
+| `DiagramParser` | `QString` → `Result<Diagram>` | the five parsers |
 | `SequenceParser` | `QString` → `Result<SequenceDiagram>` | Qt Core, `app_async` (`Result`) |
 | `ActivityParser` | `QString` → `Result<ActivityDiagram>` | Qt Core, `app_async` (`Result`) |
 | `BlockParser` | `QString` → `Result<BlockDiagram>` | Qt Core, `app_async` (`Result`) |
-| `DiagramLayout` | `Diagram` + `DiagramStyle` + width + `TextMeasurer` → `Scene` | the three layouts |
+| `StateParser` | `QString` → `Result<StateDiagram>` | Qt Core, `app_async` (`Result`) |
+| `ClassParser` | `QString` → `Result<ClassDiagram>` | Qt Core, `app_async` (`Result`) |
+| `DiagramLayout` | `Diagram` + `DiagramStyle` + width + `TextMeasurer` → `Scene` | the five layouts |
 | `SequenceLayout` | diagram + `DiagramStyle` + width + `TextMeasurer` → `Scene` | Qt Core, Qt Gui (`DiagramStyle::font()`) |
 | `ActivityLayout` | diagram + `DiagramStyle` + width + `TextMeasurer` → `Scene` | Qt Core, Qt Gui |
 | `BlockLayout` | diagram + `DiagramStyle` + width + `TextMeasurer` → `Scene` | Qt Core, Qt Gui |
+| `StateLayout` | diagram + `DiagramStyle` + width + `TextMeasurer` → `Scene` | Qt Core, Qt Gui |
+| `ClassLayout` | diagram + `DiagramStyle` + width + `TextMeasurer` → `Scene` | Qt Core, Qt Gui |
 | `SvgSceneWriter` | `Scene` + `DiagramPalette` + pixel ratio → `QString` | Qt Core, Qt Gui (`QColor`) |
 | `FontTextMeasurer` | implements `TextMeasurer` with `QFontMetricsF` | Qt Gui |
 
@@ -76,15 +81,22 @@ libs/cpp/diagram/            target app_diagram (STATIC; PUBLIC Qt6::Core, Qt6::
     activityparser.h/.cpp
     blockdiagram.h           model: a flat list of blocks, links and notes
     blockparser.h/.cpp
+    statediagram.h           model: a flat list of states, transitions and notes
+    stateparser.h/.cpp
+    classdiagram.h           model: a flat list of classes, relations and notes
+    classparser.h/.cpp
     scene.h                  geometry primitives + colour roles
     textmeasurer.h/.cpp      interface, plus FontTextMeasurer
     diagramstyle.h           sizes, gaps, font family and size (the only source of both)
     diagrampalette.h         role → QColor
-    layoutsupport.h/.cpp     text wrapping, fair widths, shifting items and the frame tab, shared by the layouts
+    layoutsupport.h/.cpp     text wrapping, fair widths, shifting items, the frame tab, the layered flow,
+                             ports, routes, lanes and label placement, shared by the layouts
     diagramlayout.h/.cpp     visits the variant
     sequencelayout.h/.cpp
     activitylayout.h/.cpp
     blocklayout.h/.cpp
+    statelayout.h/.cpp
+    classlayout.h/.cpp
     svgscenewriter.h/.cpp
     diagramsvgprovider.h/.cpp  QObject for QML: text + width + colours → data: URL + image size
 libs/tests/diagram/          diagram_tests (GoogleTest), FakeTextMeasurer
@@ -544,6 +556,262 @@ Invariants, each checked by tests:
 - every link ends on a horizontal edge of its blocks and no link runs through a block;
 - a narrower width gives more lines and the same font size.
 
+## State diagram
+
+The state diagram shows the states of something and what moves it from one to another: a protocol,
+a life cycle, a state machine. It is a small subset of the PlantUML state diagram. It shares the
+pipeline, the `Scene`, the colour roles and the writer with the other three, and it shares the
+layered flow, the orthogonal routing, the label halos and the note placement with the block
+layout through `layoutsupport`; only its parser, its model and its layout are its own.
+
+`DiagramParser` picks it when the first meaningful line is `[*]` or `state` followed by a name or
+a quoted label. A text that opens with `A --> B` stays a sequence diagram. The check comes after
+the block diagram and before the activity diagram.
+
+### Syntax
+
+**Understood:**
+
+```
+@startuml / @enduml                          optional
+title Life cycle
+[*] --> Ready                                the initial state: a filled dot
+Ready --> Running : scheduled                an arrow; `->` is the same; `: label` is optional
+Running --> [*]                              the final state: a bullseye
+state "Waiting for I/O" as Wait              also `state Name`; `\n` in a name breaks a line
+Wait : blocked on a device                   a description line, drawn under the name
+Running --> Running : tick                   a self-transition, drawn as a loop on the left side
+state Machine {                              a composite state: a rounded frame with the name in a
+  [*] --> Inner                              header; it nests to any depth and each frame has its
+  state Inner { ... }                        own `[*]` and final state
+}
+note left of Ready : text                    also `note right of`; the multi-line form is closed
+note right of Running                        by `end note`
+...
+end note
+```
+
+A state that is only used in a transition is declared by that use. A transition names states by id
+(the alias, or the quoted name of a state without one). A state takes at most one note per side.
+Limits: 20 000 characters and 300 elements (states, transitions and notes together).
+
+**Ignored, with a warning:** a direction hint on an arrow (`-up->`, `-u->`, `-down->`, `-left->`,
+`-right->`), `scale`, `header`, `footer`, `caption` and `!` directives, and a colour on a note.
+Comments are skipped without a warning.
+
+**Error:** parsing stops at the first one, reported as `Line N: …`, in the same form as the block
+diagram.
+
+- Valid PlantUML that this app does not draw: `Line N: "<line>" is valid PlantUML, but this app
+  does not support <feature>. <How to rewrite it>. A state diagram here understands: …`. The
+  features are concurrent regions (`--`, `||`), history states (`[H]`, `[H*]`), stereotypes
+  (`<<choice>>`, `<<fork>>`, `<<join>>`, `<<end>>`), a colour on a state, `skinparam`, `hide` and
+  `show`, layout directions, notes above or below a state, floating notes and notes on
+  transitions, and any arrow other than `-->` and `->`.
+- A statement that is none of the above: `unknown statement "<line>". A state diagram here
+  understands: …`. A known keyword written wrongly gets the form it should have instead.
+- Structure: a note naming a state that is not declared, a state declared twice, a transition from
+  `[*]` to `[*]`, a second note on the same side of a state, `"}" without an open composite
+  state`, and a composite state or note left open at the end (reported at the last line, naming
+  the line that opened it). A diagram with no state is the one error without a line number.
+
+### Model
+
+```cpp
+struct State { QString id; QString label; QStringList descriptions; StateKind kind;
+               bool isComposite; int parent; int line; };
+struct StateTransition { int from; int to; QString label; int sourceLine; };
+struct StateNote { int state; StateNoteSide side; QString text; };
+struct StateDiagram { QString title; QList<State> states; QList<StateTransition> transitions;
+                      QList<StateNote> notes; QStringList warnings; };
+```
+
+The model is flat: states are in declaration order and refer to their composite state by index
+(`parent`, `-1` at the top level). `[*]` is one `Initial` and one `Final` state per composite
+state, so each frame has its own.
+
+### Layout (state)
+
+Each level (the top level, or the inside of one composite state) is laid out the same way, and a
+composite state is laid out first from the inside out.
+
+- **Shapes.** A state is a rounded box with its name centred; descriptions sit under a divider
+  line. The initial state is a filled dot and the final state a ring with a dot. A composite
+  state is an unfilled frame with its name in a header in the group colour. A note is a note box
+  beside its state.
+- **Layers.** The transitions between the states of one level point from the first name to the
+  second, and the longest path from the initial state gives every state its layer; transitions
+  that would close a cycle are not used for layering. The initial state is on top and the final
+  states are in the layer right after their source, beside the other states of that layer. The
+  rows are centred.
+- **Transitions.** A transition is a straight vertical line between facing edges when the states
+  overlap horizontally, otherwise an elbow through the gap between the rows, with its end points
+  spread along the edge so that parallel and opposite transitions do not share a line. A back
+  edge (one that points up), and a transition that would cross a state, goes round the right of
+  the level in its own lane. Lanes nest: the edge that spans more layers runs further out and
+  each edge enters its target at its own height, so back edges do not cross. Transitions between
+  the states of a composite state stay inside its frame, which has room for their lanes. A
+  transition that leaves a composite state starts from its frame, at the header height. A
+  self-transition is a loop on the left side of the state.
+- **Notes.** A note hangs beside its state, outside the column, so the state keeps the column of
+  its neighbours; the scene widens for it, and the note wraps when the width is short.
+- **Labels.** A label sits beside a line, or on the horizontal run of an elbow, on a
+  background-coloured halo; a label of a back edge sits beside the vertical run of its lane, on
+  the outer side. The position is chosen from candidates and scored: a label may not
+  cover a state, a note or another label; touching another line costs a little, running past the
+  left edge costs a little and widens the scene. A row gap that is too small for the labels of a
+  fan-out is grown by one more label height and the layout is repeated.
+- **When it does not fit.** The scene is laid out at the minimums and comes out wider than the
+  viewport, and the integration scales the image down, as for the other diagrams.
+
+Invariants, each checked by tests:
+
+- every primitive lies inside `scene.size`;
+- no two states overlap, and no label halo covers a state, a note or another label;
+- no transition runs through a state;
+- a composite frame encloses its states and the frame of a state nested in it;
+- the initial state is above every state of its level and a final state is next to its source;
+- back edges do not cross, and a transition between states inside a composite state stays inside
+  its frame;
+- a state with a note keeps the column of its neighbours;
+- a narrower width gives more lines and the same font size.
+
+## Class diagram
+
+The class diagram shows how data structures and objects are built and how they point to or contain
+each other: kernel structs, records, an object model. It is a small subset of the PlantUML class
+diagram. It shares the pipeline, the `Scene`, the colour roles and the writer with the others, and
+it shares the layered flow, the ports, the orthogonal routes, the lanes, the label placement and
+the note placement with the state layout through `layoutsupport`; only its parser, its model and its
+layout are its own.
+
+`DiagramParser` picks it when the first meaningful line is `class`, `abstract class`, `struct` or
+`enum` followed by a name. `interface` is not on that list: as a first line it still goes to the
+block parser and its "does not support interfaces" error, while `interface Name` as a later line is
+a class diagram's own declaration. The check comes after the block and the state diagram and before
+the activity diagram.
+
+### Syntax
+
+**Understood:**
+
+```
+@startuml / @enduml                          optional
+title Process memory
+class Plain                                  also `abstract class`, `struct`, `enum`, `interface`
+class "Long name" as Alias                   or `class Name as "Long name"`; `\n` breaks a line
+class List<T>                                a generic name is kept as text and reached as `List`
+struct vm_area_struct {                      a body: one member per line, shown as written
+  + vm_start : unsigned long                 a visibility mark `+ - # ~` is kept as text
+  unsigned long vm_end                       `name : type` and `type name` are both fine
+  --                                         starts a new compartment
+  find(addr) : vm_area_struct*               a member with `(` is a method
+}
+enum Color {                                 an enum body lists its values, one per line
+  RED
+}
+A <|-- B     B --|> A                        inheritance: a hollow triangle at the parent
+A <|.. B     B ..|> A                        realization: the same, dashed
+A *-- B                                      composition: a filled diamond at A
+A o-- B                                      aggregation: a hollow diamond at A
+A --> B      A ..> B                         association; dependency, dashed
+A -- B       A .. B                          plain links
+A "1" *-- "0..*" B : owns                    multiplicities in quotes at either end, a label
+note left of A : text                        also `note right of`; the multi-line form is closed
+note right of B                              by `end note`
+...
+end note
+```
+
+A class that is only used in a relation is created by that use, and a later declaration fills it
+in. A relation names classes by id (the alias, or the quoted name of a class without one). A class
+takes at most one note per side. Without a `--` line a body is split into its fields and then its
+methods; an enum body is one compartment. Limits: 20 000 characters and 300 elements (classes,
+members, relations and notes together).
+
+**Ignored, with a warning:** `scale`, `header`, `footer`, `caption` and `!` directives. Comments are
+skipped without a warning.
+
+**Error:** parsing stops at the first one, reported as `Line N: …`, in the same form as the state
+diagram.
+
+- Valid PlantUML that this app does not draw: `Line N: "<line>" is valid PlantUML, but this app
+  does not support <feature>. <How to rewrite it>. A class diagram here understands: …`. The
+  features are `package` and `namespace` blocks, `together`, stereotypes (`<<entity>>`), the member
+  modifiers `{static}`, `{abstract}`, `{field}`, `{method}` and `{classifier}`, `skinparam`, `hide`
+  and `show`, layout directions, direction hints in arrows (`-up->`), styled arrows (`-[#red]->`),
+  lollipop interfaces (`()--`), association classes (`(A, B) .. C`), colours, notes above or below
+  a class, and floating notes and notes on relations.
+- A statement that is none of the above: `unknown statement "<line>". A class diagram here
+  understands: …`. A known keyword written wrongly gets the form it should have instead, and a
+  relation with a malformed arrow gets `"<line>" is not a valid relation. Write it as: …`.
+- Structure: a note naming a class that is not declared, a class declared twice, a second note on
+  the same side of a class, `"}" without an open class body`, and a body or a note left open at the
+  end (reported at the last line, naming the line that opened it). A diagram with no class is the
+  one error without a line number.
+
+### Model
+
+```cpp
+struct ClassType { QString id; QString label; ClassKind kind; QList<QStringList> compartments;
+                   int line; };
+struct ClassRelation { int from; int to; ClassLinkLine line; ClassLinkEnd fromEnd; ClassLinkEnd toEnd;
+                       QString fromMultiplicity; QString toMultiplicity; QString label;
+                       int sourceLine; };
+struct ClassNote { int type; ClassNoteSide side; QString text; };
+struct ClassDiagram { QString title; QList<ClassType> types; QList<ClassRelation> relations;
+                      QList<ClassNote> notes; QStringList warnings; };
+```
+
+The model is flat: classes are in order of first appearance. A relation keeps its ends as written
+(`fromEnd` and `toEnd`, each `None`, `Triangle`, `FilledDiamond`, `HollowDiamond` or `Arrow`), so
+`A <|-- B` and `B --|> A` are the same drawing with the ends swapped. `compartments` holds the
+members below the header, empty compartments dropped.
+
+### Layout (class)
+
+- **Direction.** A triangle or a diamond marks the upper box (the parent or the whole), so the
+  parent is above its children whichever way the statement is written. Any other relation puts the
+  class that is written first on top; an arrow end does not decide. Layers come from these
+  directions, as in the state layout, and relations that would close a cycle are not used for
+  layering.
+- **Boxes.** A box has a header (an optional small `«struct»`, `«enum»`, `«interface»` or
+  `«abstract»` line in the muted colour, then the name centred), and one compartment per group of
+  members under dividers. Members are left aligned and wrap when long. The width fits the widest
+  line up to a cap of the larger of the minimum label width and 0.6 of the available width. A box
+  that many lines meet is made tall (right side) or wide (top and bottom) enough that their ends
+  are far enough apart to carry a marker and a multiplicity each.
+- **Relations.** A relation between facing boxes is a vertical line or an elbow through the gap
+  between the rows. A back edge, a relation that would cross a box and a relation from a class to
+  itself leave from the right side of both boxes and run in a lane to the right of the diagram;
+  lanes nest so that they do not cross. A self-relation is a loop with two ports on the right
+  side. Ports on a side are spread by the position of the other end.
+- **Markers.** A triangle (the parent) and a diamond (the whole) are polygons filled with the
+  background colour, or the line colour for composition; the arrow of an association or a
+  dependency is an open head. Every marker has its tip exactly on the border of its box, and lies
+  along the line. A line segment next to a marker is long enough for it, and the marker
+  rectangles are obstacles for labels.
+- **Labels.** The label of a relation sits beside its line, as in the state layout. A multiplicity
+  sits beside the end it belongs to, past the marker, on the side of the line that is free. All
+  labels sit on a background-coloured halo and are scored from candidates: none may cover a box, a
+  note, a marker or another label, and none may touch the line of its own relation. The row gap is
+  the flow gap plus the room for the longest pair of markers and one label height; when a label
+  cannot be placed clear of everything it grows by one more line height and the layout is
+  repeated.
+- **Notes.** A note hangs beside its class, outside the column, as in the state layout.
+- **When it does not fit.** The content width is narrowed until the scene fits the viewport, and a
+  scene that is still wider is scaled down by the integration, as for the other diagrams.
+
+Invariants, each checked by tests:
+
+- every primitive lies inside `scene.size`;
+- no two boxes overlap, and no label halo covers a box, a note, a marker or another label;
+- no relation runs through a box, and no label touches any line;
+- every marker tip lies on the border of a box;
+- a parent is above its children, and a whole above its parts;
+- a back edge runs outside every box and lanes do not coincide;
+- a self-relation loops on the right of its box.
+
 ## Sharpness on a high-DPR screen
 
 Phones have a device pixel ratio of about 2.6 to 3. The writer emits the root element as
@@ -620,7 +888,10 @@ meet the following:
   colours or ratio; a width change within a step only resizes the image. The natural size is
   capped at 8 million pixels by lowering the ratio (never below 1), so a tall diagram cannot
   exhaust memory when rich text rasterizes it. A text that fails to parse clears the image and
-  sets `error`; the caller shows the error instead of a stale picture;
+  sets `error`; the caller shows the error instead of a stale picture. With `fillWidth` (off by
+  default) a scene narrower than `availableWidth` is drawn centred on a canvas of the full width,
+  and the image then follows every width change; QML `Text` draws an inline image at the left
+  edge whatever the paragraph's alignment, so this is the only way to centre a diagram there;
 - `RichTextImages::imageSize` cannot read `data:` URLs, so the preprocessor writes the `<img>`'s
   `width` and `height` itself (as `ThemedHtmlText` does), which `fit()` already respects;
 - the width is rounded down to a multiple of 16 px before layout. Results are cached by (text, rounded
@@ -641,7 +912,7 @@ by a tool that escapes everything still parses. `EmbeddedDiagrams::strayMarkers`
 that mention a marker without being one (`<p>@startuml</p>`), which `find` would silently skip.
 
 `RichTextDiagrams` (QObject) takes `html`, `availableWidth`, `pixelRatio`, `fontFamily`,
-`fontPixelSize` and `colors`, keeps one `DiagramSvgProvider` per block, and returns
+`fontPixelSize`, `colors` and `fillWidth` (passed on to every provider), keeps one `DiagramSvgProvider` per block, and returns
 `renderedHtml`: each block becomes `<p class="diagram" align="center"><img src="data:…" width
 height></p>`, an error or an unclosed block becomes `<p class="diagramError">Diagram: …</p>`, and a
 block shows nothing until the width is known. The style sheet should give `p.diagram` a

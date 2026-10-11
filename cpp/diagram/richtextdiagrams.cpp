@@ -90,8 +90,18 @@ void RichTextDiagrams::setColors(const QVariantMap& colors)
     reconfigure();
 }
 
+void RichTextDiagrams::setFillWidth(bool fill)
+{
+    if (m_fillWidth == fill)
+        return;
+    m_fillWidth = fill;
+    emit inputChanged();
+    reconfigure();
+}
+
 void RichTextDiagrams::configure(DiagramSvgProvider& provider) const
 {
+    provider.setFillWidth(m_fillWidth);
     provider.setAvailableWidth(m_availableWidth);
     provider.setPixelRatio(m_pixelRatio);
     provider.setFontFamily(m_fontFamily);

@@ -4,19 +4,20 @@
 
 #include <algorithm>
 #include <cmath>
-#include <functional>
 #include <limits>
-#include <map>
 
 namespace diagram
 {
 namespace
 {
+    using layouting::centred;
+    using layouting::Fragment;
+    using layouting::merge;
+    using layouting::NoteBox;
+    using layouting::Route;
     using layouting::WrappedText;
 
     constexpr qreal kUnbounded = std::numeric_limits<qreal>::infinity();
-    constexpr qreal kFitTolerance = 0.001;
-    constexpr qreal kObstacleClearance = 3;
     constexpr qreal kNodeDepth = 6;
     constexpr qreal kCylinderCap = 10;
     constexpr qreal kMarkerWidth = 14;
@@ -24,23 +25,6 @@ namespace
     constexpr qreal kMarkerStub = 3;
     constexpr qreal kMinimumOverlap = 16;
     constexpr qreal kDetourSpacing = 6;
-
-    using Route = QList<QPointF>;
-
-    struct Obstacle
-    {
-        int block = -1;
-        QRectF rect;
-    };
-
-    struct Fragment
-    {
-        qreal width = 0;
-        qreal height = 0;
-        QList<SceneItem> items;
-        std::map<int, QRectF> rects;
-        QList<Obstacle> obstacles;
-    };
 
     struct Insets
     {
@@ -53,48 +37,6 @@ namespace
         qreal vertical() const { return top + bottom; }
     };
 
-    struct NoteBox
-    {
-        WrappedText text;
-        qreal width = 0;
-        qreal height = 0;
-    };
-
-    qreal centred(qreal space) { return std::round(space / 2); }
-
-    void merge(Fragment& target, const Fragment& part, qreal dx, qreal dy)
-    {
-        layouting::appendShifted(target.items, part.items, dx, dy);
-        for (const auto& [block, rect] : part.rects)
-            target.rects[block] = rect.translated(dx, dy);
-        for (const Obstacle& obstacle : part.obstacles)
-            target.obstacles.append({ obstacle.block, obstacle.rect.translated(dx, dy) });
-    }
-
-    bool crosses(const QPointF& from, const QPointF& to, const QRectF& obstacle)
-    {
-        const QRectF box = obstacle.adjusted(-kObstacleClearance, -kObstacleClearance,
-                                             kObstacleClearance, kObstacleClearance);
-        return std::min(from.x(), to.x()) <= box.right() && std::max(from.x(), to.x()) >= box.left()
-            && std::min(from.y(), to.y()) <= box.bottom()
-            && std::max(from.y(), to.y()) >= box.top();
-    }
-
-    bool isFree(const Route& route, const QList<Obstacle>& obstacles, int fromBlock, int toBlock)
-    {
-        for (qsizetype index = 1; index < route.size(); ++index)
-        {
-            for (const Obstacle& obstacle : obstacles)
-            {
-                if (obstacle.block == fromBlock || obstacle.block == toBlock)
-                    continue;
-                if (crosses(route.at(index - 1), route.at(index), obstacle.rect))
-                    return false;
-            }
-        }
-        return true;
-    }
-
     class BlockLayouter
     {
     public:
@@ -106,6 +48,13 @@ namespace
             , m_wrapper(style, measurer)
             , m_availableWidth(availableWidth)
             , m_children(diagram.blocks.size())
+            , m_flow(layouting::LayeredFlowSource { [this](int block, qreal maxWidth)
+                                                    { return layoutItem(block, maxWidth); },
+                                                    [this](const QList<int>& siblings)
+                                                    { return layersOf(siblings); },
+                                                    [this](int block, const QList<int>& siblings)
+                                                    { return linksAnother(block, siblings); } },
+                     style.flowGap)
         {
             for (qsizetype index = 0; index < diagram.blocks.size(); ++index)
             {
@@ -123,12 +72,13 @@ namespace
                 m_widestLabel = std::max(m_widestLabel, label.width);
             }
             m_rowGap = style.flowGap + labelHeight;
+            m_flow.setRowGap(m_rowGap);
         }
 
         Scene layout()
         {
             const qreal contentWidth = std::max<qreal>(0, m_availableWidth - 2 * m_style.margin);
-            const Fragment flow = layoutLevel(m_roots, contentWidth);
+            const Fragment flow = m_flow.layoutLevel(m_roots, contentWidth);
             const WrappedText title = m_wrapper.wrap(m_diagram.title, contentWidth);
 
             qreal top = m_style.margin;
@@ -171,20 +121,12 @@ namespace
     private:
         qreal pad() const { return m_style.padding; }
 
-        qreal minimalWidth(const QString& text) const
-        {
-            return std::min(m_wrapper.widestWord(text), m_style.minLabelWidth);
-        }
-
         WrappedText wrapAt(const QString& text, qreal maxWidth) const
         {
-            return m_wrapper.wrap(text, std::max(maxWidth, minimalWidth(text)));
+            return m_wrapper.wrapKeepingWords(text, maxWidth);
         }
 
-        qreal textHeight(const WrappedText& text) const
-        {
-            return std::max(text.height, m_measurer.lineHeight());
-        }
+        qreal textHeight(const WrappedText& text) const { return m_wrapper.heightOf(text); }
 
         int ancestorIn(int block, const QList<int>& siblings) const
         {
@@ -218,44 +160,11 @@ namespace
                     continue;
                 successors[from].append(int(to));
             }
-
-            QList<int> state(count, 0);
-            QList<QList<int>> kept(count);
-            QList<int> finished;
-            std::function<void(int)> visit = [&](int node)
-            {
-                state[node] = 1;
-                for (const int next : std::as_const(successors[node]))
-                {
-                    if (state[next] == 1)
-                        continue;
-                    kept[node].append(next);
-                    if (state[next] == 0)
-                        visit(next);
-                }
-                state[node] = 2;
-                finished.append(node);
-            };
+            QList<int> visitOrder;
             for (int node = 0; node < count; ++node)
-            {
-                if (state[node] == 0)
-                    visit(node);
-            }
-
-            QList<int> layerOf(count, 0);
-            for (auto node = finished.crbegin(); node != finished.crend(); ++node)
-            {
-                for (const int next : std::as_const(kept[*node]))
-                    layerOf[next] = std::max(layerOf[next], layerOf[*node] + 1);
-            }
-            QList<QList<int>> layers;
-            for (int position = 0; position < count; ++position)
-            {
-                while (layers.size() <= layerOf[position])
-                    layers.append(QList<int> {});
-                layers[layerOf[position]].append(siblings.at(position));
-            }
-            return layers;
+                visitOrder.append(node);
+            return layouting::groupedByLayer(siblings,
+                                             layouting::longestPathLayers(successors, visitOrder));
         }
 
         bool linksAnother(int block, const QList<int>& siblings) const
@@ -270,147 +179,7 @@ namespace
             return false;
         }
 
-        QList<QList<int>> rowsOf(const QList<int>& layer, const QList<int>& siblings,
-                                 qreal maxWidth) const
-        {
-            const bool squeezes = std::any_of(layer.cbegin(), layer.cend(), [&](int block)
-                                              { return linksAnother(block, siblings); });
-            QList<QList<int>> rows;
-            qreal rowWidth = 0;
-            for (const int block : layer)
-            {
-                const qreal width = squeezes ? minimal(block).width : natural(block).width;
-                if (!rows.isEmpty() && rowWidth + gap() + width <= maxWidth + kFitTolerance)
-                {
-                    rows.last().append(block);
-                    rowWidth += gap() + width;
-                    continue;
-                }
-                rows.append(QList<int> { block });
-                rowWidth = width;
-            }
-            return rows;
-        }
-
         qreal gap() const { return m_style.flowGap; }
-
-        const Fragment& natural(int block) const
-        {
-            auto found = m_natural.find(block);
-            if (found == m_natural.end())
-            {
-                Fragment fragment = layoutItem(block, kUnbounded);
-                found = m_natural.emplace(block, std::move(fragment)).first;
-            }
-            return found->second;
-        }
-
-        const Fragment& minimal(int block) const
-        {
-            auto found = m_minimal.find(block);
-            if (found == m_minimal.end())
-            {
-                Fragment fragment = layoutItem(block, 0);
-                found = m_minimal.emplace(block, std::move(fragment)).first;
-            }
-            return found->second;
-        }
-
-        QList<qreal> limitsOf(const QList<int>& row, qreal maxWidth) const
-        {
-            qreal naturalSum = 0;
-            qreal minimalSum = 0;
-            for (const int block : row)
-            {
-                naturalSum += natural(block).width;
-                minimalSum += minimal(block).width;
-            }
-            const qreal budget = maxWidth - gap() * qreal(row.size() - 1);
-            const qreal spare = std::max<qreal>(0, budget - minimalSum);
-            const qreal room = naturalSum - minimalSum;
-            QList<qreal> limits;
-            for (const int block : row)
-            {
-                const qreal naturalWidth = natural(block).width;
-                if (naturalSum <= budget + kFitTolerance || room <= 0)
-                {
-                    limits.append(naturalWidth);
-                    continue;
-                }
-                const qreal minimalWidth = minimal(block).width;
-                limits.append(minimalWidth + spare * (naturalWidth - minimalWidth) / room);
-            }
-            return limits;
-        }
-
-        Fragment layoutRow(const QList<int>& row, qreal maxWidth) const
-        {
-            const QList<qreal> limits = limitsOf(row, maxWidth);
-            QList<Fragment> items;
-            for (qsizetype index = 0; index < row.size(); ++index)
-            {
-                const int block = row.at(index);
-                if (limits.at(index) >= natural(block).width - kFitTolerance)
-                    items.append(natural(block));
-                else if (limits.at(index) <= minimal(block).width + kFitTolerance)
-                    items.append(minimal(block));
-                else
-                    items.append(layoutItem(block, limits.at(index)));
-            }
-            Fragment fragment;
-            for (const Fragment& item : std::as_const(items))
-                fragment.height = std::max(fragment.height, item.height);
-            qreal x = 0;
-            for (const Fragment& item : std::as_const(items))
-            {
-                merge(fragment, item, x, centred(fragment.height - item.height));
-                x += item.width + gap();
-            }
-            fragment.width = x - gap();
-            return fragment;
-        }
-
-        Fragment layoutLevel(const QList<int>& siblings, qreal maxWidth) const
-        {
-            QList<Fragment> rows;
-            for (const QList<int>& layer : layersOf(siblings))
-            {
-                for (const QList<int>& row : rowsOf(layer, siblings, maxWidth))
-                    rows.append(layoutRow(row, maxWidth));
-            }
-            Fragment level;
-            for (const Fragment& row : std::as_const(rows))
-                level.width = std::max(level.width, row.width);
-            qreal y = 0;
-            for (const Fragment& row : std::as_const(rows))
-            {
-                merge(level, row, centred(level.width - row.width), y);
-                y += row.height + m_rowGap;
-            }
-            level.height = rows.isEmpty() ? 0 : y - m_rowGap;
-            return level;
-        }
-
-        NoteBox noteBoxOf(const BlockNote& note, qreal limit) const
-        {
-            NoteBox box;
-            box.text = wrapAt(note.text, limit - 2 * pad());
-            box.width = box.text.width + 2 * pad();
-            box.height = textHeight(box.text) + 2 * pad();
-            return box;
-        }
-
-        void placeNote(Fragment& fragment, const NoteBox& box, qreal x, qreal y) const
-        {
-            const QRectF rect(x, y, box.width, box.height);
-            fragment.items.append(
-                SceneRect { rect, 0, ColorRole::NoteFill, ColorRole::NoteStroke, false });
-            if (!box.text.lines.isEmpty())
-                fragment.items.append(
-                    SceneText { QRectF(x + pad(), y + pad(), box.text.width, box.text.height),
-                                Qt::AlignLeft, box.text.lines, ColorRole::Text });
-            fragment.obstacles.append({ -1, rect });
-        }
 
         Fragment layoutItem(int block, qreal maxWidth) const
         {
@@ -423,8 +192,12 @@ namespace
             const qreal noteGap = m_style.columnGap;
             const qreal noteLimit
                 = maxWidth == kUnbounded ? kUnbounded : (maxWidth - sides * noteGap) / (sides + 2);
-            const NoteBox leftBox = left ? noteBoxOf(*left, noteLimit) : NoteBox {};
-            const NoteBox rightBox = right ? noteBoxOf(*right, noteLimit) : NoteBox {};
+            const NoteBox leftBox = left
+                ? layouting::noteBoxOf(left->text, noteLimit, m_wrapper, m_style)
+                : NoteBox {};
+            const NoteBox rightBox = right
+                ? layouting::noteBoxOf(right->text, noteLimit, m_wrapper, m_style)
+                : NoteBox {};
             const qreal blockLimit = maxWidth == kUnbounded
                 ? kUnbounded
                 : maxWidth - leftBox.width - rightBox.width - sides * noteGap;
@@ -435,7 +208,8 @@ namespace
             qreal x = 0;
             if (left)
             {
-                placeNote(fragment, leftBox, x, centred(fragment.height - leftBox.height));
+                layouting::placeNote(fragment, leftBox, x,
+                                     centred(fragment.height - leftBox.height), m_style);
                 x += leftBox.width + noteGap;
             }
             merge(fragment, body, x, centred(fragment.height - body.height));
@@ -443,7 +217,8 @@ namespace
             if (right)
             {
                 x += noteGap;
-                placeNote(fragment, rightBox, x, centred(fragment.height - rightBox.height));
+                layouting::placeNote(fragment, rightBox, x,
+                                     centred(fragment.height - rightBox.height), m_style);
                 x += rightBox.width;
             }
             fragment.width = x;
@@ -574,7 +349,7 @@ namespace
             const qreal inset = pad() + m_style.groupInset;
             const WrappedText label = wrapAt(block.label, maxWidth - 2 * pad());
             const qreal headerHeight = label.lines.isEmpty() ? 0 : label.height + pad();
-            const Fragment content = layoutLevel(m_children.at(index), maxWidth - 2 * inset);
+            const Fragment content = m_flow.layoutLevel(m_children.at(index), maxWidth - 2 * inset);
             const qreal contentTop = headerHeight > 0 ? headerHeight + pad() : inset;
 
             Fragment fragment;
@@ -671,7 +446,7 @@ namespace
             qsizetype chosenIndex = 0;
             for (qsizetype index = 0; index < candidates.size(); ++index)
             {
-                if (isFree(candidates.at(index), placed.obstacles, link.from, link.to))
+                if (layouting::isFree(candidates.at(index), placed.obstacles, link.from, link.to))
                 {
                     chosenIndex = index;
                     break;
@@ -706,17 +481,6 @@ namespace
                           QSizeF(label.width, label.height));
         }
 
-        QRectF keptInside(QRectF bounds, const QSizeF& size) const
-        {
-            const qreal halo = m_style.labelHalo;
-            const qreal left
-                = std::max(halo, std::min(bounds.left(), size.width() - bounds.width() - halo));
-            const qreal top
-                = std::max(0.0, std::min(bounds.top(), size.height() - bounds.height()));
-            bounds.moveTopLeft(QPointF(left, top));
-            return bounds;
-        }
-
         QList<Route> routeLinks(const Fragment& placed, qreal detourX) const
         {
             QList<Route> routes;
@@ -742,12 +506,9 @@ namespace
                 const WrappedText label = wrapAt(m_diagram.links.at(index).label, m_labelLimit);
                 if (label.lines.isEmpty())
                     continue;
-                const QRectF bounds = keptInside(labelBounds(routes.at(index), label), scene.size);
-                scene.items.append(
-                    SceneRect { bounds.adjusted(-m_style.labelHalo, 0, m_style.labelHalo, 0), 0,
-                                ColorRole::Background, std::nullopt, false });
-                scene.items.append(
-                    SceneText { bounds, Qt::AlignLeft, label.lines, ColorRole::MutedText });
+                const QRectF bounds = layouting::keptInside(labelBounds(routes.at(index), label),
+                                                            scene.size, m_style.labelHalo);
+                layouting::appendHaloLabel(scene.items, bounds, label, m_style.labelHalo);
             }
         }
 
@@ -761,8 +522,7 @@ namespace
         qreal m_rowGap = 0;
         qreal m_labelLimit = 0;
         qreal m_widestLabel = 0;
-        mutable std::map<int, Fragment> m_natural;
-        mutable std::map<int, Fragment> m_minimal;
+        layouting::LayeredFlow m_flow;
     };
 }
 

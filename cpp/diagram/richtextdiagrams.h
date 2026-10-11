@@ -20,6 +20,7 @@ class RichTextDiagrams : public QObject
     Q_PROPERTY(QString fontFamily READ fontFamily WRITE setFontFamily NOTIFY inputChanged)
     Q_PROPERTY(int fontPixelSize READ fontPixelSize WRITE setFontPixelSize NOTIFY inputChanged)
     Q_PROPERTY(QVariantMap colors READ colors WRITE setColors NOTIFY inputChanged)
+    Q_PROPERTY(bool fillWidth READ fillWidth WRITE setFillWidth NOTIFY inputChanged)
     Q_PROPERTY(QString renderedHtml READ renderedHtml NOTIFY renderedHtmlChanged)
 
 public:
@@ -44,6 +45,9 @@ public:
     QVariantMap colors() const { return m_colors; }
     void setColors(const QVariantMap& colors);
 
+    bool fillWidth() const { return m_fillWidth; }
+    void setFillWidth(bool fill);
+
     QString renderedHtml() const { return m_renderedHtml; }
 
 signals:
@@ -62,6 +66,7 @@ private:
     QString m_fontFamily;
     int m_fontPixelSize = 0;
     QVariantMap m_colors;
+    bool m_fillWidth = false;
     QList<EmbeddedDiagram> m_diagrams;
     std::vector<std::unique_ptr<DiagramSvgProvider>> m_providers;
     bool m_configuring = false;

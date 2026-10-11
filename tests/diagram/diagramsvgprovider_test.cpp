@@ -195,12 +195,105 @@ TEST(DiagramSvgProviderTest, DrawsABlockDiagram)
     EXPECT_GT(provider.imageHeight(), 0);
 }
 
+TEST(DiagramSvgProviderTest, FillWidthCentersANarrowDiagramOnAFullWidthCanvas)
+{
+    DiagramSvgProvider provider;
+    configure(provider, QStringLiteral("rectangle CPU\nrectangle RAM\nCPU -- RAM\n"), 336);
+    const int narrowWidth = provider.imageWidth();
+    const int height = provider.imageHeight();
+    ASSERT_LT(narrowWidth, 336);
+
+    provider.setFillWidth(true);
+
+    EXPECT_EQ(provider.imageWidth(), 336);
+    EXPECT_EQ(provider.imageHeight(), height);
+    const QString svg = decoded(provider.svgSource());
+    EXPECT_TRUE(svg.contains(QStringLiteral("viewBox=\"0 0 336 %1\"").arg(height)));
+    const int margin = (336 - narrowWidth) / 2;
+    EXPECT_TRUE(svg.contains(QStringLiteral("<rect x=\"%1\"").arg(margin + 4)));
+
+    provider.setFillWidth(false);
+    EXPECT_EQ(provider.imageWidth(), narrowWidth);
+}
+
+TEST(DiagramSvgProviderTest, FillWidthFollowsTheWidthWithinAStep)
+{
+    DiagramSvgProvider provider;
+    provider.setFillWidth(true);
+    configure(provider, QStringLiteral("rectangle CPU\n"), 336);
+    QSignalSpy changed(&provider, &DiagramSvgProvider::svgSourceChanged);
+
+    provider.setAvailableWidth(340);
+
+    EXPECT_EQ(changed.count(), 1);
+    EXPECT_EQ(provider.imageWidth(), 340);
+}
+
 TEST(DiagramSvgProviderTest, ReportsABlockError)
 {
     DiagramSvgProvider provider;
     configure(provider, QStringLiteral("rectangle A\nA -- B\n"), 360);
 
     EXPECT_TRUE(provider.error().startsWith(QStringLiteral("Line 2: unknown block \"B\"")));
+    EXPECT_TRUE(provider.svgSource().isEmpty());
+}
+
+TEST(DiagramSvgProviderTest, DrawsAStateDiagram)
+{
+    DiagramSvgProvider provider;
+    configure(provider,
+              QStringLiteral("@startuml\n[*] --> Ready\nReady --> Running : scheduled\n"
+                             "Running --> Ready : preempted\nRunning --> [*] : exit\n@enduml\n"),
+              336);
+
+    EXPECT_TRUE(provider.error().isEmpty());
+    ASSERT_FALSE(provider.svgSource().isEmpty());
+    const QString svg = decoded(provider.svgSource());
+    EXPECT_TRUE(svg.contains(QStringLiteral(">Ready</text>")));
+    EXPECT_TRUE(svg.contains(QStringLiteral(">scheduled</text>")));
+    EXPECT_TRUE(svg.contains(QStringLiteral("<ellipse")));
+    EXPECT_GT(provider.imageHeight(), 0);
+    EXPECT_LE(provider.imageWidth(), 336);
+}
+
+TEST(DiagramSvgProviderTest, ReportsAStateError)
+{
+    DiagramSvgProvider provider;
+    configure(provider, QStringLiteral("[*] --> A\nA --> [H]\n"), 336);
+
+    EXPECT_TRUE(provider.error().startsWith(
+        QStringLiteral("Line 2: \"A --> [H]\" is valid PlantUML, but this app does not support "
+                       "history states")));
+    EXPECT_TRUE(provider.svgSource().isEmpty());
+}
+
+TEST(DiagramSvgProviderTest, DrawsAClassDiagram)
+{
+    DiagramSvgProvider provider;
+    configure(provider,
+              QStringLiteral("@startuml\nstruct task_struct {\n  pid : int\n}\n"
+                             "struct mm_struct\n"
+                             "task_struct \"1\" --> \"0..1\" mm_struct : mm\n@enduml\n"),
+              336);
+
+    EXPECT_TRUE(provider.error().isEmpty());
+    ASSERT_FALSE(provider.svgSource().isEmpty());
+    const QString svg = decoded(provider.svgSource());
+    EXPECT_TRUE(svg.contains(QStringLiteral(">task_struct</text>")));
+    EXPECT_TRUE(svg.contains(QStringLiteral(">pid : int</text>")));
+    EXPECT_TRUE(svg.contains(QStringLiteral(">0..1</text>")));
+    EXPECT_GT(provider.imageHeight(), 0);
+    EXPECT_LE(provider.imageWidth(), 336);
+}
+
+TEST(DiagramSvgProviderTest, ReportsAClassError)
+{
+    DiagramSvgProvider provider;
+    configure(provider, QStringLiteral("class A\npackage p {\n}\n"), 336);
+
+    EXPECT_TRUE(provider.error().startsWith(
+        QStringLiteral("Line 2: \"package p {\" is valid PlantUML, but this app does not support "
+                       "\"package\" and \"namespace\" blocks")));
     EXPECT_TRUE(provider.svgSource().isEmpty());
 }
 
