@@ -363,11 +363,18 @@ QJsonObject timeResponse()
 }
 
 UiAutomationServer::UiAutomationServer(QQmlApplicationEngine* engine, quint16 port, QObject* parent)
+    : UiAutomationServer(engine, QHostAddress(QHostAddress::AnyIPv4), port, parent)
+{
+}
+
+UiAutomationServer::UiAutomationServer(QQmlApplicationEngine* engine, const QHostAddress& address,
+                                       quint16 port, QObject* parent)
     : QObject(parent), m_engine(engine), m_server(new QTcpServer(this))
 {
     connect(m_server, &QTcpServer::newConnection, this, &UiAutomationServer::onNewConnection);
-    if (m_server->listen(QHostAddress::AnyIPv4, port))
-        qInfo() << "UiAutomationServer listening on 0.0.0.0:" << m_server->serverPort();
+    if (m_server->listen(address, port))
+        qInfo() << "UiAutomationServer listening on" << address.toString() << ":"
+                << m_server->serverPort();
     else
         qWarning() << "UiAutomationServer failed to listen on port" << port << ":"
                    << m_server->errorString();
