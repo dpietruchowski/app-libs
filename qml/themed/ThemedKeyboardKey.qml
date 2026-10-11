@@ -19,6 +19,9 @@ Item {
     property var swipes: []
     property real swipeArcStart: -90
     property real swipeArcSpan: 180
+    property bool showsSwipeRing: false
+    readonly property real swipeStep: swipeArcSpan / (swipeArcSpan >= 360 ? swipes.length
+                                                                          : Math.max(1, swipes.length - 1))
 
     property real popupCellWidth: width * Theme.keyboard.previewScale
     property real popupHeight: height * Theme.keyboard.previewScale
@@ -47,11 +50,10 @@ Item {
     function swipeIndexAt(x, y) {
         var angle = Math.atan2(y - root.height / 2, x - root.width / 2) * 180 / Math.PI
         var count = root.swipes.length
-        var step = root.swipeArcSpan / (root.swipeArcSpan >= 360 ? count : Math.max(1, count - 1))
         var nearest = 0
         var nearestDistance = 360
         for (var index = 0; index < count; ++index) {
-            var center = root.swipeArcStart + index * step
+            var center = root.swipeArcStart + index * root.swipeStep
             var distance = Math.abs((((angle - center) % 360) + 540) % 360 - 180)
             if (distance < nearestDistance) {
                 nearest = index
@@ -181,7 +183,7 @@ Item {
         property int highlighted: -1
         readonly property string character: highlighted >= 0 ? root.swipes[highlighted] : ""
 
-        visible: highlighted >= 0
+        visible: highlighted >= 0 && !root.showsSwipeRing
         anchors.bottom: parent.top
         anchors.bottomMargin: Theme.keyboard.keySpacing
         width: root.popupCellWidth
@@ -196,6 +198,80 @@ Item {
             text: root.displayed(swipePreview.character)
             font.pixelSize: Math.round(Theme.keyboard.fontSize * Theme.keyboard.previewScale)
             color: Theme.keyboard.activeKeyText
+        }
+    }
+
+    Item {
+        id: swipeRing
+        objectName: root.objectName === "" ? "" : root.objectName + "SwipeRing"
+
+        readonly property real innerRadius: Math.hypot(root.width, root.height) / 2 + Theme.keyboard.keySpacing
+        readonly property real outerRadius: innerRadius + root.popupCellWidth
+        readonly property real middleRadius: (innerRadius + outerRadius) / 2
+
+        function sectorAngle(index) {
+            return (root.swipeArcStart + index * root.swipeStep) * Math.PI / 180
+        }
+
+        visible: root.showsSwipeRing && swipePreview.highlighted >= 0
+        anchors.centerIn: parent
+        width: 2 * outerRadius
+        height: 2 * outerRadius
+
+        onVisibleChanged: sectors.requestPaint()
+
+        Connections {
+            target: swipePreview
+
+            function onHighlightedChanged() {
+                sectors.requestPaint()
+            }
+        }
+
+        Canvas {
+            id: sectors
+            anchors.fill: parent
+
+            onPaint: {
+                var context = getContext("2d")
+                context.reset()
+                var center = width / 2
+                var halfStep = root.swipeStep * Math.PI / 360
+                context.lineWidth = Theme.border.thin
+                context.strokeStyle = Theme.keyboard.previewBorder
+                for (var index = 0; index < root.swipes.length; ++index) {
+                    var from = swipeRing.sectorAngle(index) - halfStep
+                    var to = swipeRing.sectorAngle(index) + halfStep
+                    context.beginPath()
+                    context.arc(center, center, swipeRing.outerRadius, from, to, false)
+                    context.arc(center, center, swipeRing.innerRadius, to, from, true)
+                    context.closePath()
+                    context.fillStyle = index === swipePreview.highlighted
+                                        ? Theme.keyboard.activeKeyBackground
+                                        : Theme.keyboard.previewBackground
+                    context.fill()
+                    context.stroke()
+                }
+            }
+        }
+
+        Repeater {
+            model: root.showsSwipeRing ? root.swipes : []
+
+            Text {
+                required property string modelData
+                required property int index
+
+                readonly property real angle: swipeRing.sectorAngle(index)
+                readonly property bool highlighted: index === swipePreview.highlighted
+
+                objectName: swipeRing.objectName === "" ? "" : swipeRing.objectName + "_" + index
+                x: swipeRing.width / 2 + swipeRing.middleRadius * Math.cos(angle) - width / 2
+                y: swipeRing.height / 2 + swipeRing.middleRadius * Math.sin(angle) - height / 2
+                text: root.displayed(modelData)
+                font.pixelSize: Theme.keyboard.fontSize
+                color: highlighted ? Theme.keyboard.activeKeyText : Theme.keyboard.keyText
+            }
         }
     }
 

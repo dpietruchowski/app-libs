@@ -258,13 +258,15 @@ class UiDriver:
     def tap(self, x, y):
         return self.rpc(cmd="tap", x=x, y=y)
 
-    def drag(self, points, steps=10):
+    def drag(self, points, steps=10, release=True):
         """Press at the first (x, y), move through the others and release at the last.
 
         Each segment is walked in `steps` mouse moves, so a press, a path out of
-        an item and back in, and the release all arrive as one gesture.
+        an item and back in, and the release all arrive as one gesture. With
+        release=False the finger stays down, so the gesture can be screenshotted.
         """
-        return self.rpc(cmd="drag", points=[[x, y] for x, y in points], steps=steps)
+        return self.rpc(cmd="drag", points=[[x, y] for x, y in points], steps=steps,
+                        release=release)
 
     def native_click(self, name):
         """Android only: tap the item's center with a real MotionEvent.

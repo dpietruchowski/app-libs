@@ -720,7 +720,8 @@ QJsonObject UiAutomationServer::handleCommand(const QJsonObject& request)
                 sendMouse(QEvent::MouseMove, from + (to - from) * step / steps, Qt::NoButton,
                     Qt::LeftButton);
         }
-        sendMouse(QEvent::MouseButtonRelease, path.last(), Qt::LeftButton, Qt::NoButton);
+        if (request["release"].toBool(true))
+            sendMouse(QEvent::MouseButtonRelease, path.last(), Qt::LeftButton, Qt::NoButton);
         return makeOk();
     }
 

@@ -381,6 +381,7 @@ Rectangle {
                     upperCase: root.upperCase
                     alternates: modelData.characters
                     swipes: modelData.swipes
+                    showsSwipeRing: true
                     onTouched: root.keyTapped()
                     onActivated: (value) => root.activateGroupKey(modelData, value)
                 }
