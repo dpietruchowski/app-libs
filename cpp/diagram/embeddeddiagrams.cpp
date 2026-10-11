@@ -10,12 +10,57 @@ namespace diagram
 {
 namespace
 {
-    const QString kStart = QStringLiteral("@startuml");
-    const QString kEnd = QStringLiteral("@enduml");
+    struct MarkerPair
+    {
+        QString start;
+        QString end;
+    };
 
-    bool opens(QStringView line) { return line.startsWith(kStart, Qt::CaseInsensitive); }
+    const QList<MarkerPair>& markerPairs()
+    {
+        static const QList<MarkerPair> pairs {
+            { QStringLiteral("@startuml"), QStringLiteral("@enduml") },
+            { QStringLiteral("@startbits"), QStringLiteral("@endbits") },
+        };
+        return pairs;
+    }
 
-    bool closes(QStringView line) { return line.compare(kEnd, Qt::CaseInsensitive) == 0; }
+    bool opens(QStringView line, const MarkerPair& pair)
+    {
+        return line.startsWith(pair.start, Qt::CaseInsensitive);
+    }
+
+    bool closes(QStringView line, const QString& end)
+    {
+        return line.compare(end, Qt::CaseInsensitive) == 0;
+    }
+
+    std::optional<MarkerPair> openedBy(QStringView line)
+    {
+        for (const MarkerPair& pair : markerPairs())
+        {
+            if (opens(line, pair))
+                return pair;
+        }
+        return std::nullopt;
+    }
+
+    bool closesAny(QStringView line)
+    {
+        return std::any_of(markerPairs().cbegin(), markerPairs().cend(),
+                           [line](const MarkerPair& pair) { return closes(line, pair.end); });
+    }
+
+    std::optional<MarkerPair> mentionedIn(QStringView line)
+    {
+        for (const MarkerPair& pair : markerPairs())
+        {
+            if (line.contains(pair.start, Qt::CaseInsensitive)
+                || line.contains(pair.end, Qt::CaseInsensitive))
+                return pair;
+        }
+        return std::nullopt;
+    }
 
     QString bodyOf(QString raw)
     {
@@ -28,18 +73,25 @@ namespace
     }
 }
 
-QList<int> EmbeddedDiagrams::strayMarkers(const QString& text)
+QList<StrayMarker> EmbeddedDiagrams::findStrayMarkers(const QString& text)
 {
-    QList<int> lines;
+    QList<StrayMarker> strays;
     const QStringList all = text.split(QLatin1Char('\n'));
     for (int index = 0; index < all.size(); ++index)
     {
         const QStringView content = QStringView(all.at(index)).trimmed();
-        const bool mentions = content.contains(kStart, Qt::CaseInsensitive)
-            || content.contains(kEnd, Qt::CaseInsensitive);
-        if (mentions && !opens(content) && !closes(content))
-            lines.append(index);
+        const auto mentioned = mentionedIn(content);
+        if (mentioned && !openedBy(content) && !closesAny(content))
+            strays.append({ index, mentioned->start, mentioned->end });
     }
+    return strays;
+}
+
+QList<int> EmbeddedDiagrams::strayMarkers(const QString& text)
+{
+    QList<int> lines;
+    for (const StrayMarker& stray : findStrayMarkers(text))
+        lines.append(stray.line);
     return lines;
 }
 
@@ -56,12 +108,13 @@ QList<EmbeddedDiagram> EmbeddedDiagrams::find(const QString& text)
         if (lineEnd < 0)
             lineEnd = text.size();
         const QStringView content = QStringView(text).mid(position, lineEnd - position).trimmed();
-        if (!open && opens(content))
+        if (const auto pair = open ? std::nullopt : openedBy(content))
         {
-            open = EmbeddedDiagram { position, lineEnd, line, QString(), false };
+            open = EmbeddedDiagram { position, lineEnd,     line,     QString(),
+                                     false,    pair->start, pair->end };
             bodyStart = std::min(lineEnd + 1, text.size());
         }
-        else if (open && closes(content))
+        else if (open && closes(content, open->endMarker))
         {
             open->end = lineEnd;
             open->text

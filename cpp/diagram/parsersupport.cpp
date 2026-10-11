@@ -78,6 +78,12 @@ bool isDiagramMarker(const QString& line)
     return marker.match(line).hasMatch();
 }
 
+bool isBitsMarker(const QString& line)
+{
+    static const QRegularExpression marker = statement(QStringLiteral(R"(@(start|end)bits\b.*)"));
+    return marker.match(line).hasMatch();
+}
+
 std::optional<QString> SkippedBlocks::start(const QString& line, int lineNumber)
 {
     for (const SkippedBlock& block : skippedBlocks())

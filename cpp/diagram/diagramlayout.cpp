@@ -1,6 +1,7 @@
 #include "diagramlayout.h"
 
 #include "diagram/activitylayout.h"
+#include "diagram/bitslayout.h"
 #include "diagram/blocklayout.h"
 #include "diagram/classlayout.h"
 #include "diagram/sequencelayout.h"
@@ -40,6 +41,12 @@ namespace
                         qreal availableWidth, const TextMeasurer& measurer)
     {
         return ClassLayout::layout(diagram, style, availableWidth, measurer);
+    }
+
+    Scene layoutDiagram(const BitsDiagram& diagram, const DiagramStyle& style, qreal availableWidth,
+                        const TextMeasurer& measurer)
+    {
+        return BitsLayout::layout(diagram, style, availableWidth, measurer);
     }
 }
 

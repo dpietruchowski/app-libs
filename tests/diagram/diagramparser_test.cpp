@@ -41,6 +41,13 @@ bool isClass(const QString& text)
     return result.isSuccess() && std::holds_alternative<ClassDiagram>(result.value());
 }
 
+bool isBits(const QString& text)
+{
+    const auto result = DiagramParser::parse(text);
+    EXPECT_TRUE(result.isSuccess()) << (result.isFailure() ? result.error().toStdString() : "");
+    return result.isSuccess() && std::holds_alternative<BitsDiagram>(result.value());
+}
+
 QString parseError(const QString& text)
 {
     const auto result = DiagramParser::parse(text);
@@ -247,6 +254,34 @@ TEST(DiagramParserTest, UnsupportedClassFormsAreRoutedToTheClassParser)
                     .contains(QStringLiteral("does not support \"package\" and \"namespace\"")));
 }
 
+TEST(DiagramParserTest, ABitsDiagramIsRecognisedByItsLayoutLine)
+{
+    EXPECT_TRUE(isBits(QStringLiteral("bits 32\nfield 0..31 word\n")));
+    EXPECT_TRUE(isBits(QStringLiteral("bytes 4\nfield 0..3 int id\n")));
+    EXPECT_TRUE(isBits(QStringLiteral("@startbits\n"
+                                      "' comment\n"
+                                      "title Packet\n"
+                                      "bits 8\n"
+                                      "field 0..7 flags\n"
+                                      "@endbits\n")));
+    EXPECT_TRUE(isBits(QStringLiteral("@startuml\nbits 8\nfield 0..7 flags\n@enduml\n")));
+}
+
+TEST(DiagramParserTest, ANodeNamedLikeALayoutKeywordStaysASequenceMessage)
+{
+    EXPECT_TRUE(isSequence(QStringLiteral("Bits -> Bytes : go\n")));
+    EXPECT_TRUE(isSequence(QStringLiteral("bits -> B\n")));
+    EXPECT_TRUE(isSequence(QStringLiteral("participant bytes\nbytes -> A\n")));
+}
+
+TEST(DiagramParserTest, AFieldBeforeTheLayoutLineStillGoesToTheBitsParser)
+{
+    EXPECT_TRUE(parseError(QStringLiteral("field 0..7 flags\n"))
+                    .contains(QStringLiteral("the layout is missing")));
+    EXPECT_TRUE(parseError(QStringLiteral("bits 8\nwhatever\n"))
+                    .contains(QStringLiteral("A bits diagram here understands")));
+}
+
 TEST(DiagramParserTest, ErrorsComeFromTheParserOfTheDetectedKind)
 {
     EXPECT_TRUE(parseError(QStringLiteral("rectangle A\nwhatever\n"))
@@ -282,4 +317,8 @@ TEST(DiagramParserTest, WarningsOfEitherKindAreReachableThroughOneFunction)
     const auto classes = DiagramParser::parse(QStringLiteral("scale 2\nclass A\n"));
     ASSERT_TRUE(classes.isSuccess());
     EXPECT_EQ(warningsOf(classes.value()).size(), 1);
+
+    const auto bits = DiagramParser::parse(QStringLiteral("bits 8\nfield 0..7 flags\n"));
+    ASSERT_TRUE(bits.isSuccess());
+    EXPECT_TRUE(warningsOf(bits.value()).isEmpty());
 }

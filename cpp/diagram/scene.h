@@ -56,6 +56,7 @@ struct SceneText
     Qt::Alignment align = Qt::AlignHCenter;
     QStringList lines;
     ColorRole color = ColorRole::Text;
+    qreal sizeFactor = 1;
 };
 
 struct SceneEllipse

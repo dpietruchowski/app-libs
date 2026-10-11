@@ -1,7 +1,7 @@
 # Diagram — text to SVG
 
-Status: revision 6. Steps 1–4 of the plan are implemented, and the activity diagram and the block
-diagram have been added next to the sequence diagram; this text describes the code as built.
+Status: revision 7. Steps 1–4 of the plan are implemented, and the activity, block, state, class and
+bits diagrams have been added next to the sequence diagram; this text describes the code as built.
 
 ## Goal
 
@@ -9,10 +9,11 @@ A course pasted from a chat must be able to carry its own diagrams. The chat wri
 text description, and the app lays it out and draws it on the device, offline. The supported
 kinds are the sequence diagram, the activity diagram (new PlantUML syntax), the block diagram (a
 subset of the PlantUML component and deployment diagram), the state diagram and the class diagram
-(a subset aimed at data structures and how they point to each other); the first meaningful line of
-the text decides which one it is.
+(a subset aimed at data structures and how they point to each other) and the bits diagram (a memory
+or register layout, written in a syntax of our own); the first meaningful line of the text decides
+which one it is.
 
-The syntax is a subset of PlantUML. A model already writes it without extra instructions, and
+The syntax is a subset of PlantUML, except for the bits diagram, which PlantUML has no type for. A model already writes it without extra instructions, and
 the author can preview the same text in real PlantUML on the desktop. **Only the syntax is
 shared. No PlantUML code is used, ported or consulted.** The parser, the layout and the drawing
 are our own implementation.
@@ -35,30 +36,32 @@ are our own implementation.
 
 ```
 text ──parse──▶ Diagram ──layout(width, style, measurer)──▶ Scene ──write(palette, pixelRatio)──▶ SVG
-        (SequenceDiagram | ActivityDiagram | BlockDiagram | StateDiagram | ClassDiagram)
+        (SequenceDiagram | ActivityDiagram | BlockDiagram | StateDiagram | ClassDiagram | BitsDiagram)
 ```
 
-`DiagramParser::parse` looks at the first meaningful line, skipping the `@startuml` marker, the
-title, comments and the ignored directives, and hands the text to `BlockParser`, `StateParser`,
-`ClassParser`, `ActivityParser` or `SequenceParser`. `Diagram` is
-`std::variant<SequenceDiagram, ActivityDiagram, BlockDiagram, StateDiagram, ClassDiagram>`, and
-`DiagramLayout::layout` visits it. The parsers and the layouts keep their own public API, so each
+`DiagramParser::parse` looks at the first meaningful line, skipping the `@startuml` and
+`@startbits` markers, the title, comments and the ignored directives, and hands the text to
+`BitsParser`, `BlockParser`, `StateParser`, `ClassParser`, `ActivityParser` or `SequenceParser`.
+`Diagram` is `std::variant<SequenceDiagram, ActivityDiagram, BlockDiagram, StateDiagram,
+ClassDiagram, BitsDiagram>`, and `DiagramLayout::layout` visits it. The parsers and the layouts keep their own public API, so each
 kind can still be used and tested alone.
 
 | Stage | Input → output | Depends on |
 |---|---|---|
-| `DiagramParser` | `QString` → `Result<Diagram>` | the five parsers |
+| `DiagramParser` | `QString` → `Result<Diagram>` | the six parsers |
 | `SequenceParser` | `QString` → `Result<SequenceDiagram>` | Qt Core, `app_async` (`Result`) |
 | `ActivityParser` | `QString` → `Result<ActivityDiagram>` | Qt Core, `app_async` (`Result`) |
 | `BlockParser` | `QString` → `Result<BlockDiagram>` | Qt Core, `app_async` (`Result`) |
 | `StateParser` | `QString` → `Result<StateDiagram>` | Qt Core, `app_async` (`Result`) |
 | `ClassParser` | `QString` → `Result<ClassDiagram>` | Qt Core, `app_async` (`Result`) |
-| `DiagramLayout` | `Diagram` + `DiagramStyle` + width + `TextMeasurer` → `Scene` | the five layouts |
+| `BitsParser` | `QString` → `Result<BitsDiagram>` | Qt Core, `app_async` (`Result`) |
+| `DiagramLayout` | `Diagram` + `DiagramStyle` + width + `TextMeasurer` → `Scene` | the six layouts |
 | `SequenceLayout` | diagram + `DiagramStyle` + width + `TextMeasurer` → `Scene` | Qt Core, Qt Gui (`DiagramStyle::font()`) |
 | `ActivityLayout` | diagram + `DiagramStyle` + width + `TextMeasurer` → `Scene` | Qt Core, Qt Gui |
 | `BlockLayout` | diagram + `DiagramStyle` + width + `TextMeasurer` → `Scene` | Qt Core, Qt Gui |
 | `StateLayout` | diagram + `DiagramStyle` + width + `TextMeasurer` → `Scene` | Qt Core, Qt Gui |
 | `ClassLayout` | diagram + `DiagramStyle` + width + `TextMeasurer` → `Scene` | Qt Core, Qt Gui |
+| `BitsLayout` | diagram + `DiagramStyle` + width + `TextMeasurer` → `Scene` | Qt Core, Qt Gui |
 | `SvgSceneWriter` | `Scene` + `DiagramPalette` + pixel ratio → `QString` | Qt Core, Qt Gui (`QColor`) |
 | `FontTextMeasurer` | implements `TextMeasurer` with `QFontMetricsF` | Qt Gui |
 
@@ -85,6 +88,8 @@ libs/cpp/diagram/            target app_diagram (STATIC; PUBLIC Qt6::Core, Qt6::
     stateparser.h/.cpp
     classdiagram.h           model: a flat list of classes, relations and notes
     classparser.h/.cpp
+    bitsdiagram.h            model: a mode, a width and a flat list of fields and pads
+    bitsparser.h/.cpp
     scene.h                  geometry primitives + colour roles
     textmeasurer.h/.cpp      interface, plus FontTextMeasurer
     diagramstyle.h           sizes, gaps, font family and size (the only source of both)
@@ -97,6 +102,7 @@ libs/cpp/diagram/            target app_diagram (STATIC; PUBLIC Qt6::Core, Qt6::
     blocklayout.h/.cpp
     statelayout.h/.cpp
     classlayout.h/.cpp
+    bitslayout.h/.cpp
     svgscenewriter.h/.cpp
     diagramsvgprovider.h/.cpp  QObject for QML: text + width + colours → data: URL + image size
 libs/tests/diagram/          diagram_tests (GoogleTest), FakeTextMeasurer
@@ -204,7 +210,7 @@ enum class ColorRole { Background, Line, Text, MutedText, BoxFill, BoxStroke, No
 enum class ArrowHead { None, Filled, Open };
 struct SceneRect { QRectF rect; qreal radius; std::optional<ColorRole> fill; std::optional<ColorRole> stroke; bool dashed; };
 struct SceneLine { QList<QPointF> points; ColorRole color; bool dashed; ArrowHead head; };
-struct SceneText { QRectF bounds; Qt::Alignment align; QStringList lines; ColorRole color; };
+struct SceneText { QRectF bounds; Qt::Alignment align; QStringList lines; ColorRole color; qreal sizeFactor = 1; };
 struct SceneEllipse { QRectF rect; std::optional<ColorRole> fill; std::optional<ColorRole> stroke; };
 struct ScenePolygon { QList<QPointF> points; std::optional<ColorRole> fill; std::optional<ColorRole> stroke; };
 using SceneItem = std::variant<SceneRect, SceneLine, SceneText, SceneEllipse, ScenePolygon>;
@@ -227,6 +233,10 @@ get such a rectangle, `style.labelHalo` wider than the text on each side, so a l
 cross does not strike through them. A message label ends `arrowHeadSize / 2` above its arrow,
 clear of the arrow head's wings. The scene size is rounded up to whole pixels, so the SVG's
 `width`, `height` and `viewBox` are integers.
+
+`sizeFactor` is 1 for every text except the small text of the bits diagram. The writer then writes
+`font-size` as the scene font size times the factor and scales the baseline and the line spacing
+with it, and the layout measures the text with a measurer scaled by the same factor.
 
 The writer drops characters that XML 1.0 forbids (control characters other than tab and line
 breaks, U+FFFE, U+FFFF), so text pasted from anywhere still yields a well-formed document. A
@@ -812,6 +822,104 @@ Invariants, each checked by tests:
 - a back edge runs outside every box and lanes do not coincide;
 - a self-relation loops on the right of its box.
 
+## Bits diagram
+
+The bits diagram shows where things sit: the bit fields of a register or a header, or the byte
+offsets and padding of a struct. PlantUML has no such diagram, so the syntax is our own. It shares
+the pipeline, the `Scene`, the colour roles and the writer with the others; only its parser, its
+model and its layout are its own.
+
+It is written between `@startbits` and `@endbits`, and `DiagramParser` picks it when the first
+meaningful line is `bits N` or `bytes W` (so `@startuml` with such a line works too), or a `field`
+or `pad` line followed by an index, so that a missing layout line gets the bits parser's own error.
+The check comes first. `Bits -> Bytes` stays a sequence message.
+
+### Syntax
+
+**Understood:**
+
+```
+@startbits / @endbits                        optional (@startuml / @enduml is accepted as well)
+title struct Packet (12 B)                   the title is the author's text; the size is not computed
+bytes 4                                      a memory layout drawn 4 bytes per row (1 to 16), or
+bits 64                                      a register of 64 bits (1 to 128); exactly one, first
+field  0..0   char tag                       a field: an index or an inclusive range, in either order
+field  4..7   int  id                        (51..12 is 12..51); the label is the rest of the line
+field  8..9   short len "2 bytes"            up to an optional quoted description
+pad    10..11                                padding (bytes) or reserved bits (bits)
+' comment, /' block comment '/
+```
+
+In `bits` mode an index is a bit number and bit 0 is the least significant one; in `bytes` mode it
+is the byte offset, from 0 up to 1023. `\n` in a label or description is a line break. Limits:
+20 000 characters and 300 fields and pads together. Nothing is ignored with a warning, so
+`BitsDiagram::warnings` is always empty.
+
+**Error:** parsing stops at the first one, reported as `Line N: …`, in the same form as the other
+diagrams.
+
+- Layout line: a `field` or `pad` before it, a second one (the message names the first), a size
+  out of range, and a text with a title but no layout line.
+- Index: outside `bits N`, or beyond byte 1023.
+- Overlap: a field or pad that shares an index with an earlier one; the message names that one
+  and its line.
+- Form: a known keyword written wrongly gets the form it should have (`"field 0..7" is not a valid
+  "field" statement. Write it as: field 0..7 label "description", …`); any other statement lists
+  what a bits diagram understands.
+- A `/'` block left open, and a diagram with no field (reported at the last line). A text with no
+  content at all is the one error without a line number.
+
+### Model
+
+```cpp
+struct BitsSpan { int low; int high; BitsSpanKind kind; QString label; QString description; int line; };
+struct BitsDiagram { QString title; BitsMode mode; int width; QList<BitsSpan> spans;
+                     QStringList warnings; };
+```
+
+`low <= high` whichever way the range was written. `width` is the register size in bits, or the
+number of bytes per row. The spans are in source order and the parser has already checked that they
+do not overlap.
+
+### Layout (bits)
+
+Both modes arrange the units (bits or bytes) in a grid of columns and rows, cut each field into
+one box per row, and draw it.
+
+- **Bits.** One horizontal register with bit 0 on the right. A bit number stands above each end of
+  every box, centred on its cell (a one-cell box has one number); reserved gaps and pads are boxes
+  too, so their ends are numbered. The cell is as wide as the content width allows, at most 40 px.
+  It may not be narrower than the widest bit number plus 4 px (and 12 px), and when it would be,
+  the register wraps into rows of 32, then 16, then 8 bits, the highest bits on top. Rows are
+  aligned to bit columns, so a top row with fewer bits is aligned to the right. At 8 bits per row
+  the cell keeps its minimum and the scene comes out wider than the viewport, and the integration
+  scales it down, as for the other diagrams.
+- **Bytes.** A grid `W` bytes wide, the lowest offset top left, the decimal offset of every row on
+  the left, as in the structure diagrams of the courses. A cell is as wide as the content width
+  allows, between 12 and 96 px. The layout ends at the last declared byte, rounded up to a full row.
+- **Fields.** A field is a box in the box fill, with its label centred in it. A field that crosses
+  the end of a row is split into one box per row; the cut edges are dashed, and the pieces after
+  the first carry `label (cont.)` (or `(cont.)`) in the muted colour when it fits.
+- **Padding and gaps.** A pad, and in bits mode a bit not declared, is a box with diagonal hatching
+  in the divider colour and no text. A byte not declared is a dashed outline with nothing in it.
+- **Text that does not fit.** A label is never ellipsised or shrunk: when it is wider than its
+  box, the box stays empty and the label goes to a list under the diagram, one line per field, as
+  `[12:51] label - description` (`low..high` for bytes, a single index alone). A description is
+  drawn under the first box of its field, in text at 0.8 of the size, wrapped to the width of that
+  box; when it needs more than three lines or one of its words is wider than the box, it goes to
+  the same list. The list is wrapped to the width of the diagram.
+- **Width.** The scene is as wide as its widest part (the grid, the title or the list), and the
+  integration centres it when `fillWidth` is set, as for the other diagrams.
+
+Invariants, each checked by tests:
+
+- every primitive lies inside `scene.size`;
+- no two texts overlap, and a text drawn in a box lies inside it;
+- the wrap points are 64 → 32 → 16 → 8 bits at the content widths where the cell would drop below
+  its minimum;
+- a field across a row edge is one box per row with two dashed edges;
+- the cell of a register is never narrower than its bit numbers.
+
 ## Sharpness on a high-DPR screen
 
 Phones have a device pixel ratio of about 2.6 to 3. The writer emits the root element as
@@ -850,6 +958,12 @@ already go through the same path at their logical size.
   blocks, links around a block that is in the way, and the shape of each kind of block.
   **Kind detection:** `Node -> Server` stays a sequence message while the four block keywords,
   followed by a name, pick the block parser.
+- **Bits parser and layout:** both modes, ranges in either order, every error with its exact text
+  and line, and the limits; the wrap points of a register at exact widths, the row splitting of a
+  struct, the dashed cut edges, the hatched padding, the list of labels that do not fit, and the
+  invariants above at widths of 120 to 1100. **Kind detection and markers:** `bits N` and `bytes W`
+  pick the bits parser, `Bits -> Bytes` stays a sequence message, a block opened with `@startbits`
+  closes only with `@endbits`, and the stray-marker report names the right pair.
 - **Writer:** golden SVG strings for small scenes, including `<ellipse>` and `<polygon>`. Also
   checks, with `QXmlStreamReader`, that the output is well-formed XML using only the allowed
   elements and attributes.
@@ -903,19 +1017,22 @@ meet the following:
 ## Embedding in rich text
 
 A diagram lives inline in an HTML text, between a line starting with `@startuml` and a line
-starting with `@enduml`, each on a line of its own. `EmbeddedDiagrams::find` returns every block
-with its character span, its line within the text and its body; a block with no `@enduml` runs to
-the end and is marked unclosed. `EmbeddedDiagrams::locate` turns a parser error (`Line N: …`) into
+starting with `@enduml`, or between `@startbits` and `@endbits`, each on a line of its own.
+`EmbeddedDiagrams::find` returns every block with its character span, its line within the text, its
+body and its marker pair (`startMarker`, `endMarker`); a block closes only with the end marker of its
+own pair, and a block with no such marker runs to the end and is marked unclosed. `EmbeddedDiagrams::locate` turns a parser error (`Line N: …`) into
 a line of the surrounding text, so an importer can point at the line of the mistake. A body loses
 its `\r` and the HTML escapes `&lt;`, `&gt;`, `&quot;` and `&amp;`, so an arrow written as `-&gt;`
 by a tool that escapes everything still parses. `EmbeddedDiagrams::strayMarkers` lists the lines
-that mention a marker without being one (`<p>@startuml</p>`), which `find` would silently skip.
+that mention a marker without being one (`<p>@startuml</p>`), which `find` would silently skip;
+`findStrayMarkers` returns the same lines together with the pair each one mentions.
 
 `RichTextDiagrams` (QObject) takes `html`, `availableWidth`, `pixelRatio`, `fontFamily`,
 `fontPixelSize`, `colors` and `fillWidth` (passed on to every provider), keeps one `DiagramSvgProvider` per block, and returns
 `renderedHtml`: each block becomes `<p class="diagram" align="center"><img src="data:…" width
 height></p>`, an error or an unclosed block becomes `<p class="diagramError">Diagram: …</p>`, and a
-block shows nothing until the width is known. The style sheet should give `p.diagram` a
+block shows nothing until the width is known; an unclosed block names its own pair (`Diagram:
+@startbits without @endbits`). The style sheet should give `p.diagram` a
 `line-height` of 100%: a proportional line height of the surrounding paragraphs would otherwise
 multiply the image's height and leave a gap under it. The `Diagram:` text is an untranslated
 fallback; an importer is expected to reject a broken block before it is ever shown. It runs after `RichTextImages`, so data URLs never reach its

@@ -103,6 +103,47 @@ TEST(SvgSceneWriterTest, AnOpenHeadIsAPolylineAndCentredTextIsAnchoredInTheMiddl
                                             "fill=\"#666666\">mid</text>")));
 }
 
+TEST(SvgSceneWriterTest, ATextWithASizeFactorDeclaresItsOwnSizeAndScalesItsBaseline)
+{
+    Scene scene = smallScene();
+    scene.items = {
+        SceneText { QRectF(10, 10, 60, 16),
+                    Qt::AlignLeft,
+                    { QStringLiteral("a"), QStringLiteral("b") },
+                    ColorRole::Text,
+                    0.5 },
+    };
+    const QString svg = SvgSceneWriter::write(scene, DiagramPalette {});
+
+    EXPECT_TRUE(svg.contains(QStringLiteral("<text x=\"10\" y=\"16\" text-anchor=\"start\" "
+                                            "font-size=\"7\" fill=\"#222222\">a</text>")));
+    EXPECT_TRUE(svg.contains(QStringLiteral("<text x=\"10\" y=\"24\" text-anchor=\"start\" "
+                                            "font-size=\"7\" fill=\"#222222\">b</text>")));
+}
+
+TEST(SvgSceneWriterTest, ABitsDiagramIsWellFormedAndUsesOnlyTinyElements)
+{
+    const FakeTextMeasurer measurer;
+    const auto diagram = DiagramParser::parse(QStringLiteral(
+        "title T & <co>\nbits 64\nfield 0 P \"a & b\"\nfield 4..40 Q\npad 41..44\n"));
+    ASSERT_TRUE(diagram.isSuccess()) << diagram.error().toStdString();
+    const QString svg = SvgSceneWriter::write(
+        DiagramLayout::layout(diagram.value(), DiagramStyle {}, 360, measurer), DiagramPalette {},
+        3);
+
+    const XmlSummary summary = summarize(svg);
+    EXPECT_TRUE(summary.wellFormed);
+    const QSet<QString> allowed { QStringLiteral("svg"),      QStringLiteral("g"),
+                                  QStringLiteral("rect"),     QStringLiteral("line"),
+                                  QStringLiteral("polyline"), QStringLiteral("polygon"),
+                                  QStringLiteral("ellipse"),  QStringLiteral("text") };
+    EXPECT_TRUE(allowed.contains(summary.elements))
+        << summary.elements.values().join(' ').toStdString();
+    EXPECT_TRUE(svg.contains(QStringLiteral("font-size=\"11.2\"")));
+    EXPECT_FALSE(svg.contains(QStringLiteral("nan")));
+    EXPECT_FALSE(svg.contains(QStringLiteral("inf")));
+}
+
 TEST(SvgSceneWriterTest, AHeadOnALoopPointsAlongItsLastSegment)
 {
     Scene scene = smallScene();

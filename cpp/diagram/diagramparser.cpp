@@ -1,6 +1,7 @@
 #include "diagramparser.h"
 
 #include "diagram/activityparser.h"
+#include "diagram/bitsparser.h"
 #include "diagram/blockparser.h"
 #include "diagram/classparser.h"
 #include "diagram/parsersupport.h"
@@ -24,8 +25,15 @@ namespace
         static const QRegularExpression title = statement(QStringLiteral(R"(title\s+(?![-<]).+)"));
         static const QRegularExpression directive = statement(QStringLiteral(
             R"(((skinparam|hide|show|scale|header|footer|caption|autonumber)\b.*|!.*))"));
-        return parsing::isDiagramMarker(line) || title.match(line).hasMatch()
-            || directive.match(line).hasMatch();
+        return parsing::isDiagramMarker(line) || parsing::isBitsMarker(line)
+            || title.match(line).hasMatch() || directive.match(line).hasMatch();
+    }
+
+    bool startsABitsDiagram(const QString& line)
+    {
+        static const QRegularExpression starts
+            = fragment(QStringLiteral(R"(^((bits|bytes)\s+\w+$|(field|pad)\s+\d))"));
+        return starts.match(line).hasMatch();
     }
 
     bool startsAnActivity(const QString& line)
@@ -153,6 +161,12 @@ namespace
         return line && startsAClassDiagram(*line);
     }
 
+    bool isBitsText(const QString& text)
+    {
+        const auto line = firstBodyLine(bodyLines(text));
+        return line && startsABitsDiagram(*line);
+    }
+
     bool isBlockText(const QString& text)
     {
         const QStringList body = bodyLines(text);
@@ -165,6 +179,13 @@ namespace
 
 Result<Diagram> DiagramParser::parse(const QString& text)
 {
+    if (isBitsText(text))
+    {
+        const auto bits = BitsParser::parse(text);
+        if (bits.isFailure())
+            return Result<Diagram>::failure(bits.error());
+        return Result<Diagram>::success(bits.value());
+    }
     if (isBlockText(text))
     {
         const auto blocks = BlockParser::parse(text);

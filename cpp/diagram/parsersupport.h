@@ -25,6 +25,7 @@ QString lineErrorText(int line, const QString& text);
 QString unsupportedFeature(const QString& line, const QString& feature, const QString& rewrite);
 
 bool isDiagramMarker(const QString& line);
+bool isBitsMarker(const QString& line);
 
 struct SkippedBlock
 {

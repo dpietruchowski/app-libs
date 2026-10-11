@@ -79,6 +79,19 @@ TEST(RichTextDiagramsTest, ShowsTheParseErrorAndAnUnclosedBlock)
                              "@enduml</p>"));
 }
 
+TEST(RichTextDiagramsTest, RendersABitsBlockAndNamesItsOwnMarkersInTheErrors)
+{
+    RichTextDiagrams diagrams;
+    diagrams.setAvailableWidth(360);
+    diagrams.setHtml(QStringLiteral("@startbits\nbits 8\nfield 0..7 x\n@endbits\n"
+                                    "@startbits\nbits 8\n"));
+
+    const QString html = diagrams.renderedHtml();
+    EXPECT_EQ(countImages(html), 1);
+    EXPECT_TRUE(html.contains(QStringLiteral("<p class=\"diagramError\">Diagram: @startbits "
+                                             "without @endbits</p>")));
+}
+
 TEST(RichTextDiagramsTest, ColoursAndWidthReachTheImage)
 {
     RichTextDiagrams diagrams;

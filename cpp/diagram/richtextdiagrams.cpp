@@ -146,7 +146,8 @@ QString RichTextDiagrams::figure(const EmbeddedDiagram& diagram,
 {
     const QString errorParagraph = QStringLiteral("<p class=\"diagramError\">Diagram: %1</p>");
     if (provider == nullptr)
-        return errorParagraph.arg(QStringLiteral("@startuml without @enduml"));
+        return errorParagraph.arg(
+            QStringLiteral("%1 without %2").arg(diagram.startMarker, diagram.endMarker));
     if (!provider->error().isEmpty())
         return errorParagraph.arg(
             EmbeddedDiagrams::locate(diagram, provider->error()).message.toHtmlEscaped());

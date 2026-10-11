@@ -198,13 +198,18 @@ namespace
                 anchor = QStringLiteral("end");
                 x = text.bounds.right();
             }
+            QString size;
+            if (text.sizeFactor != 1)
+                size = QStringLiteral(" font-size=\"%1\"")
+                           .arg(num(m_scene.fontPixelSize * text.sizeFactor));
             for (qsizetype index = 0; index < text.lines.size(); ++index)
             {
-                const qreal y
-                    = text.bounds.top() + m_scene.ascent + qreal(index) * m_scene.lineHeight;
-                m_out += QStringLiteral("<text x=\"%1\" y=\"%2\" text-anchor=\"%3\"%4>%5</text>\n")
-                             .arg(num(x), num(y), anchor, fill(text.color),
-                                  escaped(text.lines.at(index)));
+                const qreal y = text.bounds.top() + m_scene.ascent * text.sizeFactor
+                    + qreal(index) * m_scene.lineHeight * text.sizeFactor;
+                m_out
+                    += QStringLiteral("<text x=\"%1\" y=\"%2\" text-anchor=\"%3\"%4%5>%6</text>\n")
+                           .arg(num(x), num(y), anchor, size, fill(text.color),
+                                escaped(text.lines.at(index)));
             }
         }
 
