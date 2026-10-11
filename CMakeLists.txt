@@ -25,7 +25,7 @@ option(LIBS_AGENT "Build the LLM agent library" ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Quick Qml Sql)
 if(ANDROID)
-    find_package(Qt6 REQUIRED COMPONENTS CorePrivate)
+    find_package(Qt6 REQUIRED COMPONENTS CorePrivate GLOBAL)
 endif()
 
 set(CMAKE_AUTOMOC ON)
