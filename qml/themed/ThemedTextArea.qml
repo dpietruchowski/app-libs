@@ -20,6 +20,15 @@ Item {
     property color cursorColor: Theme.colors.primary
     property color scrollBarColor: Theme.colors.border
     property bool keyNavigable: true
+    property bool followsCursor: false
+
+    function revealCursor() {
+        const cursor = textArea.cursorRectangle
+        if (cursor.y < flickable.contentY)
+            flickable.contentY = cursor.y
+        else if (cursor.y + cursor.height > flickable.contentY + flickable.height)
+            flickable.contentY = cursor.y + cursor.height - flickable.height
+    }
 
     function keyActivate() {
         textArea.forceActiveFocus()
@@ -85,6 +94,11 @@ Item {
             bottomPadding: Theme.padding.small
 
             font.pixelSize: Theme.fontSize.medium
+
+            onCursorRectangleChanged: {
+                if (root.followsCursor)
+                    root.revealCursor()
+            }
 
             cursorDelegate: Rectangle {
                 visible: textArea.activeFocus && !textArea.readOnly

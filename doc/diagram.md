@@ -318,6 +318,27 @@ meet the following:
   of the font for both the measurer and the writer;
 - the import prompt gains a few lines on the supported syntax.
 
+## Embedding in rich text
+
+A diagram lives inline in an HTML text, between a line starting with `@startuml` and a line
+starting with `@enduml`, each on a line of its own. `EmbeddedDiagrams::find` returns every block
+with its character span, its line within the text and its body; a block with no `@enduml` runs to
+the end and is marked unclosed. `EmbeddedDiagrams::locate` turns a parser error (`Line N: …`) into
+a line of the surrounding text, so an importer can point at the line of the mistake. A body loses
+its `\r` and the HTML escapes `&lt;`, `&gt;`, `&quot;` and `&amp;`, so an arrow written as `-&gt;`
+by a tool that escapes everything still parses. `EmbeddedDiagrams::strayMarkers` lists the lines
+that mention a marker without being one (`<p>@startuml</p>`), which `find` would silently skip.
+
+`RichTextDiagrams` (QObject) takes `html`, `availableWidth`, `pixelRatio`, `fontFamily`,
+`fontPixelSize` and `colors`, keeps one `DiagramSvgProvider` per block, and returns
+`renderedHtml`: each block becomes `<p class="diagram" align="center"><img src="data:…" width
+height></p>`, an error or an unclosed block becomes `<p class="diagramError">Diagram: …</p>`, and a
+block shows nothing until the width is known. The style sheet should give `p.diagram` a
+`line-height` of 100%: a proportional line height of the surrounding paragraphs would otherwise
+multiply the image's height and leave a gap under it. The `Diagram:` text is an untranslated
+fallback; an importer is expected to reject a broken block before it is ever shown. It runs after `RichTextImages`, so data URLs never reach its
+size cache.
+
 ## Spike before integration
 
 Whether a `data:` SVG shows in rich text, and whether the APK carries the SVG plugin, is already
