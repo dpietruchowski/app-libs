@@ -20,6 +20,13 @@ bool isSequence(const QString& text)
     return result.isSuccess() && std::holds_alternative<SequenceDiagram>(result.value());
 }
 
+bool isBlock(const QString& text)
+{
+    const auto result = DiagramParser::parse(text);
+    EXPECT_TRUE(result.isSuccess()) << (result.isFailure() ? result.error().toStdString() : "");
+    return result.isSuccess() && std::holds_alternative<BlockDiagram>(result.value());
+}
+
 QString parseError(const QString& text)
 {
     const auto result = DiagramParser::parse(text);
@@ -81,8 +88,81 @@ TEST(DiagramParserTest, UnsupportedActivityFormsAreStillRoutedToTheActivityParse
                     .contains(QStringLiteral("does not support the old activity syntax")));
 }
 
+TEST(DiagramParserTest, ABlockDiagramIsRecognisedByItsFirstKeyword)
+{
+    EXPECT_TRUE(isBlock(QStringLiteral("rectangle \"A\" as a\n")));
+    EXPECT_TRUE(isBlock(QStringLiteral("node \"A\" as a\n")));
+    EXPECT_TRUE(isBlock(QStringLiteral("component \"A\" as a\n")));
+    EXPECT_TRUE(isBlock(QStringLiteral("database \"A\" as a\n")));
+    EXPECT_TRUE(isBlock(QStringLiteral("rectangle A\nrectangle B\nA -- B\n")));
+    EXPECT_TRUE(isBlock(QStringLiteral("@startuml\n"
+                                       "' comment\n"
+                                       "title Board\n"
+                                       "skinparam monochrome true\n"
+                                       "rectangle \"SoC\" {\n"
+                                       "  rectangle CPU\n"
+                                       "}\n"
+                                       "@enduml\n")));
+}
+
+TEST(DiagramParserTest, ParticipantsNamedLikeBlockKeywordsStayInSequenceDiagrams)
+{
+    EXPECT_TRUE(isSequence(QStringLiteral("Node -> Server : go\n")));
+    EXPECT_TRUE(isSequence(QStringLiteral("Component -> Database : save\n")));
+    EXPECT_TRUE(isSequence(QStringLiteral("participant Node\nNode -> B\n")));
+    EXPECT_TRUE(isSequence(QStringLiteral("actor User\ndatabase DB\nUser -> DB\n")));
+}
+
+TEST(DiagramParserTest, ASequenceDiagramStartingWithADatabaseParticipantStaysSequence)
+{
+    EXPECT_TRUE(isSequence(QStringLiteral("database DB\nApp -> DB : query\n")));
+    EXPECT_TRUE(isSequence(QStringLiteral("database DB\nApp ->> DB\nDB --> App\n")));
+    EXPECT_TRUE(isSequence(QStringLiteral("database DB\nDB <- App\n")));
+    EXPECT_TRUE(isSequence(QStringLiteral("database DB\nDB <<- App\n")));
+    EXPECT_TRUE(isSequence(QStringLiteral("database DB\nparticipant App\nApp --> DB\n")));
+    EXPECT_TRUE(isSequence(QStringLiteral("database DB\nactor App\n")));
+    EXPECT_TRUE(isSequence(QStringLiteral("database DB\nentity E\n")));
+    EXPECT_TRUE(isSequence(QStringLiteral("database DB\nactivate DB\n")));
+    EXPECT_TRUE(isSequence(QStringLiteral("database DB\nloop forever\nend\n")));
+    EXPECT_TRUE(isSequence(QStringLiteral("database DB\n== Phase ==\n")));
+    EXPECT_TRUE(isSequence(QStringLiteral("database DB\nnote over DB : saved\n")));
+    EXPECT_TRUE(isSequence(QStringLiteral("@startuml\n"
+                                          "title Query\n"
+                                          "database DB\n"
+                                          "App -> DB : query\n"
+                                          "@enduml\n")));
+}
+
+TEST(DiagramParserTest, ADatabaseFirstBlockDiagramWithoutSequenceConstructsIsABlock)
+{
+    EXPECT_TRUE(isBlock(QStringLiteral("database \"Store\" as S\n"
+                                       "rectangle \"App\" as A\n"
+                                       "A -- S\n"
+                                       "A .. S : sync\n")));
+    EXPECT_TRUE(isBlock(QStringLiteral("database \"Store\" as S\n"
+                                       "rectangle \"App\" as A\n"
+                                       "A --> S : reads -> fast\n"
+                                       "note left of A\n"
+                                       "talks -> to S\n"
+                                       "end note\n")));
+}
+
+TEST(DiagramParserTest, UnsupportedBlockFormsAreRoutedToTheBlockParser)
+{
+    EXPECT_TRUE(parseError(QStringLiteral("package Drivers {\nrectangle A\n}\n"))
+                    .contains(QStringLiteral("does not support \"package\" elements")));
+    EXPECT_TRUE(parseError(QStringLiteral("interface Api\nrectangle A\n"))
+                    .contains(QStringLiteral("does not support interfaces")));
+    EXPECT_TRUE(parseError(QStringLiteral("[Component] as C\n"))
+                    .contains(QStringLiteral("does not support the [Component] short syntax")));
+    EXPECT_TRUE(parseError(QStringLiteral("rectangle A\ncloud Net\n"))
+                    .contains(QStringLiteral("does not support \"cloud\" elements")));
+}
+
 TEST(DiagramParserTest, ErrorsComeFromTheParserOfTheDetectedKind)
 {
+    EXPECT_TRUE(parseError(QStringLiteral("rectangle A\nwhatever\n"))
+                    .contains(QStringLiteral("A block diagram here understands")));
     EXPECT_TRUE(parseError(QStringLiteral("start\nwhatever\n"))
                     .contains(QStringLiteral("An activity diagram here understands")));
     EXPECT_TRUE(parseError(QStringLiteral("A -> B\nwhatever\n"))
@@ -98,4 +178,8 @@ TEST(DiagramParserTest, WarningsOfEitherKindAreReachableThroughOneFunction)
     const auto sequence = DiagramParser::parse(QStringLiteral("autonumber\nA -> B\n"));
     ASSERT_TRUE(sequence.isSuccess());
     EXPECT_EQ(warningsOf(sequence.value()).size(), 1);
+
+    const auto blocks = DiagramParser::parse(QStringLiteral("skinparam x 1\nrectangle A\n"));
+    ASSERT_TRUE(blocks.isSuccess());
+    EXPECT_EQ(warningsOf(blocks.value()).size(), 1);
 }

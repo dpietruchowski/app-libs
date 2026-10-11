@@ -41,6 +41,8 @@ private:
     const TextMeasurer& m_measurer;
 };
 
+void appendShifted(QList<SceneItem>& target, const QList<SceneItem>& source, qreal dx, qreal dy);
+
 QRectF placeFrameTab(QList<SceneItem>& items, const WrappedText& label, const DiagramStyle& style,
                      const QPointF& topLeft);
 }

@@ -240,3 +240,28 @@ TEST(SvgSceneWriterTest, AnActivityDiagramIsWellFormedAndUsesOnlyTinyElements)
     EXPECT_FALSE(svg.contains(QStringLiteral("nan")));
     EXPECT_FALSE(svg.contains(QStringLiteral("inf")));
 }
+
+TEST(SvgSceneWriterTest, ABlockDiagramIsWellFormedAndUsesOnlyTinyElements)
+{
+    const FakeTextMeasurer measurer;
+    const auto diagram = DiagramParser::parse(
+        QStringLiteral("title T & <co>\nrectangle \"Board\" {\ncomponent CPU\nnode ROM\n}\n"
+                       "database DB\nCPU --> ROM : a & b\nROM .. DB\nnote left of CPU : n\n"));
+    ASSERT_TRUE(diagram.isSuccess()) << diagram.error().toStdString();
+    const QString svg = SvgSceneWriter::write(
+        DiagramLayout::layout(diagram.value(), DiagramStyle {}, 360, measurer), DiagramPalette {},
+        3);
+
+    const XmlSummary summary = summarize(svg);
+    EXPECT_TRUE(summary.wellFormed);
+    const QSet<QString> allowed { QStringLiteral("svg"),      QStringLiteral("g"),
+                                  QStringLiteral("rect"),     QStringLiteral("line"),
+                                  QStringLiteral("polyline"), QStringLiteral("polygon"),
+                                  QStringLiteral("ellipse"),  QStringLiteral("text") };
+    EXPECT_TRUE(allowed.contains(summary.elements))
+        << summary.elements.values().join(' ').toStdString();
+    EXPECT_TRUE(summary.elements.contains(QStringLiteral("ellipse")));
+    EXPECT_TRUE(summary.elements.contains(QStringLiteral("polygon")));
+    EXPECT_FALSE(svg.contains(QStringLiteral("nan")));
+    EXPECT_FALSE(svg.contains(QStringLiteral("inf")));
+}

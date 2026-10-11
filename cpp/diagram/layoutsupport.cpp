@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <variant>
 
 namespace diagram::layouting
 {
@@ -98,6 +99,48 @@ QString TextWrapper::breakLongWord(const QString& word, qreal limit, QStringList
         piece += character;
     }
     return piece;
+}
+
+namespace
+{
+    SceneRect shifted(SceneRect item, qreal dx, qreal dy)
+    {
+        item.rect.translate(dx, dy);
+        return item;
+    }
+
+    SceneLine shifted(SceneLine item, qreal dx, qreal dy)
+    {
+        for (QPointF& point : item.points)
+            point += QPointF(dx, dy);
+        return item;
+    }
+
+    SceneText shifted(SceneText item, qreal dx, qreal dy)
+    {
+        item.bounds.translate(dx, dy);
+        return item;
+    }
+
+    SceneEllipse shifted(SceneEllipse item, qreal dx, qreal dy)
+    {
+        item.rect.translate(dx, dy);
+        return item;
+    }
+
+    ScenePolygon shifted(ScenePolygon item, qreal dx, qreal dy)
+    {
+        for (QPointF& point : item.points)
+            point += QPointF(dx, dy);
+        return item;
+    }
+}
+
+void appendShifted(QList<SceneItem>& target, const QList<SceneItem>& source, qreal dx, qreal dy)
+{
+    for (const SceneItem& item : source)
+        target.append(std::visit([dx, dy](const auto& typed) -> SceneItem
+                                 { return shifted(typed, dx, dy); }, item));
 }
 
 QRectF placeFrameTab(QList<SceneItem>& items, const WrappedText& label, const DiagramStyle& style,

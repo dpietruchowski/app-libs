@@ -1,6 +1,7 @@
 #include "diagramlayout.h"
 
 #include "diagram/activitylayout.h"
+#include "diagram/blocklayout.h"
 #include "diagram/sequencelayout.h"
 
 #include <variant>
@@ -19,6 +20,12 @@ namespace
                         qreal availableWidth, const TextMeasurer& measurer)
     {
         return ActivityLayout::layout(diagram, style, availableWidth, measurer);
+    }
+
+    Scene layoutDiagram(const BlockDiagram& diagram, const DiagramStyle& style,
+                        qreal availableWidth, const TextMeasurer& measurer)
+    {
+        return BlockLayout::layout(diagram, style, availableWidth, measurer);
     }
 }
 

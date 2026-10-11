@@ -1,11 +1,14 @@
 #include "diagramparser.h"
 
 #include "diagram/activityparser.h"
+#include "diagram/blockparser.h"
 #include "diagram/parsersupport.h"
 #include "diagram/sequenceparser.h"
 
 #include <QRegularExpression>
 #include <QStringList>
+
+#include <optional>
 
 namespace diagram
 {
@@ -31,8 +34,38 @@ namespace
         return starts.match(line).hasMatch();
     }
 
-    bool isActivityText(const QString& text)
+    bool startsABlockDiagram(const QString& line)
     {
+        static const QRegularExpression starts = fragment(QStringLiteral(
+            R"(^((rectangle|node|component|database|package|folder|frame|cloud|interface|storage|)"
+            R"(artifact)\s+("|\w)|\[[\w"]))"));
+        return starts.match(line).hasMatch();
+    }
+
+    bool startsWithADatabase(const QString& line)
+    {
+        static const QRegularExpression starts = fragment(QStringLiteral(R"(^database\s+("|\w))"));
+        return starts.match(line).hasMatch();
+    }
+
+    bool isSequenceOnly(const QString& line)
+    {
+        static const QRegularExpression construct = fragment(
+            QStringLiteral(R"(^((participant|actor|boundary|control|entity|collections|queue)\s+\S)"
+                           R"(|(activate|deactivate|destroy)\s+\S)"
+                           R"(|(alt|loop|opt|par|group|break|critical|return)\b)"
+                           R"(|==.*==$|note\s+(over|across)\b|ref\s+over\b))"));
+        static const QRegularExpression arrow
+            = QRegularExpression(QStringLiteral(R"((?<!-)->|<-(?!-))"));
+        if (construct.match(line).hasMatch())
+            return true;
+        const QString beforeTheLabel = line.left(line.indexOf(QLatin1Char(':')));
+        return arrow.match(beforeTheLabel).hasMatch();
+    }
+
+    QStringList bodyLines(const QString& text)
+    {
+        QStringList body;
         parsing::SkippedBlocks skipped;
         const QStringList lines = parsing::normalized(text).split(QLatin1Char('\n'));
         for (qsizetype index = 0; index < lines.size(); ++index)
@@ -47,16 +80,70 @@ namespace
                 continue;
             if (skipped.start(line, int(index) + 1))
                 continue;
-            if (isSkippableBeforeTheBody(line))
+            body.append(line);
+        }
+        return body;
+    }
+
+    std::optional<QString> firstBodyLine(const QStringList& body)
+    {
+        for (const QString& line : body)
+        {
+            if (!isSkippableBeforeTheBody(line))
+                return line;
+        }
+        return std::nullopt;
+    }
+
+    bool hasASequenceOnlyConstruct(const QStringList& body)
+    {
+        bool insideNote = false;
+        for (const QString& line : body)
+        {
+            static const QRegularExpression openNote
+                = fragment(QStringLiteral(R"(^r?note\s+(left|right)\s+of\s+[^:]+$)"));
+            static const QRegularExpression closeNote = fragment(QStringLiteral(R"(^end\s*note$)"));
+            if (insideNote)
+            {
+                insideNote = !closeNote.match(line).hasMatch();
                 continue;
-            return startsAnActivity(line);
+            }
+            if (openNote.match(line).hasMatch())
+            {
+                insideNote = true;
+                continue;
+            }
+            if (!isSkippableBeforeTheBody(line) && isSequenceOnly(line))
+                return true;
         }
         return false;
+    }
+
+    bool isActivityText(const QString& text)
+    {
+        const auto line = firstBodyLine(bodyLines(text));
+        return line && startsAnActivity(*line);
+    }
+
+    bool isBlockText(const QString& text)
+    {
+        const QStringList body = bodyLines(text);
+        const auto line = firstBodyLine(body);
+        if (!line || !startsABlockDiagram(*line))
+            return false;
+        return !startsWithADatabase(*line) || !hasASequenceOnlyConstruct(body);
     }
 }
 
 Result<Diagram> DiagramParser::parse(const QString& text)
 {
+    if (isBlockText(text))
+    {
+        const auto blocks = BlockParser::parse(text);
+        if (blocks.isFailure())
+            return Result<Diagram>::failure(blocks.error());
+        return Result<Diagram>::success(blocks.value());
+    }
     if (isActivityText(text))
     {
         const auto activity = ActivityParser::parse(text);

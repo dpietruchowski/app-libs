@@ -1,6 +1,7 @@
 #pragma once
 
 #include "diagram/activitydiagram.h"
+#include "diagram/blockdiagram.h"
 #include "diagram/sequencediagram.h"
 
 #include <QStringList>
@@ -9,7 +10,7 @@
 
 namespace diagram
 {
-using Diagram = std::variant<SequenceDiagram, ActivityDiagram>;
+using Diagram = std::variant<SequenceDiagram, ActivityDiagram, BlockDiagram>;
 
 inline const QStringList& warningsOf(const Diagram& diagram)
 {

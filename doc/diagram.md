@@ -1,14 +1,15 @@
 # Diagram — text to SVG
 
-Status: revision 5. Steps 1–4 of the plan are implemented, and the activity diagram has been added
-next to the sequence diagram; this text describes the code as built.
+Status: revision 6. Steps 1–4 of the plan are implemented, and the activity diagram and the block
+diagram have been added next to the sequence diagram; this text describes the code as built.
 
 ## Goal
 
 A course pasted from a chat must be able to carry its own diagrams. The chat writes a short
 text description, and the app lays it out and draws it on the device, offline. The supported
-kinds are the sequence diagram and the activity diagram (new PlantUML syntax); the first
-meaningful line of the text decides which one it is.
+kinds are the sequence diagram, the activity diagram (new PlantUML syntax) and the block
+diagram (a subset of the PlantUML component and deployment diagram); the first meaningful line of
+the text decides which one it is.
 
 The syntax is a subset of PlantUML. A model already writes it without extra instructions, and
 the author can preview the same text in real PlantUML on the desktop. **Only the syntax is
@@ -33,23 +34,26 @@ are our own implementation.
 
 ```
 text ──parse──▶ Diagram ──layout(width, style, measurer)──▶ Scene ──write(palette, pixelRatio)──▶ SVG
-        (SequenceDiagram | ActivityDiagram)
+        (SequenceDiagram | ActivityDiagram | BlockDiagram)
 ```
 
 `DiagramParser::parse` looks at the first meaningful line, skipping the `@startuml` marker, the
-title, comments and the ignored directives, and hands the text to `ActivityParser` or to
-`SequenceParser`. `Diagram` is `std::variant<SequenceDiagram, ActivityDiagram>`, and
-`DiagramLayout::layout` visits it. The two parsers and the two layouts keep their own public
-API, so each kind can still be used and tested alone.
+title, comments and the ignored directives, and hands the text to `BlockParser`, to
+`ActivityParser` or to `SequenceParser`. `Diagram` is
+`std::variant<SequenceDiagram, ActivityDiagram, BlockDiagram>`, and `DiagramLayout::layout` visits
+it. The three parsers and the three layouts keep their own public API, so each kind can still be
+used and tested alone.
 
 | Stage | Input → output | Depends on |
 |---|---|---|
-| `DiagramParser` | `QString` → `Result<Diagram>` | the two parsers |
+| `DiagramParser` | `QString` → `Result<Diagram>` | the three parsers |
 | `SequenceParser` | `QString` → `Result<SequenceDiagram>` | Qt Core, `app_async` (`Result`) |
 | `ActivityParser` | `QString` → `Result<ActivityDiagram>` | Qt Core, `app_async` (`Result`) |
-| `DiagramLayout` | `Diagram` + `DiagramStyle` + width + `TextMeasurer` → `Scene` | the two layouts |
+| `BlockParser` | `QString` → `Result<BlockDiagram>` | Qt Core, `app_async` (`Result`) |
+| `DiagramLayout` | `Diagram` + `DiagramStyle` + width + `TextMeasurer` → `Scene` | the three layouts |
 | `SequenceLayout` | diagram + `DiagramStyle` + width + `TextMeasurer` → `Scene` | Qt Core, Qt Gui (`DiagramStyle::font()`) |
 | `ActivityLayout` | diagram + `DiagramStyle` + width + `TextMeasurer` → `Scene` | Qt Core, Qt Gui |
+| `BlockLayout` | diagram + `DiagramStyle` + width + `TextMeasurer` → `Scene` | Qt Core, Qt Gui |
 | `SvgSceneWriter` | `Scene` + `DiagramPalette` + pixel ratio → `QString` | Qt Core, Qt Gui (`QColor`) |
 | `FontTextMeasurer` | implements `TextMeasurer` with `QFontMetricsF` | Qt Gui |
 
@@ -70,14 +74,17 @@ libs/cpp/diagram/            target app_diagram (STATIC; PUBLIC Qt6::Core, Qt6::
     sequenceparser.h/.cpp
     activitydiagram.h        model: a tree of nodes
     activityparser.h/.cpp
+    blockdiagram.h           model: a flat list of blocks, links and notes
+    blockparser.h/.cpp
     scene.h                  geometry primitives + colour roles
     textmeasurer.h/.cpp      interface, plus FontTextMeasurer
     diagramstyle.h           sizes, gaps, font family and size (the only source of both)
     diagrampalette.h         role → QColor
-    layoutsupport.h/.cpp     text wrapping, fair widths and the frame tab, shared by both layouts
+    layoutsupport.h/.cpp     text wrapping, fair widths, shifting items and the frame tab, shared by the layouts
     diagramlayout.h/.cpp     visits the variant
     sequencelayout.h/.cpp
     activitylayout.h/.cpp
+    blocklayout.h/.cpp
     svgscenewriter.h/.cpp
     diagramsvgprovider.h/.cpp  QObject for QML: text + width + colours → data: URL + image size
 libs/tests/diagram/          diagram_tests (GoogleTest), FakeTextMeasurer
@@ -411,6 +418,132 @@ Invariants, each checked by tests:
 - partition frames nest properly;
 - a narrower width gives more lines and the same font size.
 
+## Block diagram
+
+The block diagram shows what a thing is made of and what is connected to what: a chip, a system,
+an architecture. It is a small subset of the PlantUML component and deployment diagram. It shares
+the pipeline, the `Scene`, the colour roles and the writer with the other two; only its parser,
+its model and its layout are its own.
+
+`DiagramParser` picks it when the first meaningful line starts with `rectangle`, `node`,
+`component` or `database` followed by a name or a quoted label (so `Node -> Server` stays a
+sequence message). It also picks it for `package`, `folder`, `frame`, `cloud`, `interface`,
+`storage`, `artifact` and the `[Component]` short syntax, so that those get the block parser's
+"does not support" message instead of a sequence one.
+
+`database` is also a sequence participant keyword, and a sequence diagram that opens with
+`database DB` was valid before the block diagram existed. So a `database` first line decides for
+a block diagram only when the rest of the text has no construct that exists only in the sequence
+diagram; otherwise the text stays a sequence diagram, parsed exactly as before. Those constructs
+are a message arrow with a single dash (`->`, `->>`, `<-`, `<<-`, tested before any `: label`),
+the declarations `participant`, `actor`, `boundary`, `control`, `entity`, `collections` and
+`queue`, `activate`, `deactivate`, `destroy`, `return`, the groups `alt`, `loop`, `opt`, `par`,
+`group`, `break` and `critical`, `== … ==`, `note over`, `note across` and `ref over`. Lines
+inside a multi-line `note left of`/`right of` and inside skipped blocks are not looked at. The
+other three keywords always mean a block diagram. The one remaining overlap is a text that opens
+with `database` and uses only `-->` or `<--` as links and no other sequence construct: the
+arrows are valid in both, and it is read as a block diagram.
+
+### Syntax
+
+**Understood:**
+
+```
+@startuml / @enduml                          optional
+title Memory map
+rectangle "SoC" as SOC {                     also node, component, database; `as Alias` is optional,
+  rectangle "CPU" as CPU                     a bare `rectangle CPU` is its own label, and a quoted
+  rectangle "SRAM\nsmall" as SRAM            label without an alias is its own id; `\n` breaks a line
+}                                            `{ ... }` nests to any depth and draws a frame
+rectangle "External DDR" as DDR
+CPU -- SRAM                                  a line
+CPU --> DDR : reads                          an arrow to DDR; `: label` is optional on every link
+CPU <-- DDR                                  an arrow to CPU
+CPU .. DDR                                   a dotted line
+note left of CPU : text                      also `note right of`; the multi-line form is closed
+note right of DDR                            by `end note`
+...
+end note
+```
+
+A link names blocks by alias (or by the quoted label of a block that has no alias) and must come
+after their declarations. A block takes at most one note per side. Limits: 20 000 characters and
+300 elements (blocks, links and notes together).
+
+**Ignored, with a warning:** a stereotype (`<<soc>>`) and a colour (`#red`) after a block,
+`skinparam`, `hide`, `show`, `scale`, `header`, `footer`, `caption` and `!` directives. Comments
+are skipped without a warning.
+
+**Error:** parsing stops at the first one, reported as `Line N: …`, in the same form as the
+activity diagram.
+
+- Valid PlantUML that this app does not draw: `Line N: "<line>" is valid PlantUML, but this app
+  does not support <feature>. <How to rewrite it>.` The features are other kinds of element
+  (`package`, `cloud`, `folder`, `frame`, `storage`, `artifact`, `queue`, `actor`, `usecase`, …),
+  interfaces, the `[Component]` short syntax, layout directions, notes above or below a block,
+  floating notes and notes on links, and any arrow other than `--`, `-->`, `<--` and `..`
+  (`->`, `..>`, `-down->`, …).
+- A statement that is none of the above: `unknown statement "<line>". A block diagram here
+  understands: …`. A known keyword written wrongly gets the form it should have instead.
+- Structure: a link or a note naming a block that is not declared, a duplicate alias, a link from
+  a block to itself, a second note on the same side of a block, `"}" without an open container`,
+  and a container or note left open at the end (reported at the last line, naming the line that
+  opened it). A diagram with no block is the one error without a line number.
+
+### Model
+
+```cpp
+struct Block { QString id; QString label; BlockKind kind; bool isContainer; int parent; int line; };
+struct BlockLink { int from; int to; QString label; BlockLinkLine line; BlockLinkHead head;
+                   int sourceLine; };
+struct BlockNote { int block; BlockNoteSide side; QString text; };
+struct BlockDiagram { QString title; QList<Block> blocks; QList<BlockLink> links;
+                      QList<BlockNote> notes; QStringList warnings; };
+```
+
+The model is flat: blocks are in declaration order and refer to their container by index
+(`parent`, `-1` at the top level). `A <-- B` is kept as written, with `head` set to `ToSource`.
+
+### Layout (block)
+
+Each level (the top level, or the children of one container) is laid out the same way, and a
+container is laid out first from the inside out.
+
+- **Shapes.** A rectangle and a component are rounded boxes, the component with a small marker
+  at the top right. A node is a box with a top and a right face. A database is a cylinder. A
+  container is an unfilled frame with its label in the top left corner, in the group colour. A
+  note is a note box beside its block. Everything uses colour roles, so the palette still applies
+  only when the SVG is written.
+- **Layers.** The links between the blocks of one level (a link between two nested blocks counts
+  for the blocks that hold them) point from the first name to the second, and the longest path
+  gives every block its layer. Links that would close a cycle are not used for layering. Blocks
+  without links are all in the first layer. The layers are rows, one above the other, and the
+  rows are centred.
+- **Rows.** A layer that has links is kept in one row as long as the blocks fit at their
+  minimal widths (no word broken); the spare width is split in proportion to natural minus
+  minimum, as in the activity layout, so text wraps instead of the row splitting. A layer
+  without links is split into rows by natural widths, like a grid. The gap between rows grows by
+  the height of the tallest link label.
+- **Notes** widen the block on their side only. A note takes up to a third of the width and
+  the block takes the rest.
+- **Links.** A link is a straight vertical line between the facing edges of two blocks when they
+  overlap horizontally, otherwise an elbow through the gap above the target. A candidate that
+  would cross a block or a note is skipped; if every candidate crosses something, the link goes
+  round the right edge of the diagram, which widens the scene. A link between a container and a
+  block inside it runs on the left, between the frame and the block. The label sits beside the
+  line (or on the horizontal run of an elbow) on a background-coloured halo.
+- **When it does not fit.** The scene is laid out at the minimums and comes out wider than the
+  viewport, and the integration scales the image down, as for the other diagrams.
+
+Invariants, each checked by tests:
+
+- every primitive lies inside `scene.size`;
+- the `scene.size` width is at most the available width, except when even the minimum is wider;
+- no two text `bounds` overlap, and no two blocks overlap unless one holds the other;
+- a container frame encloses the text of all its blocks and none of the others;
+- every link ends on a horizontal edge of its blocks and no link runs through a block;
+- a narrower width gives more lines and the same font size.
+
 ## Sharpness on a high-DPR screen
 
 Phones have a device pixel ratio of about 2.6 to 3. The writer emits the root element as
@@ -444,6 +577,11 @@ already go through the same path at their logical size.
   content: a fork branch with a note does not starve the next branch, an `if` column with a note is
   wider than a short neighbour without overlapping it, and a top-level action with a note stays
   inside the scene at every width.
+- **Block parser and layout:** every form, every warning and every error with its exact text and
+  line; the layout invariants above at widths of 200 to 640, the container frame around its
+  blocks, links around a block that is in the way, and the shape of each kind of block.
+  **Kind detection:** `Node -> Server` stays a sequence message while the four block keywords,
+  followed by a name, pick the block parser.
 - **Writer:** golden SVG strings for small scenes, including `<ellipse>` and `<polygon>`. Also
   checks, with `QXmlStreamReader`, that the output is well-formed XML using only the allowed
   elements and attributes.

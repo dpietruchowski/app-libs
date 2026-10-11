@@ -179,6 +179,31 @@ TEST(DiagramSvgProviderTest, PassesTheWarningsOn)
     EXPECT_TRUE(provider.warnings().first().startsWith(QStringLiteral("Line 1:")));
 }
 
+TEST(DiagramSvgProviderTest, DrawsABlockDiagram)
+{
+    DiagramSvgProvider provider;
+    configure(provider,
+              QStringLiteral("@startuml\nrectangle \"SoC\" {\nrectangle CPU\nrectangle ROM\n}\n"
+                             "rectangle DDR\nCPU -- ROM\nCPU -- DDR\n@enduml\n"),
+              360);
+
+    EXPECT_TRUE(provider.error().isEmpty());
+    ASSERT_FALSE(provider.svgSource().isEmpty());
+    const QString svg = decoded(provider.svgSource());
+    EXPECT_TRUE(svg.contains(QStringLiteral(">CPU</text>")));
+    EXPECT_TRUE(svg.contains(QStringLiteral(">SoC</text>")));
+    EXPECT_GT(provider.imageHeight(), 0);
+}
+
+TEST(DiagramSvgProviderTest, ReportsABlockError)
+{
+    DiagramSvgProvider provider;
+    configure(provider, QStringLiteral("rectangle A\nA -- B\n"), 360);
+
+    EXPECT_TRUE(provider.error().startsWith(QStringLiteral("Line 2: unknown block \"B\"")));
+    EXPECT_TRUE(provider.svgSource().isEmpty());
+}
+
 TEST(DiagramSvgProviderTest, DrawsAnActivityDiagram)
 {
     DiagramSvgProvider provider;
