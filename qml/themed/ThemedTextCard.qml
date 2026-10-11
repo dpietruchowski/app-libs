@@ -11,7 +11,6 @@ Control {
     property alias text: textArea.text
     property bool readOnly: true
     property bool showLoadButton: false
-    property string highlightedAction: readOnly ? "copy" : showLoadButton ? "load" : "paste"
 
     signal copyClicked()
     signal pasteClicked()
@@ -71,7 +70,7 @@ Control {
             ThemedButton {
                 objectName: "copyTextButton"
                 text: qsTr("Copy")
-                buttonStyle: root.highlightedAction === "copy" ? Theme.button.ghostPrimary : Theme.button.ghost
+                buttonStyle: root.readOnly ? Theme.button.ghostPrimary : Theme.button.ghost
                 buttonSize: Theme.button.small
                 Layout.alignment: Qt.AlignTop
                 onClicked: {
@@ -83,7 +82,7 @@ Control {
             ThemedButton {
                 objectName: "pasteTextButton"
                 text: qsTr("Paste")
-                buttonStyle: root.highlightedAction === "paste" ? Theme.button.ghostPrimary : Theme.button.ghost
+                buttonStyle: Theme.button.ghostPrimary
                 buttonSize: Theme.button.small
                 Layout.alignment: Qt.AlignTop
                 visible: !root.readOnly
@@ -96,7 +95,7 @@ Control {
             ThemedButton {
                 objectName: "loadFileButton"
                 text: qsTr("Load file")
-                buttonStyle: root.highlightedAction === "load" ? Theme.button.ghostPrimary : Theme.button.ghost
+                buttonStyle: Theme.button.ghostPrimary
                 buttonSize: Theme.button.small
                 Layout.alignment: Qt.AlignTop
                 visible: root.showLoadButton
