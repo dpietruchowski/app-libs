@@ -21,6 +21,7 @@ Item {
     property color scrollBarColor: Theme.colors.border
     property bool keyNavigable: true
     property bool followsCursor: false
+    property Component header: null
 
     function revealCursor() {
         const cursor = textArea.cursorRectangle
@@ -46,7 +47,9 @@ Item {
     }
 
     implicitWidth: 400
-    implicitHeight: Math.max(flickable.contentHeight, 200)
+    implicitHeight: Math.max(flickable.contentHeight + headerOffset, 200)
+
+    readonly property real headerOffset: headerLoader.item ? headerLoader.height + Theme.padding.small : 0
 
     Rectangle {
         id: bgRect
@@ -60,10 +63,20 @@ Item {
         Behavior on border.width { NumberAnimation { duration: 150 } }
     }
 
+    Loader {
+        id: headerLoader
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: Theme.padding.small
+        sourceComponent: root.header
+    }
+
     Flickable {
         id: flickable
         anchors.fill: parent
         anchors.margins: Theme.padding.small
+        anchors.topMargin: Theme.padding.small + root.headerOffset
         anchors.rightMargin: vScrollBar.width
 
         clip: true
@@ -134,7 +147,7 @@ Item {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.rightMargin: Theme.padding.small / 2
-        anchors.topMargin: Theme.padding.small
+        anchors.topMargin: Theme.padding.small + root.headerOffset
         anchors.bottomMargin: Theme.padding.small
 
         policy: ScrollBar.AsNeeded
