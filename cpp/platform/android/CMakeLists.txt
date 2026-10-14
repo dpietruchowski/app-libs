@@ -15,6 +15,8 @@ target_sources(app_platform PRIVATE
     fileopenerandroid.cpp
     hapticsandroid.h
     hapticsandroid.cpp
+    soundpoolandroid.h
+    soundpoolandroid.cpp
 )
 
 target_include_directories(app_platform PUBLIC
