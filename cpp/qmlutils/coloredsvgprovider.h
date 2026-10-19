@@ -2,11 +2,13 @@
 #include <QColor>
 #include <QMap>
 #include <QObject>
+#include <QQmlParserStatus>
 #include <QString>
 
-class ColoredSvgProvider : public QObject
+class ColoredSvgProvider : public QObject, public QQmlParserStatus
 {
     Q_OBJECT
+    Q_INTERFACES(QQmlParserStatus)
     Q_PROPERTY(QString svgSource READ svgSource NOTIFY svgSourceChanged)
     Q_PROPERTY(QString svgOriginSource READ svgOriginSource WRITE setSvgOriginSource NOTIFY
                    svgOriginSourceChanged)
@@ -34,6 +36,9 @@ public:
     int height() const { return m_height; }
     void setHeight(int h);
 
+    void classBegin() override;
+    void componentComplete() override;
+
 signals:
     void svgSourceChanged();
     void svgOriginSourceChanged();
@@ -52,5 +57,6 @@ private:
     QColor m_color;
     int m_width = 24;
     int m_height = 24;
+    bool m_constructing = false;
     static QMap<QString, QString> s_svgCache;
 };
