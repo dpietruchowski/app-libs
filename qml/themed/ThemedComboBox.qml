@@ -20,11 +20,11 @@ ComboBox {
     Component.onCompleted: {
         var maxWidth = 0
         for (var i = 0; i < model.length; i++) {
-            var itemText = model[i]
+            textMetrics.text = model[i]
             maxWidth = Math.max(maxWidth, textMetrics.advanceWidth)
-            textMetrics.text = itemText
         }
-        implicitWidth = maxWidth + Theme.padding.medium * 2 + indicator.width + Theme.spacing.medium
+        implicitWidth = Math.ceil(maxWidth) + contentItem.leftPadding + contentItem.rightPadding
+                        + leftPadding + rightPadding + indicator.width
     }
 
     TextMetrics {
@@ -45,7 +45,6 @@ ComboBox {
         font: control.font
         verticalAlignment: Text.AlignVCenter
         leftPadding: Theme.padding.medium
-        rightPadding: Theme.padding.medium
         elide: Text.ElideRight
     }
 

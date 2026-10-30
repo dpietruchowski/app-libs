@@ -6,6 +6,14 @@ Item {
     objectName: "sandboxHost"
 
     property var sandbox: null
+    property var theme: null
+    property var pinnedFiles: []
+
+    readonly property var orderedFiles: {
+        var files = root.sandbox ? root.sandbox.files : []
+        var pinned = root.pinnedFiles.filter(file => files.indexOf(file) >= 0)
+        return pinned.concat(files.filter(file => pinned.indexOf(file) < 0))
+    }
 
     readonly property color chromeBackground: "#141417"
     readonly property color chromeSurface: "#242429"
@@ -85,47 +93,81 @@ Item {
         color: root.chromeSurface
         z: 1
 
-        ListView {
-            id: fileList
-            objectName: "sandboxFileList"
+        ScrollView {
+            id: fileScroll
             anchors.left: parent.left
-            anchors.right: reloadButton.left
+            anchors.right: nightModeButton.left
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             anchors.leftMargin: 8
-            orientation: ListView.Horizontal
-            spacing: 4
-            clip: true
-            model: root.sandbox ? root.sandbox.files : []
+            anchors.rightMargin: 16
+            ScrollBar.horizontal.policy: ScrollBar.AsNeeded
+            ScrollBar.vertical.policy: ScrollBar.AlwaysOff
 
-            delegate: Rectangle {
-                required property int index
-                required property string modelData
+            ListView {
+                id: fileList
+                objectName: "sandboxFileList"
+                orientation: ListView.Horizontal
+                spacing: 4
+                clip: true
+                model: root.orderedFiles
 
-                readonly property bool current: root.sandbox
-                                                && root.sandbox.currentFile === modelData
-
-                objectName: "sandboxFile" + index
-                width: label.implicitWidth + 20
-                height: root.chromeHeight - 12
-                y: (fileList.height - height) / 2
-                radius: 4
-                color: current ? root.chromeAccent : "transparent"
-                border.width: current ? 0 : 1
-                border.color: root.chromeMuted
-
-                Text {
-                    id: label
-                    anchors.centerIn: parent
-                    text: parent.modelData.replace(/\.qml$/, "")
-                    color: parent.current ? "#ffffff" : root.chromeText
-                    font.pixelSize: 12
+                WheelHandler {
+                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                    onWheel: (event) => {
+                        var delta = event.angleDelta.y !== 0 ? event.angleDelta.y : event.angleDelta.x
+                        var maxX = Math.max(0, fileList.contentWidth - fileList.width)
+                        fileList.contentX = Math.max(0, Math.min(maxX, fileList.contentX - delta))
+                    }
                 }
 
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: root.sandbox.currentFile = parent.modelData
+                delegate: Rectangle {
+                    required property int index
+                    required property string modelData
+
+                    readonly property bool current: root.sandbox
+                                                    && root.sandbox.currentFile === modelData
+
+                    objectName: "sandboxFile" + index
+                    width: label.implicitWidth + 20
+                    height: root.chromeHeight - 12
+                    y: (fileList.height - height) / 2
+                    radius: 4
+                    color: current ? root.chromeAccent : "transparent"
+                    border.width: current ? 0 : 1
+                    border.color: root.chromeMuted
+
+                    Text {
+                        id: label
+                        anchors.centerIn: parent
+                        text: parent.modelData.replace(/\.qml$/, "")
+                        color: parent.current ? "#ffffff" : root.chromeText
+                        font.pixelSize: 12
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: root.sandbox.currentFile = parent.modelData
+                    }
                 }
+            }
+        }
+
+        Text {
+            id: nightModeButton
+            objectName: "sandboxNightModeButton"
+            anchors.right: reloadButton.left
+            anchors.rightMargin: 16
+            anchors.verticalCenter: parent.verticalCenter
+            visible: root.theme !== null
+            text: root.theme && root.theme.isNightMode ? qsTr("Day") : qsTr("Night")
+            color: root.chromeText
+            font.pixelSize: 12
+
+            MouseArea {
+                anchors.fill: parent
+                anchors.margins: -8
+                onClicked: root.theme.isNightMode = !root.theme.isNightMode
             }
         }
 

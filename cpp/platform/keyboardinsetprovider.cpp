@@ -1,8 +1,8 @@
 #include "keyboardinsetprovider.h"
 
 #include <QGuiApplication>
+#include <QInputMethod>
 #include <QScreen>
-
 #include <QTimer>
 
 #ifdef Q_OS_ANDROID
@@ -132,6 +132,11 @@ void KeyboardInsetProvider::setBottomFromPx(int px)
 
 void KeyboardInsetProvider::setBottom(int bottom)
 {
+    if (bottom > 0 && !QGuiApplication::inputMethod()->isAnimating())
+    {
+        setRememberedHeight(bottom);
+    }
+
     if (m_bottom == bottom)
     {
         return;
@@ -139,4 +144,15 @@ void KeyboardInsetProvider::setBottom(int bottom)
 
     m_bottom = bottom;
     emit bottomChanged();
+}
+
+void KeyboardInsetProvider::setRememberedHeight(int height)
+{
+    if (m_rememberedHeight == height)
+    {
+        return;
+    }
+
+    m_rememberedHeight = height;
+    emit rememberedHeightChanged();
 }

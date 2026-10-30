@@ -63,6 +63,21 @@ TEST_F(SelectProjectedTest, AJoinWithoutColumnsProjectsNothingButStillJoins)
     EXPECT_TRUE(sql.contains("LEFT JOIN attempt_summaries atl ON fp.fact_id = atl.fact_id"));
 }
 
+TEST_F(SelectProjectedTest, AJoinCanMatchAConstantOnASecondColumn)
+{
+    const QString sql = shape(summaryJoin().andColumn("phase").equalsValue(2)).toSql();
+
+    EXPECT_TRUE(sql.contains("ON fp.fact_id = atl.fact_id AND atl.phase = 2"));
+}
+
+TEST_F(SelectProjectedTest, AJoinCanMatchAnExpressionOnASecondColumn)
+{
+    const QString sql
+        = shape(summaryJoin().andColumn("phase").equalsExpression("MIN(fp.phase, 2)")).toSql();
+
+    EXPECT_TRUE(sql.contains("ON fp.fact_id = atl.fact_id AND atl.phase = MIN(fp.phase, 2)"));
+}
+
 TEST_F(SelectProjectedTest, SetColumnsAloneCannotUnprojectAJoin)
 {
     Select select = shape(projectingJoin());

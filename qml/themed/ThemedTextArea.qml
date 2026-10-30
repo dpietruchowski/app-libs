@@ -20,6 +20,16 @@ Item {
     property color cursorColor: Theme.colors.primary
     property color scrollBarColor: Theme.colors.border
     property bool keyNavigable: true
+    property bool followsCursor: false
+    property Component header: null
+
+    function revealCursor() {
+        const cursor = textArea.cursorRectangle
+        if (cursor.y < flickable.contentY)
+            flickable.contentY = cursor.y
+        else if (cursor.y + cursor.height > flickable.contentY + flickable.height)
+            flickable.contentY = cursor.y + cursor.height - flickable.height
+    }
 
     function keyActivate() {
         textArea.forceActiveFocus()
@@ -37,7 +47,9 @@ Item {
     }
 
     implicitWidth: 400
-    implicitHeight: Math.max(flickable.contentHeight, 200)
+    implicitHeight: Math.max(flickable.contentHeight + headerOffset, 200)
+
+    readonly property real headerOffset: headerLoader.item ? headerLoader.height + Theme.padding.small : 0
 
     Rectangle {
         id: bgRect
@@ -51,10 +63,20 @@ Item {
         Behavior on border.width { NumberAnimation { duration: 150 } }
     }
 
+    Loader {
+        id: headerLoader
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: Theme.padding.small
+        sourceComponent: root.header
+    }
+
     Flickable {
         id: flickable
         anchors.fill: parent
         anchors.margins: Theme.padding.small
+        anchors.topMargin: Theme.padding.small + root.headerOffset
         anchors.rightMargin: vScrollBar.width
 
         clip: true
@@ -85,6 +107,11 @@ Item {
             bottomPadding: Theme.padding.small
 
             font.pixelSize: Theme.fontSize.medium
+
+            onCursorRectangleChanged: {
+                if (root.followsCursor)
+                    root.revealCursor()
+            }
 
             cursorDelegate: Rectangle {
                 visible: textArea.activeFocus && !textArea.readOnly
@@ -120,7 +147,7 @@ Item {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.rightMargin: Theme.padding.small / 2
-        anchors.topMargin: Theme.padding.small
+        anchors.topMargin: Theme.padding.small + root.headerOffset
         anchors.bottomMargin: Theme.padding.small
 
         policy: ScrollBar.AsNeeded

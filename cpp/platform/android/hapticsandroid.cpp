@@ -2,10 +2,47 @@
 
 #include "jni/vibrator.h"
 
+#include <QCoreApplication>
+#include <QFuture>
+#include <QJniObject>
 #include <QList>
+
+#include <optional>
 
 namespace
 {
+
+constexpr int LongPressFeedback = 0;
+constexpr int KeyboardTapFeedback = 3;
+
+std::optional<int> viewFeedbackFor(Haptics::Effect effect)
+{
+    switch (effect)
+    {
+        case Haptics::Effect::KeyPress:
+            return KeyboardTapFeedback;
+        case Haptics::Effect::LongPress:
+            return LongPressFeedback;
+        default:
+            return std::nullopt;
+    }
+}
+
+void performViewFeedback(int feedbackConstant)
+{
+    QNativeInterface::QAndroidApplication::runOnAndroidMainThread([feedbackConstant] {
+        QJniObject activity = QNativeInterface::QAndroidApplication::context();
+        if (!activity.isValid())
+            return;
+        QJniObject window = activity.callObjectMethod("getWindow", "()Landroid/view/Window;");
+        QJniObject decor = window.isValid()
+            ? window.callObjectMethod("getDecorView", "()Landroid/view/View;")
+            : QJniObject();
+        if (decor.isValid())
+            decor.callMethod<jboolean>("performHapticFeedback", "(I)Z",
+                                       static_cast<jint>(feedbackConstant));
+    });
+}
 
 struct EffectDescription
 {
@@ -47,6 +84,8 @@ Waveform describeWaveform(Haptics::Effect effect)
         case Haptics::Effect::Click:
         case Haptics::Effect::DoubleClick:
         case Haptics::Effect::HeavyClick:
+        case Haptics::Effect::KeyPress:
+        case Haptics::Effect::LongPress:
             return { nullptr, nullptr };
         case Haptics::Effect::LevelUp:
             return { &LevelUpTimings, &LevelUpAmplitudes };
@@ -65,6 +104,8 @@ EffectDescription describe(Haptics::Effect effect)
         case Haptics::Effect::Tick:
             return { 2, 10, DefaultAmplitude };
         case Haptics::Effect::Click:
+        case Haptics::Effect::KeyPress:
+        case Haptics::Effect::LongPress:
             return { 0, 20, DefaultAmplitude };
         case Haptics::Effect::DoubleClick:
             return { 1, 40, DefaultAmplitude };
@@ -86,6 +127,12 @@ bool HapticsAndroid::isAvailable() { return android::Vibrator::defaultVibrator()
 
 void HapticsAndroid::play(Haptics::Effect effect)
 {
+    if (const std::optional<int> feedback = viewFeedbackFor(effect))
+    {
+        performViewFeedback(*feedback);
+        return;
+    }
+
     const android::Vibrator vibrator = android::Vibrator::defaultVibrator();
     if (!vibrator.hasVibrator())
         return;

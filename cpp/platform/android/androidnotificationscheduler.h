@@ -2,17 +2,15 @@
 
 #include <QString>
 
+struct ScheduledNotification;
+
 class AndroidNotificationScheduler final
 {
 public:
-    static void scheduleAt(qint64 triggerAtMsecsSinceEpoch, int notificationId,
-                           const QString& channelId, const QString& channelName,
-                           const QString& title, const QString& text,
-                           const QString& smallIcon = "ic_notification");
-
-    static void scheduleDailyAt(int hour, int minute, int notificationId, const QString& channelId,
-                                const QString& channelName, const QString& title,
-                                const QString& text, const QString& smallIcon = "ic_notification");
-
+    static void setReceiverClass(const QString& className);
+    static bool isAvailable();
+    static void schedule(const ScheduledNotification& notification);
     static void cancel(int notificationId);
+    static void dismiss(int displayId);
+    static void requestPermission();
 };

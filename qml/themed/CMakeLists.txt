@@ -15,6 +15,10 @@ qt_add_qml_module(${LIBRARY_NAME}
     SOURCES
         filelistmodel.h
         filelistmodel.cpp
+        keyboardbuffer.h
+        keyboardbuffer.cpp
+        keyboardhaptics.h
+        keyboardhaptics.cpp
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Themed/Components
 )
 
@@ -23,4 +27,6 @@ target_link_libraries(${LIBRARY_NAME}
         Qt6::Core
         Qt6::Quick
         Qt6::Qml
+    PRIVATE
+        app_platform
 )

@@ -19,6 +19,8 @@ class QmlSandbox : public QObject
     Q_PROPERTY(int revision READ revision NOTIFY revisionChanged)
 
 public:
+    static constexpr int kRestartExitCode = 86;
+
     QmlSandbox(QQmlEngine& engine, const QString& directory, const QStringList& watchedDirs,
                QObject* parent = nullptr);
 
@@ -48,6 +50,7 @@ private:
     QStringList m_files;
     QString m_currentFile;
     int m_revision = 0;
+    bool m_singletonChanged = false;
     QFileSystemWatcher* m_watcher = nullptr;
     QTimer* m_debounce = nullptr;
 };

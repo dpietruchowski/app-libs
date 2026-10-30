@@ -1,12 +1,12 @@
 ---
 name: todo
-description: Manage a prioritized project TODO list stored in .claude/TODO.md. Use when the user wants to add tasks, mark items done, view the list, or reorganize priorities. Pass a natural-language instruction as argument (e.g. "add: implement login screen [high]", "done: login screen", "show", "clear done").
+description: Manage a prioritized project TODO list stored in doc/TODO.md. Use when the user wants to add tasks, mark items done, view the list, or reorganize priorities. Pass a natural-language instruction as argument (e.g. "add: implement login screen [high]", "done: login screen", "show", "clear done").
 allowed-tools: Read, Edit, Write
 ---
 
 ## Manage project TODO list
 
-The list is stored in `.claude/TODO.md`. It is divided into three priority sections: **High**, **Medium**, and **Low**. Each item is a markdown checkbox (`- [ ]` or `- [x]`).
+The list is stored in `doc/TODO.md` (tracked in git). It is divided into three priority sections: **High**, **Medium**, and **Low**. Each item is a markdown checkbox (`- [ ]` or `- [x]`).
 
 ### File format
 
@@ -41,7 +41,7 @@ If intent is ambiguous, ask the user before modifying the file.
 
 ### Steps
 
-1. **Read the file.** Use the Read tool on `.claude/TODO.md`. If the file does not exist yet, create it with the skeleton format above (all three sections, empty).
+1. **Read the file.** Use the Read tool on `doc/TODO.md`. If the file does not exist yet, create it with the skeleton format above (all three sections, empty).
 
 2. **Execute the action:**
 

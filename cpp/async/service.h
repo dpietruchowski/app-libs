@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QThread>
 #include <type_traits>
 #include <utility>
 
@@ -21,6 +22,8 @@ protected:
         using T = typename std::invoke_result_t<Work>::value_type;
         return Task<T>::run(m_worker, std::move(work));
     }
+
+    bool onWorkerThread() const { return m_worker->thread() == QThread::currentThread(); }
 
 private:
     QObject* m_worker;

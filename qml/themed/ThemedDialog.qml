@@ -116,7 +116,7 @@ Dialog {
     function getButtonStyle() {
         switch(dialogType) {
             case "success": return Theme.button.success
-            case "warning": return Theme.button.secondary
+            case "warning": return Theme.button.warning
             case "error": return Theme.button.danger
             default: return Theme.button.primary
         }

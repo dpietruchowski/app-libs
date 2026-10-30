@@ -16,6 +16,7 @@ public:
     Join& equals(const QString& rightColumn);
     Join& andColumn(const QString& column);
     Join& equalsValue(int value);
+    Join& equalsExpression(const QString& expression);
     Join& withColumns(const QStringList& columnKeys);
     Join& withPrefix(const QString& prefix);
     Join& withPrefix(const ColumnPrefix& prefix);
@@ -28,13 +29,19 @@ public:
     QString prefix() const;
 
 private:
+    struct ColumnValue
+    {
+        QString column;
+        QString expression;
+    };
+
     QString m_tableName;
     TableAlias m_tableAlias;
     TableAlias m_leftAlias;
     QString m_leftColumn;
     QString m_rightColumn;
-    QString m_additionalColumn;
-    std::optional<int> m_additionalValue;
+    QString m_pendingColumn;
+    QList<ColumnValue> m_additionalConditions;
     QStringList m_columnKeys;
     std::optional<ColumnPrefix> m_prefix;
 };

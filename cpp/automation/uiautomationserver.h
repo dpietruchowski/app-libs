@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QHash>
+#include <QHostAddress>
 #include <QObject>
 
 class QQmlApplicationEngine;
@@ -13,6 +14,8 @@ class UiAutomationServer : public QObject
     Q_OBJECT
 public:
     UiAutomationServer(QQmlApplicationEngine* engine, quint16 port, QObject* parent = nullptr);
+    UiAutomationServer(QQmlApplicationEngine* engine, const QHostAddress& address, quint16 port,
+                       QObject* parent = nullptr);
 
 private slots:
     void onNewConnection();

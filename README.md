@@ -14,7 +14,7 @@ An app consumes it as a submodule at `libs/` and keeps only its own domain code.
 | `qml/` | QML modules: `theme` (URI `Themed.Theme`, the `DefaultTheme` base), `themed` (URI `Themed.Components`), `app` (URI `App.Components`), `icons` |
 | `cmake/` | `AppProject.cmake` — `app_load_env`, `app_project_setup`, `app_add_module`, `app_add_qml_module`, `app_add_test`, `app_configure_android` |
 | `scripts/` | `build-android.sh`, `build-appimage.sh`, `sign-apk.sh`, `sign-aab.sh`, `generate-keystore.sh`, `new-app.sh` — all parametrized by the consuming repo's `app.env` |
-| `doc/` | Notes on parts that need more than a table: [`read-port.md`](doc/read-port.md) — reading a joined shape into a typed row |
+| `doc/` | Notes on parts that need more than a table: [`read-port.md`](doc/read-port.md) — reading a joined shape into a typed row; [`android-splash.md`](doc/android-splash.md) — Android splash stages without a jumping logo; [`android-system-bars.md`](doc/android-system-bars.md) — system bars, safe area and keyboard insets, and what not to try |
 | `docker/` | The Android build image |
 | `tools/` | `ui_driver.py` / `ui_session.py` — drive a running app by `objectName` |
 | `claude/` | Skills and agents an app symlinks into its own `.claude/` |

@@ -1,6 +1,8 @@
 add_subdirectory(jni)
 
 target_sources(app_platform PRIVATE
+    androidlaunchaction.h
+    androidlaunchaction.cpp
     androidnotification.h
     androidnotification.cpp
     androidnotificationscheduler.h
@@ -13,6 +15,8 @@ target_sources(app_platform PRIVATE
     fileopenerandroid.cpp
     hapticsandroid.h
     hapticsandroid.cpp
+    soundpoolandroid.h
+    soundpoolandroid.cpp
 )
 
 target_include_directories(app_platform PUBLIC

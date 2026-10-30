@@ -13,6 +13,8 @@ public:
     static AlarmManager instance();
 
     void setExactAndAllowWhileIdle(qint64 triggerAtMillis, const PendingIntent& operation) const;
+    void setAndAllowWhileIdle(qint64 triggerAtMillis, const PendingIntent& operation) const;
+    void cancel(const PendingIntent& operation) const;
 
 private:
     explicit AlarmManager(QJniObject jni);

@@ -29,6 +29,8 @@ set(QUERY_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/alias.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/expr.h
     ${CMAKE_CURRENT_SOURCE_DIR}/expr.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/func.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/func.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/projection.h
     ${CMAKE_CURRENT_SOURCE_DIR}/projection.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/column.h

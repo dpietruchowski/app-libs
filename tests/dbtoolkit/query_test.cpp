@@ -269,6 +269,22 @@ TEST_F(WhereQueryTest, Equals_GeneratesCorrectSQL)
     EXPECT_TRUE(sql.contains("name = 'John'"));
 }
 
+TEST_F(WhereQueryTest, EqualsColumn_ComparesTwoColumnsInsteadOfALiteral)
+{
+    Where where("fact_tags.fact_id");
+    where.equalsColumn(TableAlias("facts"), "id");
+
+    EXPECT_EQ(where.build(), "fact_tags.fact_id = facts.id");
+}
+
+TEST_F(WhereQueryTest, EqualsColumn_WithoutAColumn_IsIgnored)
+{
+    Where where;
+    where.equalsColumn("facts.id");
+
+    EXPECT_TRUE(where.isEmpty());
+}
+
 TEST_F(WhereQueryTest, GreaterThan_GeneratesCorrectSQL)
 {
     Where where("age");

@@ -30,47 +30,6 @@ Control {
     contentItem: ColumnLayout {
         spacing: Theme.spacing.medium
 
-        RowLayout {
-            Layout.fillWidth: true
-
-            Item {
-                Layout.fillWidth: true
-            }
-
-            ThemedButton {
-                text: qsTr("Copy")
-                buttonStyle: Theme.button.ghost
-                buttonSize: Theme.button.small
-                Layout.alignment: Qt.AlignTop
-                onClicked: {
-                    root.copyToClipboard()
-                    root.copyClicked()
-                }
-            }
-
-            ThemedButton {
-                text: qsTr("Paste")
-                buttonStyle: Theme.button.ghost
-                buttonSize: Theme.button.small
-                Layout.alignment: Qt.AlignTop
-                visible: !root.readOnly
-                onClicked: {
-                    root.pasteFromClipboard()
-                    root.pasteClicked()
-                }
-            }
-
-            ThemedButton {
-                objectName: "loadFileButton"
-                text: qsTr("Load file")
-                buttonStyle: Theme.button.ghost
-                buttonSize: Theme.button.small
-                Layout.alignment: Qt.AlignTop
-                visible: root.showLoadButton
-                onClicked: root.loadFileClicked()
-            }
-        }
-
         Label {
             id: titleLabel
             text: root.title
@@ -84,6 +43,7 @@ Control {
             text: root.description
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
+            font.pixelSize: Theme.fontSize.medium
             color: Theme.colors.textSecondary
             visible: root.description !== ""
         }
@@ -95,6 +55,52 @@ Control {
             Layout.minimumHeight: 200
             readOnly: root.readOnly
             backgroundColor: Theme.colors.cardBackground
+            header: actionsRow
+        }
+    }
+
+    Component {
+        id: actionsRow
+
+        RowLayout {
+            Item {
+                Layout.fillWidth: true
+            }
+
+            ThemedButton {
+                objectName: "copyTextButton"
+                text: qsTr("Copy")
+                buttonStyle: root.readOnly ? Theme.button.ghostPrimary : Theme.button.ghost
+                buttonSize: Theme.button.small
+                Layout.alignment: Qt.AlignTop
+                onClicked: {
+                    root.copyToClipboard()
+                    root.copyClicked()
+                }
+            }
+
+            ThemedButton {
+                objectName: "pasteTextButton"
+                text: qsTr("Paste")
+                buttonStyle: Theme.button.ghostPrimary
+                buttonSize: Theme.button.small
+                Layout.alignment: Qt.AlignTop
+                visible: !root.readOnly
+                onClicked: {
+                    root.pasteFromClipboard()
+                    root.pasteClicked()
+                }
+            }
+
+            ThemedButton {
+                objectName: "loadFileButton"
+                text: qsTr("Load file")
+                buttonStyle: Theme.button.ghostPrimary
+                buttonSize: Theme.button.small
+                Layout.alignment: Qt.AlignTop
+                visible: root.showLoadButton
+                onClicked: root.loadFileClicked()
+            }
         }
     }
 }

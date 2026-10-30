@@ -35,6 +35,7 @@ QtObject {
         readonly property color primaryDark: theme.isNightMode ? "#4080E6" : "#2563EB"
         readonly property color primaryVariant: theme.isNightMode ? "#70AFFA" : "#60A5FA"
         readonly property color secondary: theme.isNightMode ? "#A78BFA" : "#8B5CF6"
+        readonly property color secondaryVariant: theme.isNightMode ? "#C4B5FD" : "#A78BFA"
         readonly property color accent: theme.isNightMode ? "#FFA826" : "#F59E0B"
 
         readonly property color info: theme.isNightMode ? "#5B9AF6" : "#3B82F6"
@@ -45,7 +46,7 @@ QtObject {
         readonly property color textPrimary: theme.isNightMode ? "#E5E5E5" : "#1F2937"
         readonly property color textSecondary: theme.isNightMode ? "#A0A0A0" : "#5B616B"
         readonly property color textDisabled: theme.isNightMode ? "#808080" : "#9CA3AF"
-        readonly property color textPlaceholder: theme.isNightMode ? "#707070" : "#6B7280"
+        readonly property color textPlaceholder: theme.isNightMode ? "#878787" : "#6B7280"
         readonly property color textInverse: theme.isNightMode ? "#1F2937" : "#FFFFFF"
 
         readonly property color border: theme.isNightMode ? "#3A3A3A" : "#C5C6CA"
@@ -293,6 +294,28 @@ QtObject {
         readonly property color color: theme.colors.divider
     }
 
+    property QtObject chip: QtObject {
+        readonly property int horizontalPadding: theme.padding.medium
+        readonly property int verticalPadding: theme.padding.small
+        readonly property int radius: theme.radius.full
+        readonly property int fontSize: theme.fontSize.normal
+        readonly property int borderWidth: theme.border.thin
+        readonly property int selectedBorderWidth: theme.border.medium
+        readonly property real selectedTint: 0.14
+        readonly property real pressedTint: 0.28
+        readonly property real disabledOpacity: 0.45
+        readonly property int animationDuration: 120
+    }
+
+    property QtObject activity: QtObject {
+        readonly property int cellSize: theme.scaled(12)
+        readonly property int weekCellSize: theme.scaled(22)
+        readonly property color scheduled: theme.colors.secondary
+        readonly property real minTint: 0.35
+        readonly property real maxTint: 1.0
+        readonly property int animationDuration: 250
+    }
+
     property QtObject slider: QtObject {
         readonly property int width: theme.contentWidth * 0.6
         readonly property int handleSize: theme.scaled(20)
@@ -320,6 +343,15 @@ QtObject {
             readonly property int height: size
             readonly property int fontSize: theme.fontSize.medium
             readonly property int iconSize: theme.scaled(24)
+        }
+
+        readonly property QtObject inline: QtObject {
+            readonly property int size: theme.scaled(35)
+            readonly property int width: size
+            readonly property int height: size
+            readonly property int fontSize: theme.fontSize.medium
+            readonly property int iconSize: theme.scaled(19)
+            readonly property int radius: Math.round(theme.radius.xLarge * 0.8)
         }
 
         readonly property QtObject iconSmall: QtObject {
@@ -478,6 +510,52 @@ QtObject {
         readonly property real maxHeightRatio: 0.75
     }
 
+    property QtObject input: QtObject {
+        readonly property int searchHeight: theme.scaled(44)
+        readonly property int searchDelay: 150
+    }
+
+    property QtObject keyboard: QtObject {
+        readonly property int keyHeight: theme.scaled(44)
+        readonly property int keySpacing: theme.scaled(5)
+        readonly property int rowSpacing: theme.scaled(8)
+        readonly property int padding: theme.padding.xSmall
+        readonly property int keyRadius: theme.radius.medium
+        readonly property int fontSize: theme.fontSize.large
+        readonly property int specialFontSize: theme.fontSize.normal
+        readonly property int iconSize: theme.scaled(20)
+        readonly property real specialKeyUnits: 1.5
+        readonly property real previewScale: 1.3
+        readonly property int repeatDelay: 400
+        readonly property int repeatInterval: 60
+        readonly property int doubleTapInterval: 300
+        readonly property int multiTapTimeout: 900
+        readonly property int t9KeyHeight: theme.scaled(52)
+        readonly property real t9SideKeyUnits: 0.75
+        readonly property int hintFontSize: theme.fontSize.small
+        readonly property color hintText: theme.colors.textSecondary
+        readonly property color composingUnderline: theme.colors.primary
+        readonly property int candidateBarHeight: theme.scaled(40)
+        readonly property int candidateFontSize: theme.fontSize.medium
+        readonly property int candidatePadding: theme.padding.medium
+        readonly property color candidateText: theme.colors.textPrimary
+        readonly property color selectedCandidateText: theme.colors.primary
+        readonly property color candidateSeparator: theme.colors.border
+        readonly property color background: theme.isNightMode ? "#141414" : "#E4E5E8"
+        readonly property color keyBackground: theme.isNightMode ? "#2D2D2D" : "#FFFFFF"
+        readonly property color specialKeyBackground: theme.isNightMode ? "#242424" : "#C9CBD0"
+        readonly property color keyPressedBackground: theme.isNightMode ? "#3A3A3A" : "#D5D7DB"
+        readonly property color activeKeyBackground: theme.colors.primary
+        readonly property color activeKeyText: theme.colors.textInverse
+        readonly property color accentedKeyText: theme.colors.primary
+        readonly property color keyText: theme.colors.textPrimary
+        readonly property color previewBackground: theme.colors.dialogSurface
+        readonly property color previewBorder: theme.colors.border
+        readonly property string shiftIcon: theme.icons.chevronUp
+        readonly property string backspaceIcon: theme.icons.back
+        readonly property string enterIcon: theme.icons.check
+    }
+
     property QtObject icon: QtObject {
         readonly property int small: theme.scaled(16)
         readonly property int medium: theme.scaled(24)
@@ -493,12 +571,15 @@ QtObject {
         readonly property string settings: "qrc:/Themed/Icons/settings.svg"
         readonly property string sliders: "qrc:/Themed/Icons/sliders.svg"
         readonly property string edit: "qrc:/Themed/Icons/edit.svg"
+        readonly property string keyboard: "qrc:/Themed/Icons/keyboard.svg"
+        readonly property string circularTiles: "qrc:/Themed/Icons/circular-tiles.svg"
         readonly property string home: "qrc:/Themed/Icons/home.svg"
         readonly property string list: "qrc:/Themed/Icons/list.svg"
         readonly property string deck: "qrc:/Themed/Icons/deck.svg"
         readonly property string send: "qrc:/Themed/Icons/send.svg"
         readonly property string chat: "qrc:/Themed/Icons/chat.svg"
         readonly property string back: "qrc:/Themed/Icons/previous.svg"
+        readonly property string backspace: "qrc:/Themed/Icons/backspace.svg"
         readonly property string next: "qrc:/Themed/Icons/next.svg"
         readonly property string chevronUp: "qrc:/Themed/Icons/chevron-up.svg"
         readonly property string chevronDown: "qrc:/Themed/Icons/chevron-down.svg"
@@ -506,6 +587,7 @@ QtObject {
         readonly property string expand: "qrc:/Themed/Icons/expand.svg"
         readonly property string collapse: "qrc:/Themed/Icons/collapse.svg"
         readonly property string info: "qrc:/Themed/Icons/info.svg"
+        readonly property string help: "qrc:/Themed/Icons/help.svg"
         readonly property string success: "qrc:/Themed/Icons/success.svg"
         readonly property string warning: "qrc:/Themed/Icons/warning.svg"
         readonly property string error: "qrc:/Themed/Icons/error.svg"
@@ -520,11 +602,19 @@ QtObject {
         readonly property string copy: "qrc:/Themed/Icons/copy.svg"
         readonly property string paste: "qrc:/Themed/Icons/import.svg"
         readonly property string speaker: "qrc:/Themed/Icons/speaker.svg"
+        readonly property string eye: "qrc:/Themed/Icons/eye.svg"
+        readonly property string handPointer: "qrc:/Themed/Icons/hand-pointer.svg"
+        readonly property string handPointerFill: "qrc:/Themed/Icons/hand-pointer-fill.svg"
+        readonly property string lightbulb: "qrc:/Themed/Icons/lightbulb.svg"
         readonly property string translate: "qrc:/Themed/Icons/translate.svg"
         readonly property string globe: "qrc:/Themed/Icons/globe.svg"
         readonly property string curvedArrow: "qrc:/Themed/Icons/curved-arrow.svg"
+        readonly property string repeat: "qrc:/Themed/Icons/repeat.svg"
         readonly property string calendar: "qrc:/Themed/Icons/calendar.svg"
+        readonly property string chart: "qrc:/Themed/Icons/chart.svg"
         readonly property string timer: "qrc:/Themed/Icons/timer.svg"
         readonly property string aiApp: "qrc:/Themed/Icons/ai-app.svg"
+        readonly property string fillinLogo: "qrc:/Themed/Icons/fillin-logo.svg"
+        readonly property string fillinLogoColor: "qrc:/Themed/Icons/fillin-logo-color.svg"
     }
 }

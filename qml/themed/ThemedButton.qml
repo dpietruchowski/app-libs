@@ -18,6 +18,7 @@ Button {
     property int contentPadding: Theme.padding.medium
     property bool keyNavigable: true
     property bool keyDefault: false
+    property int maximumLineCount: 1
 
     function keyActivate() {
         if (control.checkable)
@@ -26,7 +27,9 @@ Button {
     }
 
     implicitWidth: buttonSize.width
-    implicitHeight: buttonSize.height
+    implicitHeight: control.maximumLineCount > 1
+                    ? Math.max(buttonSize.height, label.implicitHeight + 2 * Theme.padding.small)
+                    : buttonSize.height
 
     background: Rectangle {
         radius: circular ? Math.min(width, height) / 2 : pill ? height / 2 : control.radius
@@ -70,10 +73,13 @@ Button {
             }
 
             Text {
+                id: label
                 visible: control.text !== ""
                 text: control.text
                 width: content.leftAligned ? Math.min(implicitWidth, content.availableTextWidth) : implicitWidth
                 elide: Text.ElideRight
+                wrapMode: control.maximumLineCount > 1 ? Text.WordWrap : Text.NoWrap
+                maximumLineCount: control.maximumLineCount
                 font.pixelSize: buttonSize.fontSize
                 color: !control.enabled ? Theme.colors.textDisabled : buttonStyle.text
                 verticalAlignment: Text.AlignVCenter

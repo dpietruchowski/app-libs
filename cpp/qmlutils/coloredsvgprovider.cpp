@@ -12,6 +12,17 @@ ColoredSvgProvider::ColoredSvgProvider(QObject* parent)
 {
 }
 
+void ColoredSvgProvider::classBegin()
+{
+    m_constructing = true;
+}
+
+void ColoredSvgProvider::componentComplete()
+{
+    m_constructing = false;
+    updateSvgSource();
+}
+
 void ColoredSvgProvider::setSvgOriginSource(const QString& s)
 {
     if (m_svgOriginSource == s)
@@ -83,6 +94,9 @@ QString ColoredSvgProvider::loadSvgContent(const QString& path)
 
 void ColoredSvgProvider::updateSvgSource()
 {
+    if (m_constructing)
+        return;
+
     QString path = !m_svgOriginSource.isEmpty() ? m_svgOriginSource : m_icon;
     if (path.isEmpty())
     {
@@ -105,7 +119,7 @@ void ColoredSvgProvider::updateSvgSource()
         svg.replace("currentColor", colorStr, Qt::CaseInsensitive);
     }
 
-    QRegularExpression rx("<svg([^>]*)>");
+    static const QRegularExpression rx("<svg([^>]*)>");
     QRegularExpressionMatch match = rx.match(svg);
     if (match.hasMatch())
     {

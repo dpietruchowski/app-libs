@@ -19,4 +19,6 @@ target_sources(app_platform PRIVATE
     androidpackage.cpp
     vibrator.h
     vibrator.cpp
+    soundpool.h
+    soundpool.cpp
 )
