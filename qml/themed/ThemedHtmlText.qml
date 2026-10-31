@@ -13,6 +13,9 @@ TextEdit {
     property int slotLength: 0
     property string revealedIcon: Theme.icons.eye
 
+    readonly property real uncountedOpacity: 0.55
+    readonly property color uncountedColor: Qt.alpha(Theme.colors.error, uncountedOpacity)
+
     readonly property int revealedIconSize: Math.round(font.pixelSize > 0 ? font.pixelSize : lineMetrics.height)
     readonly property string revealedImage: {
         const size = revealedIconSize
@@ -61,6 +64,8 @@ TextEdit {
                      '<font color="' + successColor + '">$1</font>')
             .replace(/<span class="wrong">([\s\S]*?)<\/span>/g,
                      '<font color="' + errorColor + '"><s>$1</s></font>')
+            .replace(/<span class="wrong-uncounted">([\s\S]*?)<\/span>/g,
+                     '<font color="' + root.uncountedColor + '"><s>$1</s></font>')
             .replace(/<span class="revealed"><\/span>/g, root.revealedImage)
             .trim()
     }
@@ -82,6 +87,10 @@ TextEdit {
                             }
                             .wrong {
                                 color: ${errorColor};
+                                text-decoration: line-through;
+                            }
+                            .wrong-uncounted {
+                                color: ${root.uncountedColor};
                                 text-decoration: line-through;
                             }
                             .correct {
