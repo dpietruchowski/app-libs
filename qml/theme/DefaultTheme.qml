@@ -207,11 +207,11 @@ QtObject {
         readonly property int fontSize: theme.fontSize.small
         readonly property int radius: theme.radius.full
         readonly property QtObject neutral: QtObject {
-            readonly property color background: theme.colors.surfaceRaised
+            readonly property color background: Qt.rgba(theme.colors.textSecondary.r, theme.colors.textSecondary.g, theme.colors.textSecondary.b, 0.2)
             readonly property color text: theme.colors.textSecondary
         }
         readonly property QtObject primary: QtObject {
-            readonly property color background: theme.colors.primarySurface
+            readonly property color background: Qt.rgba(theme.colors.primary.r, theme.colors.primary.g, theme.colors.primary.b, 0.2)
             readonly property color text: theme.colors.primary
         }
         readonly property QtObject success: QtObject {
