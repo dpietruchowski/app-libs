@@ -194,6 +194,29 @@ TEST_F(DbRepositoryTest, Remove_WithWhere_RemovesMatchingItems)
     EXPECT_EQ(results.size(), 2);
 }
 
+TEST_F(DbRepositoryTest, Remove_WithEmptyWhere_IsRefusedAndKeepsTheRows)
+{
+    repository->insert(createTestItem("John", 30));
+    repository->insert(createTestItem("Jane", 25));
+
+    int removed = repository->remove(Where());
+
+    EXPECT_EQ(removed, -1);
+    EXPECT_EQ(repository->count(), 2);
+}
+
+TEST_F(DbRepositoryTest, RemoveAll_EmptiesTheTableAndReturnsTheRowCount)
+{
+    repository->insert(createTestItem("John", 30));
+    repository->insert(createTestItem("Jane", 25));
+    repository->insert(createTestItem("Bob", 35));
+
+    int removed = repository->removeAll();
+
+    EXPECT_EQ(removed, 3);
+    EXPECT_EQ(repository->count(), 0);
+}
+
 TEST_F(DbRepositoryTest, Exists_ExistingItem_ReturnsTrue)
 {
     QVariantMap item = createTestItem("John", 30);
