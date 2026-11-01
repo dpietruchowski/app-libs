@@ -222,8 +222,9 @@ namespace
             }
             run->agent = std::make_unique<::Agent>(entry.agent);
             run->agent->clear();
-            run->agent->setModel(m_model);
-            run->agent->setReasoningEffort(m_reasoningEffort);
+            run->agent->setModel(entry.model.isEmpty() ? m_model : entry.model);
+            run->agent->setReasoningEffort(entry.reasoningEffort.isEmpty() ? m_reasoningEffort
+                                                                           : entry.reasoningEffort);
             run->agent->setObserver(delegateObserver(entry, *run, std::move(done)));
             m_running = run;
             run->agent->requestAsync(

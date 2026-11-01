@@ -16,6 +16,8 @@ struct AppAgent final
     QString description;
     ::Agent agent;
     std::function<QString()> followUp;
+    QString model;
+    QString reasoningEffort;
 };
 
 class AgentCatalog final

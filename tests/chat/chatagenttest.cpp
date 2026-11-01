@@ -107,6 +107,15 @@ protected:
                           agent, [this] { return nextFollowUp(); } };
     }
 
+    void useCoursesAgent(const QString& model, const QString& reasoningEffort)
+    {
+        AppAgent entry = coursesAgent();
+        entry.model = model;
+        entry.reasoningEffort = reasoningEffort;
+        m_catalog = AgentCatalog();
+        m_catalog.add(std::move(entry));
+    }
+
     QString nextFollowUp()
     {
         ++m_followUpCalls;
@@ -896,4 +905,71 @@ TEST_F(ChatAgentTest, Delegate_RunsOnTheModelAndReasoningEffortOfTheTurn)
     const ModelConfig& config = delegateClient().held.front().config;
     EXPECT_EQ(config.model, QStringLiteral("chosen-model"));
     EXPECT_EQ(config.reasoningEffort, QStringLiteral("high"));
+}
+
+TEST_F(ChatAgentTest, Delegate_WithItsOwnModelAndReasoningEffort_RunsOnThemInsteadOfTheTurn)
+{
+    useCoursesAgent(QStringLiteral("own-model"), QStringLiteral("max"));
+    TurnRequest chosen = request();
+    chosen.model = QStringLiteral("chosen-model");
+    chosen.reasoningEffort = QStringLiteral("high");
+    begin(chosen);
+    settle();
+    ASSERT_EQ(mainClient().held.size(), 1u);
+    const ModelConfig mainConfig = mainClient().held.front().config;
+
+    callDelegate(QStringLiteral("courses"));
+
+    const ModelConfig& config = delegateClient().held.front().config;
+    EXPECT_EQ(config.model, QStringLiteral("own-model"));
+    EXPECT_EQ(config.reasoningEffort, QStringLiteral("max"));
+    EXPECT_EQ(mainConfig.model, QStringLiteral("chosen-model"));
+    EXPECT_EQ(mainConfig.reasoningEffort, QStringLiteral("high"));
+}
+
+TEST_F(ChatAgentTest, Delegate_WithOnlyItsOwnModel_FollowsTheReasoningEffortOfTheTurn)
+{
+    useCoursesAgent(QStringLiteral("own-model"), QString());
+    TurnRequest chosen = request();
+    chosen.model = QStringLiteral("chosen-model");
+    chosen.reasoningEffort = QStringLiteral("high");
+    begin(chosen);
+    settle();
+
+    callDelegate(QStringLiteral("courses"));
+
+    const ModelConfig& config = delegateClient().held.front().config;
+    EXPECT_EQ(config.model, QStringLiteral("own-model"));
+    EXPECT_EQ(config.reasoningEffort, QStringLiteral("high"));
+}
+
+TEST_F(ChatAgentTest, Delegate_WithOnlyItsOwnReasoningEffort_FollowsTheModelOfTheTurn)
+{
+    useCoursesAgent(QString(), QStringLiteral("max"));
+    TurnRequest chosen = request();
+    chosen.model = QStringLiteral("chosen-model");
+    chosen.reasoningEffort = QStringLiteral("high");
+    begin(chosen);
+    settle();
+
+    callDelegate(QStringLiteral("courses"));
+
+    const ModelConfig& config = delegateClient().held.front().config;
+    EXPECT_EQ(config.model, QStringLiteral("chosen-model"));
+    EXPECT_EQ(config.reasoningEffort, QStringLiteral("max"));
+}
+
+TEST_F(ChatAgentTest, FollowUp_KeepsTheOwnModelAndReasoningEffortOfTheDelegate)
+{
+    useCoursesAgent(QStringLiteral("own-model"), QStringLiteral("max"));
+    m_followUps = { QStringLiteral("check again") };
+    beginAndAsk();
+    callDelegate(QStringLiteral("courses"));
+
+    delegateClient(0).completeNext(contentCompletion(QStringLiteral("first report")));
+
+    ASSERT_EQ(delegateClient(1).held.size(), 1u);
+    const ModelConfig& config = delegateClient(1).held.front().config;
+    EXPECT_EQ(config.model, QStringLiteral("own-model"));
+    EXPECT_EQ(config.reasoningEffort, QStringLiteral("max"));
 }
