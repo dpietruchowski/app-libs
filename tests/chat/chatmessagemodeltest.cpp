@@ -9,11 +9,9 @@
 #include <optional>
 #include <vector>
 
-#include "chat/application/agentcatalog.h"
 #include "chat/ui/chatmessagemodel.h"
 #include "chatfixture.h"
 
-using chat::AppAgent;
 using chat::ChatMessageModel;
 using chat::MessageStatus;
 using chat::Role;
@@ -59,16 +57,9 @@ Step step(StepKind kind, const QString& agent, const QString& tool, StepStatus s
 class ChatMessageModelTest : public ::testing::Test
 {
 protected:
-    ChatMessageModelTest()
-        : model(catalog)
-    {
-    }
-
     void SetUp() override
     {
-        catalog.add(AppAgent { QStringLiteral("courses"), QStringLiteral("Courses"),
-                               QStringLiteral("Answers questions about courses."),
-                               ::Agent(QStringLiteral("model"), QStringLiteral("prompt")) });
+        model.setAgentTitles({ { QStringLiteral("courses"), QStringLiteral("Courses") } });
     }
 
     QVariant value(int row, ChatMessageModel::Roles role) const
@@ -78,7 +69,6 @@ protected:
 
     QVariantList stepsAt(int row) const { return value(row, ChatMessageModel::StepsRole).toList(); }
 
-    chat::AgentCatalog catalog;
     ChatMessageModel model;
 };
 
@@ -315,4 +305,125 @@ TEST_F(ChatMessageModelTest, PutRunningStep_WithoutARunningMessage_ChangesNothin
 
     EXPECT_EQ(changed.count(), 0);
     EXPECT_TRUE(stepsAt(0).isEmpty());
+}
+
+TEST_F(ChatMessageModelTest, SetAgentTitles_RefreshesTheStepsOfTheMessages)
+{
+    model.reset(
+        { message(Role::Assistant, QStringLiteral("done"), MessageStatus::Complete, QString(),
+                  { step(StepKind::Delegation, QStringLiteral("facts"), QStringLiteral("ask_facts"),
+                         StepStatus::Ok) }) });
+    QSignalSpy changed(&model, &QAbstractItemModel::dataChanged);
+
+    model.setAgentTitles({ { QStringLiteral("facts"), QStringLiteral("Facts") } });
+
+    EXPECT_EQ(stepsAt(0).at(0).toMap().value(QStringLiteral("agentTitle")).toString(),
+              QStringLiteral("Facts"));
+    ASSERT_EQ(changed.count(), 1);
+    EXPECT_EQ(changed.at(0).at(2).value<QList<int>>(), QList<int> { ChatMessageModel::StepsRole });
+}
+
+TEST_F(ChatMessageModelTest, SetAgentTitles_WithTheSameTitles_ChangesNothing)
+{
+    model.reset({ message(Role::User, QStringLiteral("hello")) });
+    QSignalSpy changed(&model, &QAbstractItemModel::dataChanged);
+
+    model.setAgentTitles({ { QStringLiteral("courses"), QStringLiteral("Courses") } });
+
+    EXPECT_EQ(changed.count(), 0);
+}
+
+TEST_F(ChatMessageModelTest, SetAgentTitles_WithoutMessages_EmitsNothing)
+{
+    QSignalSpy changed(&model, &QAbstractItemModel::dataChanged);
+
+    model.setAgentTitles({ { QStringLiteral("facts"), QStringLiteral("Facts") } });
+
+    EXPECT_EQ(changed.count(), 0);
+}
+
+TEST_F(ChatMessageModelTest, Activity_WithoutARunningMessage_IsEmpty)
+{
+    model.reset(
+        { message(Role::Assistant, QStringLiteral("answer"), MessageStatus::Complete, QString(),
+                  { step(StepKind::Delegation, QStringLiteral("courses"),
+                         QStringLiteral("ask_courses"), StepStatus::Running) }) });
+
+    EXPECT_TRUE(model.activity().isEmpty());
+}
+
+TEST_F(ChatMessageModelTest, Activity_OfARunningDelegation_NamesTheAgent)
+{
+    model.reset({ message(Role::Assistant, QString(), MessageStatus::Running, QString(),
+                          { step(StepKind::Delegation, QStringLiteral("courses"),
+                                 QStringLiteral("ask_courses"), StepStatus::Running) }) });
+
+    EXPECT_EQ(model.activity(), QStringLiteral("Asking Courses…"));
+}
+
+TEST_F(ChatMessageModelTest, Activity_OfARunningTool_NamesTheAgentAndTheTool)
+{
+    model.reset({ message(Role::Assistant, QString(), MessageStatus::Running, QString(),
+                          { step(StepKind::Tool, QStringLiteral("courses"),
+                                 QStringLiteral("courses_list"), StepStatus::Running) }) });
+
+    EXPECT_EQ(model.activity(), QStringLiteral("Courses: courses_list…"));
+}
+
+TEST_F(ChatMessageModelTest, Activity_IsTheLastRunningStep)
+{
+    const Step delegation = step(StepKind::Delegation, QStringLiteral("courses"),
+                                 QStringLiteral("ask_courses"), StepStatus::Running);
+    const Step tool
+        = step(StepKind::Tool, QStringLiteral("courses"), QStringLiteral("courses_list"),
+               StepStatus::Running, ToolEffect::Reads, delegation.id);
+    model.reset({ message(Role::Assistant, QString(), MessageStatus::Running, QString(),
+                          { delegation, tool }) });
+
+    EXPECT_EQ(model.activity(), QStringLiteral("Courses: courses_list…"));
+}
+
+TEST_F(ChatMessageModelTest, Activity_SkipsTheStepsThatAreFinished)
+{
+    const Step delegation = step(StepKind::Delegation, QStringLiteral("courses"),
+                                 QStringLiteral("ask_courses"), StepStatus::Running);
+    const Step tool
+        = step(StepKind::Tool, QStringLiteral("courses"), QStringLiteral("courses_list"),
+               StepStatus::Ok, ToolEffect::Reads, delegation.id);
+    model.reset({ message(Role::Assistant, QString(), MessageStatus::Running, QString(),
+                          { delegation, tool }) });
+
+    EXPECT_EQ(model.activity(), QStringLiteral("Asking Courses…"));
+}
+
+TEST_F(ChatMessageModelTest, Activity_WhenEveryStepIsFinished_IsEmpty)
+{
+    model.reset({ message(Role::Assistant, QString(), MessageStatus::Running, QString(),
+                          { step(StepKind::Delegation, QStringLiteral("courses"),
+                                 QStringLiteral("ask_courses"), StepStatus::Ok) }) });
+
+    EXPECT_TRUE(model.activity().isEmpty());
+}
+
+TEST_F(ChatMessageModelTest, Activity_OfAnAgentOutsideTheTitles_FallsBackToTheAgentKey)
+{
+    model.reset({ message(Role::Assistant, QString(), MessageStatus::Running, QString(),
+                          { step(StepKind::Delegation, QStringLiteral("facts"),
+                                 QStringLiteral("ask_facts"), StepStatus::Running) }) });
+
+    EXPECT_EQ(model.activity(), QStringLiteral("Asking facts…"));
+}
+
+TEST_F(ChatMessageModelTest, Activity_FollowsThePutRunningStep)
+{
+    model.reset({ message(Role::Assistant, QString(), MessageStatus::Running) });
+    Step delegation = step(StepKind::Delegation, QStringLiteral("courses"),
+                           QStringLiteral("ask_courses"), StepStatus::Running);
+    model.putRunningStep(delegation);
+    ASSERT_EQ(model.activity(), QStringLiteral("Asking Courses…"));
+
+    delegation.status = StepStatus::Ok;
+    model.putRunningStep(delegation);
+
+    EXPECT_TRUE(model.activity().isEmpty());
 }

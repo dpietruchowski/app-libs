@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QHash>
 #include <QObject>
 #include <QSettings>
 #include <QString>
@@ -9,6 +10,7 @@
 namespace chat
 {
 
+class AgentCatalog;
 class ChatStore;
 class TurnRunner;
 
@@ -26,14 +28,20 @@ public:
     struct Config final
     {
         QString settingsGroup;
+        QString loginCommand;
         bool available { false };
     };
 
-    Chat(ChatStore& store, TurnRunner& runner, QSettings& settings, const Config& config,
-         QObject* parent = nullptr);
+    Chat(ChatStore& store, TurnRunner& runner, const AgentCatalog& catalog, QSettings& settings,
+         const Config& config, QObject* parent = nullptr);
 
     bool available() const;
     QString unavailableReason() const;
+    QString loginCommand() const;
+    QHash<QString, QString> agentTitles() const;
+
+    ChatStore& store();
+    TurnRunner& runner();
 
     QString model() const;
     void setModel(const QString& model);
@@ -57,6 +65,7 @@ private:
 
     ChatStore& m_store;
     TurnRunner& m_runner;
+    const AgentCatalog& m_catalog;
     QSettings& m_settings;
     Config m_config;
     ChatConversationModel m_conversations;

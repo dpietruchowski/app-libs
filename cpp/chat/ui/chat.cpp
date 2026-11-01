@@ -2,6 +2,7 @@
 
 #include <QUuid>
 
+#include "chat/application/agentcatalog.h"
 #include "chat/application/agentturn.h"
 #include "chat/application/chatstore.h"
 #include "chat/application/turnrunner.h"
@@ -18,11 +19,12 @@ namespace
 
 }
 
-Chat::Chat(ChatStore& store, TurnRunner& runner, QSettings& settings, const Config& config,
-           QObject* parent)
+Chat::Chat(ChatStore& store, TurnRunner& runner, const AgentCatalog& catalog, QSettings& settings,
+           const Config& config, QObject* parent)
     : QObject(parent)
     , m_store(store)
     , m_runner(runner)
+    , m_catalog(catalog)
     , m_settings(settings)
     , m_config(config)
     , m_conversations(this)
@@ -43,6 +45,22 @@ QString Chat::unavailableReason() const
     }
     return errorText(MessageStatus::Failed, turn_error::kUnavailable, QString());
 }
+
+QString Chat::loginCommand() const { return m_config.loginCommand; }
+
+QHash<QString, QString> Chat::agentTitles() const
+{
+    QHash<QString, QString> titles;
+    for (const AppAgent& agent : m_catalog.agents())
+    {
+        titles.insert(agent.key, agent.title);
+    }
+    return titles;
+}
+
+ChatStore& Chat::store() { return m_store; }
+
+TurnRunner& Chat::runner() { return m_runner; }
 
 QString Chat::model() const { return m_settings.value(modelKey(), kDefaultModel).toString(); }
 

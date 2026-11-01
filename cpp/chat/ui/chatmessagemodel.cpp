@@ -1,18 +1,17 @@
 #include "chat/ui/chatmessagemodel.h"
 
+#include <QCoreApplication>
 #include <QVariantMap>
 #include <algorithm>
 
-#include "chat/application/agentcatalog.h"
 #include "chat/domain/enumnames.h"
 #include "chat/ui/errortext.h"
 
 namespace chat
 {
 
-ChatMessageModel::ChatMessageModel(const AgentCatalog& catalog, QObject* parent)
+ChatMessageModel::ChatMessageModel(QObject* parent)
     : QAbstractListModel(parent)
-    , m_catalog(catalog)
 {
 }
 
@@ -26,6 +25,19 @@ void ChatMessageModel::setLoginCommand(const QString& command)
     if (!m_messages.empty())
     {
         emit dataChanged(index(0), index(rowCount() - 1), { ErrorRole });
+    }
+}
+
+void ChatMessageModel::setAgentTitles(const QHash<QString, QString>& titles)
+{
+    if (m_agentTitles == titles)
+    {
+        return;
+    }
+    m_agentTitles = titles;
+    if (!m_messages.empty())
+    {
+        emit dataChanged(index(0), index(rowCount() - 1), { StepsRole });
     }
 }
 
@@ -56,19 +68,34 @@ bool ChatMessageModel::putRunningStep(const Step& step)
     return editRunning(
         [&step](Message::Data& data)
         {
-            const auto known = std::find_if(data.steps.begin(), data.steps.end(),
-                                            [&step](const Step& s) { return s.id == step.id; });
-            if (known == data.steps.end())
-            {
-                data.steps.push_back(step);
-            }
-            else
-            {
-                *known = step;
-            }
+            upsertStep(data.steps, step);
             return true;
         },
         StepsRole);
+}
+
+QString ChatMessageModel::activity() const
+{
+    const std::optional<int> row = runningRow();
+    if (!row)
+    {
+        return QString();
+    }
+
+    const std::vector<Step>& steps = m_messages[static_cast<size_t>(*row)].steps();
+    const auto running = std::find_if(steps.rbegin(), steps.rend(), [](const Step& step)
+                                      { return step.status == StepStatus::Running; });
+    if (running == steps.rend())
+    {
+        return QString();
+    }
+    if (running->kind == StepKind::Delegation)
+    {
+        return QCoreApplication::translate("ChatMessageModel", "Asking %1…")
+            .arg(agentTitle(running->agent));
+    }
+    return QCoreApplication::translate("ChatMessageModel", "%1: %2…")
+        .arg(agentTitle(running->agent), running->tool);
 }
 
 int ChatMessageModel::rowCount(const QModelIndex& parent) const
@@ -146,19 +173,23 @@ QVariantList ChatMessageModel::stepsOf(const Message& message) const
     QVariantList steps;
     for (const Step& step : message.steps())
     {
-        const AppAgent* entry = m_catalog.find(step.agent);
         steps.append(QVariantMap {
             { QStringLiteral("id"), step.id.toString(QUuid::WithoutBraces) },
             { QStringLiteral("parentId"),
               step.parentId ? step.parentId->toString(QUuid::WithoutBraces) : QString() },
             { QStringLiteral("kind"), stepKindName(step.kind) },
             { QStringLiteral("agent"), step.agent },
-            { QStringLiteral("agentTitle"), entry ? entry->title : step.agent },
+            { QStringLiteral("agentTitle"), agentTitle(step.agent) },
             { QStringLiteral("tool"), step.tool },
             { QStringLiteral("status"), stepStatusName(step.status) },
             { QStringLiteral("effect"), effectName(step.effect) } });
     }
     return steps;
+}
+
+QString ChatMessageModel::agentTitle(const QString& agentKey) const
+{
+    return m_agentTitles.value(agentKey, agentKey);
 }
 
 }

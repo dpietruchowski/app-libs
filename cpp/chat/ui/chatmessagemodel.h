@@ -14,8 +14,6 @@
 namespace chat
 {
 
-class AgentCatalog;
-
 class ChatMessageModel : public QAbstractListModel
 {
     Q_OBJECT
@@ -31,12 +29,15 @@ public:
         CreatedAtRole
     };
 
-    explicit ChatMessageModel(const AgentCatalog& catalog, QObject* parent = nullptr);
+    explicit ChatMessageModel(QObject* parent = nullptr);
 
     void setLoginCommand(const QString& command);
+    void setAgentTitles(const QHash<QString, QString>& titles);
     void reset(const std::vector<Message>& messages);
     bool setRunningText(const QString& text);
     bool putRunningStep(const Step& step);
+
+    QString activity() const;
 
     int rowCount(const QModelIndex& parent = QModelIndex()) const override;
     QVariant data(const QModelIndex& index, int role = Qt::DisplayRole) const override;
@@ -46,8 +47,9 @@ private:
     std::optional<int> runningRow() const;
     bool editRunning(const std::function<bool(Message::Data&)>& edit, int changedRole);
     QVariantList stepsOf(const Message& message) const;
+    QString agentTitle(const QString& agentKey) const;
 
-    const AgentCatalog& m_catalog;
+    QHash<QString, QString> m_agentTitles;
     QString m_loginCommand;
     std::vector<Message> m_messages;
 };

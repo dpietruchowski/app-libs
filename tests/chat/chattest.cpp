@@ -39,19 +39,22 @@ protected:
 
     void TearDown() override
     {
+        m_worker.drain();
         m_chat.reset();
         m_settings.reset();
         m_runner.reset();
         ChatFixture::TearDown();
     }
 
-    void createChat(bool available = true, const QString& settingsGroup = QStringLiteral("chat"))
+    void createChat(bool available = true, const QString& settingsGroup = QStringLiteral("chat"),
+                    const QString& loginCommand = QString())
     {
+        m_worker.drain();
         m_chat.reset();
         m_settings = std::make_unique<QSettings>(m_directory.filePath(QStringLiteral("chat.ini")),
                                                  QSettings::IniFormat);
-        m_chat = std::make_unique<Chat>(*m_store, *m_runner, *m_settings,
-                                        Chat::Config { settingsGroup, available });
+        m_chat = std::make_unique<Chat>(*m_store, *m_runner, m_catalog, *m_settings,
+                                        Chat::Config { settingsGroup, loginCommand, available });
     }
 
     template <typename Predicate> bool waitUntil(Predicate predicate)
@@ -173,6 +176,35 @@ TEST_F(ChatTest, WhenUnavailable_TheReasonIsTheSentenceOfTheUnavailableError)
     EXPECT_FALSE(m_chat->unavailableReason().isEmpty());
     EXPECT_EQ(m_chat->unavailableReason(),
               errorText(MessageStatus::Failed, turn_error::kUnavailable, QString()));
+}
+
+TEST_F(ChatTest, TheLoginCommand_IsTheConfiguredOne)
+{
+    createChat(true, QStringLiteral("chat"), QStringLiteral("claude auth login"));
+
+    EXPECT_EQ(m_chat->loginCommand(), QStringLiteral("claude auth login"));
+}
+
+TEST_F(ChatTest, TheAgentTitles_AreTakenFromTheCatalogWhenAsked)
+{
+    createChat();
+    EXPECT_TRUE(m_chat->agentTitles().isEmpty());
+
+    m_catalog.add(AppAgent { QStringLiteral("courses"), QStringLiteral("Courses"),
+                             QStringLiteral("Answers questions about courses."),
+                             ::Agent(QStringLiteral("model"), QStringLiteral("prompt")) });
+
+    EXPECT_EQ(
+        m_chat->agentTitles(),
+        (QHash<QString, QString> { { QStringLiteral("courses"), QStringLiteral("Courses") } }));
+}
+
+TEST_F(ChatTest, TheStoreAndTheRunner_AreTheOnesItWasBuiltFrom)
+{
+    createChat();
+
+    EXPECT_EQ(&m_chat->store(), m_store.get());
+    EXPECT_EQ(&m_chat->runner(), m_runner.get());
 }
 
 TEST_F(ChatTest, TheConversationList_IsLoadedAtConstructionNewestFirst)
