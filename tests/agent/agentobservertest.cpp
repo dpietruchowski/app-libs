@@ -270,6 +270,44 @@ TEST_F(AgentObserverTest, TooManyToolRounds_FailsWithTheLimitTokenOnce)
     EXPECT_TRUE(client.held.empty());
 }
 
+TEST_F(AgentObserverTest, TheToolCallLimitDefaultsToTwenty)
+{
+    EXPECT_EQ(agent.maxToolCalls(), 20);
+    EXPECT_EQ(Agent::kDefaultMaxToolCalls, 20);
+}
+
+TEST_F(AgentObserverTest, AConfiguredToolCallLimitReplacesTheDefault)
+{
+    agent.setMaxToolCalls(3);
+    agent.addTool(kEchoDocstring, echoTool());
+    request();
+
+    for (int round = 0; round < 4; ++round)
+    {
+        completeToolCall();
+    }
+
+    EXPECT_EQ(events.last(), "failed too_many_tool_calls");
+    EXPECT_EQ(toolRuns, 3);
+    EXPECT_TRUE(client.held.empty());
+}
+
+TEST_F(AgentObserverTest, ARaisedToolCallLimitLetsTheAgentGoPastTwenty)
+{
+    agent.setMaxToolCalls(40);
+    agent.addTool(kEchoDocstring, echoTool());
+    request();
+
+    for (int round = 0; round < 25; ++round)
+    {
+        completeToolCall();
+    }
+
+    EXPECT_TRUE(events.filter("failed").isEmpty());
+    EXPECT_EQ(toolRuns, 25);
+    EXPECT_FALSE(client.held.empty());
+}
+
 TEST_F(AgentObserverTest, Finish_FiresOnceAndTheAgentAcceptsTheNextRequest)
 {
     request();

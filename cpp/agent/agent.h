@@ -20,9 +20,13 @@ class Agent
 public:
     using ResponseReceivedCallback = std::function<void(const QString& response)>;
     using ErrorReceivedCallback = std::function<void(const QString& error)>;
+    static constexpr int kDefaultMaxToolCalls = 20;
+
     Agent(const QString& model, const QString& systemPrompt);
 
     void setModel(const QString& model);
+    void setMaxToolCalls(int count);
+    int maxToolCalls() const;
     void setReasoningEffort(const QString& effort);
     void setErrorCallback(ErrorReceivedCallback callback);
     void setObserver(AgentObserver observer);
@@ -78,4 +82,5 @@ private:
     Client::PartialTextCallback m_partialTextCallback;
     LifeToken m_life;
     int m_toolCallsCount = 0;
+    int m_maxToolCalls = kDefaultMaxToolCalls;
 };

@@ -164,8 +164,11 @@ namespace
             {
                 if (m_delegation)
                 {
-                    finishStep(m_delegation, StepStatus::Ok, QJsonValue::fromVariant(result));
+                    finishStep(m_delegation,
+                               m_delegationFailed ? StepStatus::Failed : StepStatus::Ok,
+                               QJsonValue::fromVariant(result));
                 }
+                m_delegationFailed = false;
             };
             observer.finished = [this](const QString& answer) { succeed(answer); };
             observer.failed = [this](const QString& errorToken) { fail(errorToken); };
@@ -208,9 +211,16 @@ namespace
             observer.failed = [this, &entry, done](const QString& errorToken)
             {
                 retireRun();
-                done(failureReport(entry, errorToken));
+                reportDelegationFailure(entry, errorToken, done);
             };
             return observer;
+        }
+
+        void reportDelegationFailure(const AppAgent& entry, const QString& errorToken,
+                                     const ToolDone& done)
+        {
+            m_delegationFailed = true;
+            done(failureReport(entry, errorToken));
         }
 
         void delegate(const AppAgent& entry, const QVariantMap& arguments, ToolDone done)
@@ -219,7 +229,7 @@ namespace
             run->client = m_clients(ClaudeSession {});
             if (!run->client)
             {
-                done(failureReport(entry, turn_error::kUnavailable));
+                reportDelegationFailure(entry, turn_error::kUnavailable, done);
                 return;
             }
             run->agent = std::make_unique<::Agent>(entry.agent);
@@ -296,6 +306,7 @@ namespace
         std::optional<Step> m_tool;
         std::shared_ptr<DelegateRun> m_running;
         std::vector<std::shared_ptr<void>> m_retired;
+        bool m_delegationFailed { false };
         bool m_concluded { false };
     };
 
