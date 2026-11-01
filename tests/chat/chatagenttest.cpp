@@ -110,8 +110,7 @@ protected:
     void useCoursesAgent(const QString& model, const QString& reasoningEffort)
     {
         AppAgent entry = coursesAgent();
-        entry.model = model;
-        entry.reasoningEffort = reasoningEffort;
+        entry.config = ModelConfig { .model = model, .reasoningEffort = reasoningEffort };
         m_catalog = AgentCatalog();
         m_catalog.add(std::move(entry));
     }
