@@ -5,9 +5,11 @@
 #include <QJsonObject>
 
 #include "chatclaude/httprequestparser.h"
-#include "fixturefile.h"
+#include "recordedrequests.h"
 
 using namespace chat::claude;
+using chat::test::recordedRequests;
+using chat::test::wireFormatOf;
 
 namespace
 {
@@ -46,40 +48,6 @@ QList<HttpRequest> parseInChunks(const QByteArray& wire, qsizetype chunkSize)
     }
     EXPECT_FALSE(parser.failed());
     return requests;
-}
-
-QList<QJsonObject> recordedRequests(const char* fixture)
-{
-    QList<QJsonObject> entries;
-    for (const QByteArray& line : chat::test::readFixture(fixture).split('\n'))
-    {
-        if (!line.trimmed().isEmpty())
-            entries.append(QJsonDocument::fromJson(line).object());
-    }
-    return entries;
-}
-
-QByteArray wireFormat(const QJsonObject& entry)
-{
-    QByteArray wire = entry.value("method").toString().toUtf8() + ' '
-        + entry.value("path").toString().toUtf8() + ' ' + entry.value("version").toString().toUtf8()
-        + "\r\n";
-    for (const QJsonValue& header : entry.value("headers").toArray())
-    {
-        const QJsonArray pair = header.toArray();
-        wire += pair.at(0).toString().toUtf8() + ": " + pair.at(1).toString().toUtf8() + "\r\n";
-    }
-    wire += "\r\n";
-    wire += entry.value("body").toString().toUtf8();
-    return wire;
-}
-
-QByteArray wireFormatOf(const QList<QJsonObject>& entries)
-{
-    QByteArray wire;
-    for (const QJsonObject& entry : entries)
-        wire += wireFormat(entry);
-    return wire;
 }
 
 void expectMatchesRecording(const HttpRequest& request, const QJsonObject& entry)
