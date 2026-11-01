@@ -16,7 +16,6 @@ namespace turn_error
     inline const QString kCancelled = QStringLiteral("cancelled");
     inline const QString kTimeout = QStringLiteral("timeout");
     inline const QString kUnavailable = QStringLiteral("unavailable");
-    inline const QString kBridgeUnavailable = QStringLiteral("bridge_unavailable");
 
 }
 
@@ -31,6 +30,7 @@ public:
 
 signals:
     void sessionReady(const QString& backendSession);
+    void partialText(const QString& text);
     void stepStarted(const chat::Step& step);
     void stepFinished(const chat::Step& step);
     void finished(const QString& answer);

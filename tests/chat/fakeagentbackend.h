@@ -17,6 +17,7 @@ public:
     void cancel() override { ++cancelCalls; }
 
     void reportSession(const QString& backendSession) { emit sessionReady(backendSession); }
+    void reportPartialText(const QString& text) { emit partialText(text); }
     void reportStepStarted(const chat::Step& step) { emit stepStarted(step); }
     void reportStepFinished(const chat::Step& step) { emit stepFinished(step); }
     void complete(const QString& answer) { emit finished(answer); }

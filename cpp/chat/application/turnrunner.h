@@ -52,6 +52,7 @@ public:
 
 signals:
     void turnStarted(const QUuid& conversationId);
+    void partialText(const QUuid& conversationId, const QString& text);
     void stepStarted(const QUuid& conversationId, const chat::Step& step);
     void stepFinished(const QUuid& conversationId, const chat::Step& step);
     void turnFinished(const QUuid& conversationId);

@@ -21,10 +21,10 @@ const QString kQuestion = QStringLiteral("question");
 
 BackendSession sessionAt(const QString& id, int start = 0) { return BackendSession { id, start }; }
 
-QStringList texts(const std::vector<Message>& messages)
+QStringList texts(const std::vector<chat::Message>& messages)
 {
     QStringList list;
-    for (const Message& message : messages)
+    for (const chat::Message& message : messages)
     {
         list.append(message.text());
     }
@@ -116,13 +116,16 @@ protected:
     {
         const Conversation conversation = newConversation();
         fillHistory(conversation.id(), 45);
-        const Message answer = appendRunningAnswer(conversation.id());
+        const chat::Message answer = appendRunningAnswer(conversation.id());
         awaitOk(m_store->finishMessage(answer.id(), MessageStatus::Complete, QStringLiteral("x"),
                                        QString(), session));
         return conversation;
     }
 
-    Message lastMessage(const QUuid& conversationId) { return messagesOf(conversationId).back(); }
+    chat::Message lastMessage(const QUuid& conversationId)
+    {
+        return messagesOf(conversationId).back();
+    }
 
     AgentCatalog m_catalog;
     FakeBackend m_backend;
@@ -153,7 +156,7 @@ TEST_F(TurnRunnerTest, Send_StoresTheQuestionAndARunningAnswerThenStartsTheBacke
     ASSERT_EQ(m_backend.requests.size(), 1u);
     EXPECT_EQ(m_backend.requests.front().conversationId, conversation.id());
 
-    const std::vector<Message> stored = messagesOf(conversation.id());
+    const std::vector<chat::Message> stored = messagesOf(conversation.id());
     ASSERT_EQ(stored.size(), 2u);
     EXPECT_EQ(stored[0].role(), Role::User);
     EXPECT_EQ(stored[0].text(), QStringLiteral("What is light?"));
@@ -182,7 +185,7 @@ TEST_F(TurnRunnerTest, Send_PassesTheProfileAndTheContextToTheBackend)
     EXPECT_EQ(request.reasoningEffort, QStringLiteral("high"));
     ASSERT_TRUE(request.context.has_value());
     EXPECT_EQ(*request.context, context);
-    const std::vector<Message> stored = messagesOf(conversation.id());
+    const std::vector<chat::Message> stored = messagesOf(conversation.id());
     ASSERT_FALSE(stored.empty());
     ASSERT_TRUE(stored.front().context().has_value());
     EXPECT_EQ(*stored.front().context(), context);
@@ -228,7 +231,7 @@ TEST_F(TurnRunnerTest, Finished_CompletesTheAnswerWithItsText)
 
     completeTurn(conversation.id(), turn, QStringLiteral("Light is a wave."));
 
-    const Message answer = lastMessage(conversation.id());
+    const chat::Message answer = lastMessage(conversation.id());
     EXPECT_EQ(answer.status(), MessageStatus::Complete);
     EXPECT_EQ(answer.text(), QStringLiteral("Light is a wave."));
     EXPECT_TRUE(answer.error().isEmpty());
@@ -289,9 +292,26 @@ TEST_F(TurnRunnerTest, Steps_AreForwardedToTheViewAndStoredWithTheAnswer)
     EXPECT_EQ(started.front().status, StepStatus::Running);
     ASSERT_EQ(finished.size(), 1u);
     EXPECT_EQ(finished.front(), step);
-    const Message answer = lastMessage(conversation.id());
+    const chat::Message answer = lastMessage(conversation.id());
     ASSERT_EQ(answer.steps().size(), 1u);
     EXPECT_EQ(answer.steps().front(), step);
+}
+
+TEST_F(TurnRunnerTest, PartialText_IsForwardedToTheViewWithTheConversationId)
+{
+    const Conversation conversation = newConversation();
+    FakeTurn* turn = startTurn(conversation.id());
+    ASSERT_NE(turn, nullptr);
+    QSignalSpy spy(m_runner.get(), &TurnRunner::partialText);
+
+    turn->reportPartialText(QStringLiteral("Hel"));
+    turn->reportPartialText(QStringLiteral("Hello"));
+    completeTurn(conversation.id(), turn, QStringLiteral("Hello"));
+
+    ASSERT_EQ(spy.count(), 2);
+    EXPECT_EQ(spy.at(0).at(0).toUuid(), conversation.id());
+    EXPECT_EQ(spy.at(0).at(1).toString(), QStringLiteral("Hel"));
+    EXPECT_EQ(spy.at(1).at(1).toString(), QStringLiteral("Hello"));
 }
 
 TEST_F(TurnRunnerTest, Failed_KeepsTheAnswerInHistoryAsFailedWithTheErrorToken)
@@ -301,7 +321,7 @@ TEST_F(TurnRunnerTest, Failed_KeepsTheAnswerInHistoryAsFailedWithTheErrorToken)
 
     failTurn(conversation.id(), turn, turn_error::kNetworkError);
 
-    const std::vector<Message> stored = messagesOf(conversation.id());
+    const std::vector<chat::Message> stored = messagesOf(conversation.id());
     ASSERT_EQ(stored.size(), 2u);
     EXPECT_EQ(stored[1].status(), MessageStatus::Failed);
     EXPECT_EQ(stored[1].error(), turn_error::kNetworkError);
@@ -316,7 +336,7 @@ TEST_F(TurnRunnerTest, BackendThatCannotStart_FailsTheAnswerAsUnavailable)
     EXPECT_TRUE(m_runner->send(conversation.id(), kQuestion));
     settle(conversation.id());
 
-    const Message answer = lastMessage(conversation.id());
+    const chat::Message answer = lastMessage(conversation.id());
     EXPECT_EQ(answer.status(), MessageStatus::Failed);
     EXPECT_EQ(answer.error(), turn_error::kUnavailable);
     EXPECT_EQ(m_backend.requests.size(), 1u);
@@ -334,7 +354,7 @@ TEST_F(TurnRunnerTest, Cancel_AsksTheBackendAndKeepsTheAnswerAsCancelled)
     EXPECT_TRUE(m_runner->isBusy(conversation.id()));
     turn->fail(turn_error::kCancelled);
     settle(conversation.id());
-    const Message answer = lastMessage(conversation.id());
+    const chat::Message answer = lastMessage(conversation.id());
     EXPECT_EQ(answer.status(), MessageStatus::Cancelled);
     EXPECT_EQ(answer.error(), turn_error::kCancelled);
 }
@@ -348,7 +368,7 @@ TEST_F(TurnRunnerTest, Cancel_BeforeTheBackendStarted_ConcludesWithoutStartingIt
     settle(conversation.id());
 
     EXPECT_TRUE(m_backend.requests.empty());
-    const std::vector<Message> stored = messagesOf(conversation.id());
+    const std::vector<chat::Message> stored = messagesOf(conversation.id());
     ASSERT_EQ(stored.size(), 2u);
     EXPECT_EQ(stored[1].status(), MessageStatus::Cancelled);
     EXPECT_EQ(stored[1].error(), turn_error::kCancelled);
@@ -368,18 +388,18 @@ TEST_F(TurnRunnerTest, Retry_AfterAFailure_RunsTheSameAnswerAgain)
 {
     const Conversation conversation = newConversation();
     failTurn(conversation.id(), startTurn(conversation.id()));
-    const Message failed = lastMessage(conversation.id());
+    const chat::Message failed = lastMessage(conversation.id());
 
     FakeTurn* turn = retryTurn(conversation.id());
 
-    const Message running = lastMessage(conversation.id());
+    const chat::Message running = lastMessage(conversation.id());
     EXPECT_EQ(running.id(), failed.id());
     EXPECT_EQ(running.status(), MessageStatus::Running);
     EXPECT_TRUE(running.error().isEmpty());
     EXPECT_EQ(texts(m_backend.requests[1].transcript), QStringList { kQuestion });
 
     completeTurn(conversation.id(), turn, QStringLiteral("recovered"));
-    const std::vector<Message> stored = messagesOf(conversation.id());
+    const std::vector<chat::Message> stored = messagesOf(conversation.id());
     ASSERT_EQ(stored.size(), 2u);
     EXPECT_EQ(stored[1].id(), failed.id());
     EXPECT_EQ(stored[1].status(), MessageStatus::Complete);
@@ -549,6 +569,22 @@ TEST_F(TurnRunnerTest, Session_FailedTurnThatReportedANewSession_ForgetsBothIds)
     QStringList forgotten = m_backend.forgotten;
     forgotten.sort();
     EXPECT_EQ(forgotten, (QStringList { QStringLiteral("s1"), QStringLiteral("s2") }));
+}
+
+TEST_F(TurnRunnerTest, Session_FinishThatCannotBeSaved_ForgetsEveryKnownId)
+{
+    const Conversation conversation
+        = conversationWithSession(QStringLiteral("A"), sessionAt("s0", 0));
+    FakeTurn* turn = startTurn(conversation.id());
+    ASSERT_NE(turn, nullptr);
+    awaitOk(m_store->remove(conversation.id()));
+
+    turn->reportSession(QStringLiteral("s1"));
+    completeTurn(conversation.id(), turn);
+
+    QStringList forgotten = m_backend.forgotten;
+    forgotten.sort();
+    EXPECT_EQ(forgotten, (QStringList { QStringLiteral("s0"), QStringLiteral("s1") }));
 }
 
 TEST_F(TurnRunnerTest, Session_CancelledTurn_ClearsTheSessionAndForgetsIt)

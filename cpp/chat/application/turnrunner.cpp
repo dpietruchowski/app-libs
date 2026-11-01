@@ -255,6 +255,8 @@ void TurnRunner::connectTurn(const QUuid& conversationId, AgentTurn& turn)
                     active->readySession = backendSession;
                 }
             });
+    connect(&turn, &AgentTurn::partialText, this, [this, conversationId](const QString& text)
+            { emit partialText(conversationId, text); });
     connect(&turn, &AgentTurn::stepStarted, this,
             [this, conversationId](const Step& step)
             {
@@ -304,20 +306,19 @@ void TurnRunner::conclude(const QUuid& conversationId, MessageStatus status, con
     }
 
     const QStringList known = active->knownSessions();
-    const std::optional<BackendSession> previous = active->previousSession;
     const std::optional<BackendSession> stored
         = status == MessageStatus::Complete ? active->sessionAfterSuccess() : std::nullopt;
 
     m_store.finishMessage(active->assistantMessageId, status, text, error, stored)
         .finally(this,
-                 [this, conversationId, known, previous, stored](const Result<Message>& result)
+                 [this, conversationId, known, stored](const Result<Message>& result)
                  {
                      if (result.isFailure())
                      {
                          qWarning().noquote()
                              << "Failed to finish the chat message:" << result.error();
                      }
-                     forgetAllBut(known, result.isSuccess() ? stored : previous);
+                     forgetAllBut(known, result.isSuccess() ? stored : std::nullopt);
                      finish(conversationId);
                  });
 }
