@@ -1,15 +1,25 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 
 import Themed.Components
 
 Flickable {
     id: control
 
+    default property alias content: body.data
+
     contentWidth: width
-    contentHeight: contentItem.childrenRect.height
+    contentHeight: body.implicitHeight
     clip: true
     boundsBehavior: Flickable.StopAtBounds
+
+    ColumnLayout {
+        id: body
+
+        width: control.width
+        spacing: Theme.spacing.medium
+    }
 
     ScrollBar.vertical: ScrollBar {
         policy: control.contentHeight > control.height ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff

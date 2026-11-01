@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Layouts
 import Themed.Components
 
 Item {
@@ -186,7 +187,7 @@ Item {
 
                     Column {
                         id: contentColumn
-                        width: contentScroll.width
+                        Layout.fillWidth: true
                     }
                 }
 
