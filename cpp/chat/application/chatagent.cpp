@@ -14,6 +14,7 @@
 #include "agent/agent.h"
 #include "chat/application/agentcatalog.h"
 #include "chat/application/agentturn.h"
+#include "chat/domain/enumnames.h"
 
 namespace chat
 {
@@ -33,11 +34,6 @@ namespace
     QString failureReport(const AppAgent& entry, const QString& errorToken)
     {
         return QStringLiteral("The %1 agent failed (%2).").arg(entry.title, errorToken);
-    }
-
-    QString roleName(Role role)
-    {
-        return role == Role::User ? QStringLiteral("user") : QStringLiteral("assistant");
     }
 
     Step openStep(StepKind kind, const QString& agent, const QString& tool, const ToolCall& call,

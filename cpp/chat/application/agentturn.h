@@ -11,10 +11,7 @@ namespace chat
 namespace turn_error
 {
 
-    inline const QString kNetworkError = QStringLiteral("network_error");
-    inline const QString kServerError = QStringLiteral("server_error");
     inline const QString kCancelled = QStringLiteral("cancelled");
-    inline const QString kTimeout = QStringLiteral("timeout");
     inline const QString kUnavailable = QStringLiteral("unavailable");
 
 }

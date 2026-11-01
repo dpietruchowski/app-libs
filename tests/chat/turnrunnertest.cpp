@@ -3,6 +3,7 @@
 #include <QSignalSpy>
 #include <QTest>
 
+#include "agent/claudecli.h"
 #include "chat/application/agentcatalog.h"
 #include "chat/application/transcript.h"
 #include "chat/application/turnrunner.h"
@@ -88,7 +89,7 @@ protected:
         settle(id);
     }
 
-    void failTurn(const QUuid& id, FakeTurn* turn, const QString& token = turn_error::kNetworkError)
+    void failTurn(const QUuid& id, FakeTurn* turn, const QString& token = claudecli::kNetworkError)
     {
         ASSERT_NE(turn, nullptr);
         turn->fail(token);
@@ -319,12 +320,12 @@ TEST_F(TurnRunnerTest, Failed_KeepsTheAnswerInHistoryAsFailedWithTheErrorToken)
     const Conversation conversation = newConversation();
     FakeTurn* turn = startTurn(conversation.id());
 
-    failTurn(conversation.id(), turn, turn_error::kNetworkError);
+    failTurn(conversation.id(), turn, claudecli::kNetworkError);
 
     const std::vector<chat::Message> stored = messagesOf(conversation.id());
     ASSERT_EQ(stored.size(), 2u);
     EXPECT_EQ(stored[1].status(), MessageStatus::Failed);
-    EXPECT_EQ(stored[1].error(), turn_error::kNetworkError);
+    EXPECT_EQ(stored[1].error(), claudecli::kNetworkError);
     EXPECT_TRUE(stored[1].text().isEmpty());
 }
 
