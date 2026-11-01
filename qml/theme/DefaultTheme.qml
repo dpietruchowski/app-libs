@@ -587,7 +587,6 @@ QtObject {
         readonly property int activityIconSize: theme.scaled(16)
         readonly property int activityFontSize: theme.fontSize.small
         readonly property color activityText: theme.colors.textSecondary
-        readonly property color activityDetail: theme.colors.textPlaceholder
         readonly property color activityWrite: theme.colors.warning
         readonly property color activityFailed: theme.colors.error
         readonly property int errorSpacing: theme.spacing.small
