@@ -536,9 +536,65 @@ TEST_F(ChatAgentTest, Delegation_ThatFails_ReachesTheMainAgentAsItsResult)
 
     EXPECT_TRUE(lastMessageOf(mainClient())
                     .contains(QStringLiteral("The Courses agent failed (server_error).")));
-    EXPECT_EQ(m_events, (QStringList { "start:Delegation courses", "end:Delegation courses Ok" }));
+    EXPECT_EQ(m_events,
+              (QStringList { "start:Delegation courses", "end:Delegation courses Failed" }));
     mainClient().completeNext(contentCompletion(kAnswer));
     EXPECT_EQ(m_events.last(), "finished:" + kAnswer);
+}
+
+TEST_F(ChatAgentTest, Delegation_ThatFails_KeepsTheFailureReportAsTheStepOutput)
+{
+    beginAndAsk();
+    callDelegate(QStringLiteral("courses"));
+
+    delegateClient().completeNext(failedCompletion(QStringLiteral("server_error")));
+
+    ASSERT_EQ(m_ended.size(), 1u);
+    EXPECT_EQ(m_ended.at(0).status, StepStatus::Failed);
+    EXPECT_EQ(m_ended.at(0).output.toString(),
+              QStringLiteral("The Courses agent failed (server_error)."));
+}
+
+TEST_F(ChatAgentTest, Delegation_ThatHitsTheToolCallLimit_EndsAsAFailedStepAndTellsTheMainAgent)
+{
+    ::Agent agent(QStringLiteral("model"), kCoursesPrompt);
+    agent.setMaxToolCalls(2);
+    agent.addTool(kListCourses, appTool());
+    m_catalog = AgentCatalog();
+    m_catalog.add(AppAgent { QStringLiteral("courses"), QStringLiteral("Courses"),
+                             kCoursesDescription, agent });
+    beginAndAsk();
+    callDelegate(QStringLiteral("courses"));
+
+    for (int round = 0; round < 3; ++round)
+    {
+        delegateClient().completeNext(toolCallCompletion(
+            QStringLiteral("t%1").arg(round), QStringLiteral("list_courses"),
+            { { QStringLiteral("limit"), 3 } }));
+    }
+
+    EXPECT_EQ(m_toolArguments.size(), 2u);
+    EXPECT_TRUE(lastMessageOf(mainClient())
+                    .contains(QStringLiteral("The Courses agent failed (too_many_tool_calls).")));
+    ASSERT_FALSE(m_ended.empty());
+    EXPECT_EQ(m_ended.back().kind, StepKind::Delegation);
+    EXPECT_EQ(m_ended.back().status, StepStatus::Failed);
+}
+
+TEST_F(ChatAgentTest, Delegation_AfterAFailedOne_ASuccessfulOneEndsOk)
+{
+    beginAndAsk();
+    mainClient().completeNext(
+        toolCallsCompletion({ toolCall(QStringLiteral("c1"), QStringLiteral("courses"),
+                                       { { QStringLiteral("task"), QStringLiteral("a") } }),
+                              toolCall(QStringLiteral("c2"), QStringLiteral("facts"),
+                                       { { QStringLiteral("task"), QStringLiteral("b") } }) }));
+    delegateClient(0).completeNext(failedCompletion(QStringLiteral("server_error")));
+    delegateClient(1).completeNext(contentCompletion(QStringLiteral("B done")));
+
+    EXPECT_EQ(m_events,
+              (QStringList { "start:Delegation courses", "end:Delegation courses Failed",
+                             "start:Delegation facts", "end:Delegation facts Ok" }));
 }
 
 TEST_F(ChatAgentTest, Delegation_ThatFailsBeforeReturningFromTheRequest_StillReachesTheMainAgent)
@@ -550,7 +606,8 @@ TEST_F(ChatAgentTest, Delegation_ThatFailsBeforeReturningFromTheRequest_StillRea
 
     EXPECT_TRUE(lastMessageOf(mainClient())
                     .contains(QStringLiteral("The Courses agent failed (network_error).")));
-    EXPECT_EQ(m_events, (QStringList { "start:Delegation courses", "end:Delegation courses Ok" }));
+    EXPECT_EQ(m_events,
+              (QStringList { "start:Delegation courses", "end:Delegation courses Failed" }));
 }
 
 TEST_F(ChatAgentTest, Delegation_WhenTheFactoryGivesNoClient_ReportsItAsUnavailable)
@@ -562,7 +619,8 @@ TEST_F(ChatAgentTest, Delegation_WhenTheFactoryGivesNoClient_ReportsItAsUnavaila
 
     EXPECT_TRUE(lastMessageOf(mainClient())
                     .contains(QStringLiteral("The Courses agent failed (unavailable).")));
-    EXPECT_EQ(m_events, (QStringList { "start:Delegation courses", "end:Delegation courses Ok" }));
+    EXPECT_EQ(m_events,
+              (QStringList { "start:Delegation courses", "end:Delegation courses Failed" }));
 }
 
 TEST_F(ChatAgentTest, Cancel_WhileTheMainAgentWaits_FailsWithCancelledOnce)

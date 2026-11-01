@@ -27,8 +27,6 @@ static const QRegularExpression descriptionRegex(R"(@details\s+(.+))");
 static const QRegularExpression paramRegex(R"(@param\s+(\w+)\s+\(([^)]+)\)\s+(.+))");
 static const QRegularExpression returnRegex(R"(@return\s+(.+))");
 
-const int kMaxToolCallsCount = 20;
-
 QJsonObject parseDocstring(const QString& docstring)
 {
     QJsonObject result;
@@ -126,6 +124,10 @@ Agent::Agent(const QString& model, const QString& systemPrompt)
 void Agent::setModel(const QString& model) { m_config.model = model; }
 
 void Agent::setReasoningEffort(const QString& effort) { m_config.reasoningEffort = effort; }
+
+void Agent::setMaxToolCalls(int count) { m_maxToolCalls = count; }
+
+int Agent::maxToolCalls() const { return m_maxToolCalls; }
 
 void Agent::setErrorCallback(ErrorReceivedCallback callback) { m_errorCallback = std::move(callback); }
 
@@ -282,7 +284,7 @@ void Agent::onCompletionReceived(const Client& client, const Completion& complet
 
 void Agent::handleToolCallsAsync(const Client& client, QVector<ToolCall> toolCalls, int index)
 {
-    if (index == 0 && ++m_toolCallsCount > kMaxToolCallsCount)
+    if (index == 0 && ++m_toolCallsCount > m_maxToolCalls)
     {
         qCWarning(AgentLogic) << "Too many tool calls count";
         deliverResponse("", QStringLiteral("too_many_tool_calls"));
