@@ -88,6 +88,14 @@ void Client::createCompletionAsync(const ModelConfig& config, const Messages& me
                      });
 }
 
+void Client::createCompletionAsync(const ModelConfig& config, const Messages& messages,
+                                   const ToolsMap& toolsMap,
+                                   const CompletionCreatedCallback& callback,
+                                   const PartialTextCallback&) const
+{
+    createCompletionAsync(config, messages, toolsMap, callback);
+}
+
 Completion Client::createCompletion(const ModelConfig& config, const Messages& messages,
                                     const ToolsMap& toolsMap) const
 {

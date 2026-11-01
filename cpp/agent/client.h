@@ -12,6 +12,7 @@ class Client
 {
 public:
     using CompletionCreatedCallback = std::function<void(Completion& completion)>;
+    using PartialTextCallback = std::function<void(const QString& textSoFar)>;
 
     Client();
     Client(const QString& url, const QString& apiKey);
@@ -20,8 +21,14 @@ public:
     virtual void createCompletionAsync(const ModelConfig& config, const Messages& messages,
                                        const ToolsMap& toolsMap,
                                        const CompletionCreatedCallback& callback) const;
+    virtual void createCompletionAsync(const ModelConfig& config, const Messages& messages,
+                                       const ToolsMap& toolsMap,
+                                       const CompletionCreatedCallback& callback,
+                                       const PartialTextCallback& partialText) const;
     virtual Completion createCompletion(const ModelConfig& config, const Messages& messages,
                                         const ToolsMap& toolsMap) const;
+
+    virtual QString session() const { return QString(); }
 
     void setReasoningNested(bool nested);
 

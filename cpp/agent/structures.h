@@ -8,6 +8,8 @@
 #include <QVariantMap>
 #include <QVector>
 
+#include "tooleffect.h"
+
 using ToolDone = std::function<void(QVariant)>;
 using Tool = std::function<void(QVariantMap, ToolDone)>;
 
@@ -21,6 +23,7 @@ struct ToolData
 {
     Tool tool;
     QJsonObject json;
+    ToolEffect effect { ToolEffect::Reads };
 };
 
 using ToolsMap = QMap<QString, ToolData>;
