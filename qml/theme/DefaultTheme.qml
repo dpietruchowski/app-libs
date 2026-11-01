@@ -501,6 +501,7 @@ QtObject {
 
     property QtObject navigation: QtObject {
         readonly property int barHeight: theme.scaled(56)
+        readonly property int handleStripHeight: theme.scaled(16)
     }
 
     property QtObject panel: QtObject {
@@ -508,6 +509,8 @@ QtObject {
         readonly property int handleHeight: theme.scaled(4)
         readonly property int titleSize: theme.fontSize.large
         readonly property real maxHeightRatio: 0.75
+        readonly property real sheetHeightRatio: 0.8
+        readonly property real sideWidthRatio: 0.8
     }
 
     property QtObject input: QtObject {
@@ -668,6 +671,7 @@ QtObject {
         readonly property string calendar: "qrc:/Themed/Icons/calendar.svg"
         readonly property string chart: "qrc:/Themed/Icons/chart.svg"
         readonly property string timer: "qrc:/Themed/Icons/timer.svg"
+        readonly property string history: "qrc:/Themed/Icons/history.svg"
         readonly property string aiApp: "qrc:/Themed/Icons/ai-app.svg"
         readonly property string fillinLogo: "qrc:/Themed/Icons/fillin-logo.svg"
         readonly property string fillinLogoColor: "qrc:/Themed/Icons/fillin-logo-color.svg"
