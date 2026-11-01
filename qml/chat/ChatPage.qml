@@ -89,38 +89,8 @@ ThemedPage {
         }
     }
 
-    ColumnLayout {
+    ChatConversation {
         anchors.fill: parent
-        visible: page.available
-        spacing: Theme.spacing.medium
-
-        ChatMessageList {
-            objectName: "chatMessageList"
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            model: page.session.messages
-            busy: page.session.busy
-            activity: page.session.activity
-
-            onRetryRequested: page.session.retry()
-        }
-
-        ChatComposer {
-            objectName: "chatComposer"
-            Layout.fillWidth: true
-            Layout.bottomMargin: Theme.spacing.small
-            busy: page.session.busy
-
-            onSent: (text) => page.session.send(text)
-            onStopRequested: page.session.cancel()
-        }
-    }
-
-    ThemedEmpty {
-        objectName: "chatUnavailable"
-        anchors.fill: parent
-        visible: !page.available
-        iconSource: Theme.icons.chat
-        text: page.chat.unavailableReason
+        session: page.session
     }
 }
