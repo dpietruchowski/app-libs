@@ -562,6 +562,61 @@ QtObject {
         readonly property int large: theme.scaled(32)
     }
 
+    property QtObject chat: QtObject {
+        readonly property real bubbleMaxWidthRatio: 0.78
+        readonly property int fontSize: theme.fontSize.normal
+        readonly property int messageSpacing: theme.spacing.large
+        readonly property int composerHeight: theme.scaled(52)
+        readonly property color composerBackground: theme.colors.surface
+        readonly property color composerBorder: theme.colors.border
+        readonly property color composerBorderFocused: theme.colors.borderStrong
+        readonly property int composerRadius: theme.radius.xLarge
+        readonly property int composerFontSize: theme.fontSize.normal
+        readonly property int composerPaddingH: theme.padding.medium
+        readonly property int thinkingSpacing: theme.spacing.small
+        readonly property int thinkingMarkerSize: theme.scaled(8)
+        readonly property int thinkingMarkerRadius: 2
+        readonly property int thinkingFontSize: theme.fontSize.small
+        readonly property string thinkingFontFamily: "monospace"
+        readonly property int thinkingTickInterval: 1000
+        readonly property color thinkingMarker: theme.colors.primary
+        readonly property color thinkingText: theme.colors.textPrimary
+        readonly property color thinkingDetail: theme.colors.primary
+        readonly property int activitySpacing: theme.spacing.xSmall
+        readonly property int activityIndent: theme.padding.medium
+        readonly property int activityIconSize: theme.scaled(16)
+        readonly property int activityFontSize: theme.fontSize.small
+        readonly property color activityText: theme.colors.textSecondary
+        readonly property color activityDetail: theme.colors.textPlaceholder
+        readonly property color activityWrite: theme.colors.warning
+        readonly property color activityFailed: theme.colors.error
+        readonly property int errorSpacing: theme.spacing.small
+        readonly property int errorFontSize: theme.fontSize.small
+        readonly property color errorText: theme.colors.error
+    }
+
+    property QtObject chatBubble: QtObject {
+        readonly property QtObject user: QtObject {
+            readonly property color background: theme.colors.surface
+            readonly property color border: "transparent"
+            readonly property color text: theme.colors.textPrimary
+            readonly property int radius: theme.radius.large
+            readonly property int paddingH: 14
+            readonly property int paddingV: 10
+            readonly property int alignment: Qt.AlignRight
+        }
+
+        readonly property QtObject agent: QtObject {
+            readonly property color background: "transparent"
+            readonly property color border: "transparent"
+            readonly property color text: theme.colors.textPrimary
+            readonly property int radius: 0
+            readonly property int paddingH: 0
+            readonly property int paddingV: 0
+            readonly property int alignment: Qt.AlignLeft
+        }
+    }
+
     property QtObject icons: QtObject {
         readonly property string search: "qrc:/Themed/Icons/search.svg"
         readonly property string close: "qrc:/Themed/Icons/close.svg"
@@ -577,6 +632,7 @@ QtObject {
         readonly property string list: "qrc:/Themed/Icons/list.svg"
         readonly property string deck: "qrc:/Themed/Icons/deck.svg"
         readonly property string send: "qrc:/Themed/Icons/send.svg"
+        readonly property string stop: "qrc:/Themed/Icons/stop.svg"
         readonly property string chat: "qrc:/Themed/Icons/chat.svg"
         readonly property string back: "qrc:/Themed/Icons/previous.svg"
         readonly property string backspace: "qrc:/Themed/Icons/backspace.svg"
