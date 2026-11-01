@@ -192,8 +192,13 @@ namespace
                 const QString message = nextFollowUp(entry, run);
                 if (!message.isEmpty())
                 {
-                    run.agent->requestAsync(*run.client, message, [](const QString&) {});
-                    return;
+                    if (std::unique_ptr<::Client> next = m_clients(ClaudeSession {}))
+                    {
+                        m_retired.push_back(std::shared_ptr<void>(std::move(run.client)));
+                        run.client = std::move(next);
+                        run.agent->requestAsync(*run.client, message, [](const QString&) {});
+                        return;
+                    }
                 }
                 retireRun();
                 done(report);

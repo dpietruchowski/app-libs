@@ -36,12 +36,21 @@ struct ClientState
     std::optional<Completion> immediate;
     std::vector<ClientRequest> held;
     bool destroyed { false };
+    bool oneShot { false };
+    bool concluded { false };
 
     void completeNext(Completion completion)
     {
         const ClientRequest next = held.front();
         held.erase(held.begin());
+        conclude(completion);
         next.callback(completion);
+    }
+
+    void conclude(const Completion& completion)
+    {
+        concluded = completion.choices.isEmpty()
+            || completion.choices.constFirst().message.tool_calls.isEmpty();
     }
 
     void streamNext(const QString& textSoFar) const { held.front().partialText(textSoFar); }
@@ -64,9 +73,16 @@ public:
                                const ToolsMap& toolsMap, const CompletionCreatedCallback& callback,
                                const PartialTextCallback& partialText) const override
     {
+        if (m_state->oneShot && m_state->concluded)
+        {
+            Completion completion = failedCompletion(QStringLiteral("server_error"));
+            callback(completion);
+            return;
+        }
         if (m_state->immediate)
         {
             Completion completion = *m_state->immediate;
+            m_state->conclude(completion);
             callback(completion);
             return;
         }
