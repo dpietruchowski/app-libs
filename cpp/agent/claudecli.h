@@ -10,8 +10,11 @@ namespace claudecli
 inline const QString kNetworkError = QStringLiteral("network_error");
 inline const QString kServerError = QStringLiteral("server_error");
 inline const QString kTimeout = QStringLiteral("timeout");
+inline const QString kNotLoggedIn = QStringLiteral("not_logged_in");
 
 Completion failure(const QString& error);
+
+bool isSessionId(const QString& id);
 
 QString executable();
 QString modelOf(const ModelConfig& config);

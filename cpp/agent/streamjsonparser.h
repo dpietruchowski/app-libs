@@ -39,6 +39,7 @@ private:
     void handleInit(const QJsonObject& event, std::vector<StreamEvent>& events);
     void handleStreamEvent(const QJsonObject& event, std::vector<StreamEvent>& events);
     void handleControlRequest(const QJsonObject& event, std::vector<StreamEvent>& events);
+    void handleAssistant(const QJsonObject& event);
     void handleResult(const QJsonObject& event, std::vector<StreamEvent>& events);
     void conclude(StreamEvent finalEvent, std::vector<StreamEvent>& events);
 
@@ -46,5 +47,6 @@ private:
     QString m_messageText;
     bool m_initSeen { false };
     bool m_sessionReported { false };
+    bool m_authenticationFailed { false };
     bool m_finished { false };
 };

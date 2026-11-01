@@ -2,6 +2,7 @@
 
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QStandardPaths>
 #include <QStringList>
 
@@ -39,6 +40,15 @@ Completion failure(const QString& error)
     Completion completion;
     completion.error = error;
     return completion;
+}
+
+bool isSessionId(const QString& id)
+{
+    static const QRegularExpression pattern(
+        QRegularExpression::anchoredPattern(
+            QStringLiteral("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")),
+        QRegularExpression::CaseInsensitiveOption);
+    return pattern.match(id).hasMatch();
 }
 
 QString executable() { return QStandardPaths::findExecutable(QStringLiteral("claude")); }

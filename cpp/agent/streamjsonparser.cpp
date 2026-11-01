@@ -16,6 +16,7 @@ const QString kExecutionErrorSubtype = QStringLiteral("error_during_execution");
 const QString kMessageStart = QStringLiteral("message_start");
 const QString kContentBlockDelta = QStringLiteral("content_block_delta");
 const QString kTextDelta = QStringLiteral("text_delta");
+const QString kAuthenticationFailed = QStringLiteral("authentication_failed");
 
 StreamEvent makeEvent(StreamEvent::Kind kind, QString text = {}, QString detail = {})
 {
@@ -101,6 +102,8 @@ void StreamJsonParser::handleLine(const QByteArray& line, std::vector<StreamEven
         handleStreamEvent(event, events);
     else if (type == QStringLiteral("control_request"))
         handleControlRequest(event, events);
+    else if (type == QStringLiteral("assistant"))
+        handleAssistant(event);
     else if (type == QStringLiteral("result"))
         handleResult(event, events);
 }
@@ -150,6 +153,12 @@ void StreamJsonParser::handleControlRequest(const QJsonObject& event,
     events.push_back(std::move(mcpRequest));
 }
 
+void StreamJsonParser::handleAssistant(const QJsonObject& event)
+{
+    if (event.value("error").toString() == kAuthenticationFailed)
+        m_authenticationFailed = true;
+}
+
 void StreamJsonParser::handleResult(const QJsonObject& event, std::vector<StreamEvent>& events)
 {
     const QString subtype = event.value("subtype").toString();
@@ -162,9 +171,9 @@ void StreamJsonParser::handleResult(const QJsonObject& event, std::vector<Stream
         conclude(makeEvent(StreamEvent::Kind::SessionMissing, {}, failureDetail(event)), events);
     else
     {
-        conclude(
-            makeEvent(StreamEvent::Kind::Failure, claudecli::kServerError, failureDetail(event)),
-            events);
+        const QString token
+            = m_authenticationFailed ? claudecli::kNotLoggedIn : claudecli::kServerError;
+        conclude(makeEvent(StreamEvent::Kind::Failure, token, failureDetail(event)), events);
     }
 }
 

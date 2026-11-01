@@ -14,6 +14,13 @@ struct ClaudeLauncher
     int hardTimeoutMs { 600000 };
 };
 
+namespace claudecli
+{
+
 QProcessEnvironment cleanEnvironment(const QProcessEnvironment& source);
 
-ClaudeLauncher defaultLauncher();
+ClaudeLauncher defaultLauncher(const QString& chatDirectory);
+
+QString sessionFile(const ClaudeLauncher& launcher, const QString& id);
+
+}

@@ -76,6 +76,13 @@ QJsonObject resultEvent(const QString& subtype, bool isError, const QString& tex
     };
 }
 
+QJsonObject assistantErrorEvent(const QString& error)
+{
+    return { { "type", "assistant" },
+             { "error", error },
+             { "message", QJsonObject { { "role", "assistant" } } } };
+}
+
 QJsonObject errorsEvent(const QString& subtype, const QStringList& errors)
 {
     return { { "type", "result" },
@@ -253,6 +260,56 @@ TEST_F(StreamJsonParserTest, ReportsAServerErrorForASuccessResultFlaggedAsError)
 
     EXPECT_EQ(trace(events), (std::vector<std::string> { "failure server_error" }));
     EXPECT_EQ(events[0].detail, "rate limited");
+}
+
+TEST_F(StreamJsonParserTest, ReportsNotLoggedInForTheRecordedRunWithoutCredentials)
+{
+    const std::vector<StreamEvent> events = parseFixture("stdio-not-logged-in.jsonl");
+
+    ASSERT_FALSE(events.empty());
+    EXPECT_EQ(trace(events).back(), "failure not_logged_in");
+    EXPECT_EQ(events.back().text, claudecli::kNotLoggedIn);
+    EXPECT_EQ(events.back().detail, "Not logged in · Please run /login");
+    EXPECT_TRUE(parser.isFinished());
+}
+
+TEST_F(StreamJsonParserTest, ReportsNotLoggedInForAnErrorResultAfterAnAuthenticationFailedMessage)
+{
+    const std::vector<StreamEvent> events
+        = parseStream(line(initEvent("s1")) + line(assistantErrorEvent("authentication_failed"))
+                      + line(resultEvent("success", true, "The login has expired")));
+
+    EXPECT_EQ(trace(events), (std::vector<std::string> { "session s1", "failure not_logged_in" }));
+    EXPECT_EQ(events.back().detail, "The login has expired");
+}
+
+TEST_F(StreamJsonParserTest,
+       ReportsAServerErrorForAnErrorResultWithoutAnAuthenticationFailedMessage)
+{
+    const std::vector<StreamEvent> events
+        = parseStream(line(initEvent("s1"))
+                      + line(resultEvent("success", true, "Not logged in · Please run /login")));
+
+    EXPECT_EQ(trace(events), (std::vector<std::string> { "session s1", "failure server_error" }));
+}
+
+TEST_F(StreamJsonParserTest, ReportsAServerErrorWhenTheAssistantMessageCarriesAnotherError)
+{
+    const std::vector<StreamEvent> events
+        = parseStream(line(assistantErrorEvent("rate_limit"))
+                      + line(resultEvent("success", true, "Not logged in")));
+
+    EXPECT_EQ(trace(events), (std::vector<std::string> { "failure server_error" }));
+}
+
+TEST_F(StreamJsonParserTest,
+       ReportsAnAnswerWhenTheResultIsNoErrorAfterAnAuthenticationFailedMessage)
+{
+    const std::vector<StreamEvent> events
+        = parseStream(line(assistantErrorEvent("authentication_failed"))
+                      + line(resultEvent("success", false, "fine")));
+
+    EXPECT_EQ(trace(events), (std::vector<std::string> { "answer fine" }));
 }
 
 TEST_F(StreamJsonParserTest, WaitsForTheEndOfTheLineBeforeParsing)

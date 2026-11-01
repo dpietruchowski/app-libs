@@ -43,6 +43,26 @@ TEST(ClaudeCliTest, ExposesTheCategoryTokensOfAFailedCompletion)
     EXPECT_EQ(claudecli::kNetworkError, "network_error");
     EXPECT_EQ(claudecli::kServerError, "server_error");
     EXPECT_EQ(claudecli::kTimeout, "timeout");
+    EXPECT_EQ(claudecli::kNotLoggedIn, "not_logged_in");
+}
+
+TEST(ClaudeCliTest, AcceptsASessionIdInTheCanonicalUuidForm)
+{
+    EXPECT_TRUE(claudecli::isSessionId("64174da0-2cdb-4392-b7ec-5fe0b2f28b20"));
+    EXPECT_TRUE(claudecli::isSessionId("64174DA0-2CDB-4392-B7EC-5FE0B2F28B20"));
+}
+
+TEST(ClaudeCliTest, RejectsAnythingThatIsNotAUuidAsASessionId)
+{
+    for (const QString& id : { QString(), QString("abc"), QString("--resume"),
+                               QString("{64174da0-2cdb-4392-b7ec-5fe0b2f28b20}"),
+                               QString("64174da02cdb4392b7ec5fe0b2f28b20"),
+                               QString("64174da0-2cdb-4392-b7ec-5fe0b2f28b2"),
+                               QString("64174da0-2cdb-4392-b7ec-5fe0b2f28b200"),
+                               QString("64174da0-2cdb-4392-b7ec-5fe0b2f28b2g"),
+                               QString("64174da0-2cdb-4392-b7ec-5fe0b2f28b20\n"),
+                               QString(" 64174da0-2cdb-4392-b7ec-5fe0b2f28b20") })
+        EXPECT_FALSE(claudecli::isSessionId(id)) << id.toStdString();
 }
 
 TEST(ClaudeCliTest, BuildsAFailedCompletionWithoutChoices)
