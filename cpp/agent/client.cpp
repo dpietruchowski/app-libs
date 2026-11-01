@@ -136,15 +136,16 @@ QNetworkReply* Client::createRequest(const ModelConfig& config, const Messages& 
 
     if (!config.reasoningEffort.isEmpty())
     {
+        const QString effort = config.reasoningEffort.toLower();
         if (m_reasoningNested)
         {
             QJsonObject reasoning;
-            reasoning[kJsonEffortKey] = config.reasoningEffort;
+            reasoning[kJsonEffortKey] = effort;
             json[kJsonReasoningKey] = reasoning;
         }
         else
         {
-            json[kJsonReasoningEffortKey] = config.reasoningEffort;
+            json[kJsonReasoningEffortKey] = effort;
         }
     }
 
