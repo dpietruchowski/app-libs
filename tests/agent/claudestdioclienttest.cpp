@@ -58,15 +58,20 @@ Messages afterTools(Messages messages, const ToolResults& results)
 
 QString requestThroughAgent(Agent& agent, const ClaudeStdioClient& client, const QString& message)
 {
-    bool delivered = false;
+    bool done = false;
     QString response;
-    agent.requestAsync(client, message,
-                       [&response, &delivered](const QString& text)
-                       {
-                           response = text;
-                           delivered = true;
-                       });
-    EXPECT_TRUE(QTest::qWaitFor([&delivered] { return delivered; }, kWaitMs));
+    AgentObserver observer;
+    observer.finished = [&response, &done](const QString& answer)
+    {
+        response = answer;
+        done = true;
+    };
+    observer.failed = [&done](const QString&) { done = true; };
+    agent.setObserver(observer);
+
+    agent.requestAsync(client, message, [](const QString&) {});
+    EXPECT_TRUE(QTest::qWaitFor([&done] { return done; }, kWaitMs));
+    agent.setObserver({});
     return response;
 }
 

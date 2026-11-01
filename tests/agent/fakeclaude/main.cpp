@@ -53,7 +53,7 @@ std::string escaped(const std::string& text)
     return result;
 }
 
-std::string quoted(const std::string& text) { return "\"" + escaped(text) + "\""; }
+std::string jsonQuoted(const std::string& text) { return "\"" + escaped(text) + "\""; }
 
 void record(const std::string& json)
 {
@@ -71,9 +71,9 @@ void recordStart(int argc, char** argv)
 {
     std::string arguments;
     for (int i = 3; i < argc; ++i)
-        arguments += (arguments.empty() ? "" : ",") + quoted(argv[i]);
+        arguments += (arguments.empty() ? "" : ",") + jsonQuoted(argv[i]);
 
-    record("{\"argv\":[" + arguments + "],\"cwd\":" + quoted(currentDirectory())
+    record("{\"argv\":[" + arguments + "],\"cwd\":" + jsonQuoted(currentDirectory())
            + ",\"pid\":" + std::to_string(getpid()) + "}");
 }
 
@@ -93,14 +93,14 @@ void waitForInputLine()
         record("{\"stdin\":null}");
         std::exit(3);
     }
-    record("{\"stdin\":" + quoted(line) + "}");
+    record("{\"stdin\":" + jsonQuoted(line) + "}");
 }
 
 void waitForEndOfInput()
 {
     std::string line;
     while (std::getline(std::cin, line))
-        record("{\"stdin\":" + quoted(line) + "}");
+        record("{\"stdin\":" + jsonQuoted(line) + "}");
     record("{\"eof\":true}");
 }
 
@@ -126,7 +126,8 @@ void spawnChild()
 void recordEnvironment(const std::string& name)
 {
     const char* value = std::getenv(name.c_str());
-    record("{\"env\":" + quoted(name) + ",\"value\":" + (value ? quoted(value) : "null") + "}");
+    record("{\"env\":" + jsonQuoted(name) + ",\"value\":" + (value ? jsonQuoted(value) : "null")
+           + "}");
 }
 
 void recordIdentity()
