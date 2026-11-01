@@ -5,10 +5,12 @@
 #include <vector>
 
 #include <QEventLoop>
+#include <QFile>
 #include <QHash>
 #include <QJsonValue>
 #include <QProcess>
 #include <QTimer>
+#include <QUuid>
 
 #ifdef Q_OS_UNIX
 #include <csignal>
@@ -31,8 +33,22 @@ namespace
 const QString kFinishStop = QStringLiteral("stop");
 const QString kFinishToolCalls = QStringLiteral("tool_calls");
 const QString kAssistantRole = QStringLiteral("assistant");
+const QString kUserRole = QStringLiteral("user");
 const QString kToolRole = QStringLiteral("tool");
 const QString kMcpConfig = QStringLiteral(R"({"mcpServers":{"app":{"type":"sdk","name":"app"}}})");
+
+enum class SessionMode
+{
+    Seed,
+    Resume,
+    Ephemeral
+};
+
+struct SessionPlan
+{
+    SessionMode mode { SessionMode::Ephemeral };
+    QString id;
+};
 
 struct Request
 {
@@ -47,15 +63,46 @@ struct ToolRequest
     QJsonValue rpcId;
 };
 
-QStringList commandLine(const ClaudeLauncher& launcher, const Request& request)
+QString lastUserMessage(const Messages& messages)
+{
+    for (auto it = messages.crbegin(); it != messages.crend(); ++it)
+    {
+        if (it->role == kUserRole)
+            return it->content;
+    }
+    return QString();
+}
+
+QString transcriptFor(const Request& request, SessionMode mode)
+{
+    return mode == SessionMode::Resume ? lastUserMessage(request.messages)
+                                       : claudecli::conversation(request.messages);
+}
+
+QStringList sessionArguments(const SessionPlan& plan)
+{
+    switch (plan.mode)
+    {
+        case SessionMode::Seed:
+            return { QStringLiteral("--session-id"), plan.id };
+        case SessionMode::Resume:
+            return { QStringLiteral("--resume"), plan.id };
+        case SessionMode::Ephemeral:
+            break;
+    }
+    return { QStringLiteral("--no-session-persistence") };
+}
+
+QStringList commandLine(const ClaudeLauncher& launcher, const Request& request,
+                        const SessionPlan& plan)
 {
     QStringList args = launcher.leadingArguments;
     args << QStringLiteral("-p") << QStringLiteral("--input-format")
          << QStringLiteral("stream-json") << QStringLiteral("--output-format")
          << QStringLiteral("stream-json") << QStringLiteral("--verbose")
          << QStringLiteral("--include-partial-messages")
-         << QStringLiteral("--system-prompt-snapshot") << QStringLiteral("off")
-         << QStringLiteral("--no-session-persistence");
+         << QStringLiteral("--system-prompt-snapshot") << QStringLiteral("off");
+    args << sessionArguments(plan);
     args << QStringLiteral("--model") << claudecli::modelOf(request.config);
 
     const QString effort = claudecli::effortOf(request.config);
@@ -110,12 +157,15 @@ Completion toolCallsCompletion(const std::vector<ToolRequest>& requests)
 void leaveTheApplication(QProcess& process)
 {
 #ifdef Q_OS_UNIX
+    const pid_t application = ::getpid();
     process.setChildProcessModifier(
-        []
+        [application]
         {
             ::setsid();
 #ifdef Q_OS_LINUX
             ::prctl(PR_SET_PDEATHSIG, SIGKILL);
+            if (::getppid() != application)
+                ::_exit(1);
 #endif
         });
 #else
@@ -147,11 +197,12 @@ void stopTimer(QTimer* timer)
 class ClaudeStdioClient::Run : public std::enable_shared_from_this<Run>
 {
 public:
-    explicit Run(ClaudeLauncher launcher);
+    Run(ClaudeLauncher launcher, ClaudeSession session);
     ~Run();
 
     void ask(const ModelConfig& config, const Messages& messages, const ToolsMap& toolsMap,
              const CompletionCreatedCallback& callback, const PartialTextCallback& partialText);
+    QString sessionId() const;
     void shutdown();
 
 private:
@@ -171,7 +222,8 @@ private:
 
     void begin(const ModelConfig& config, const Messages& messages, const ToolsMap& toolsMap);
     void createTimers();
-    void spawn();
+    SessionPlan planFor(bool reseed) const;
+    void spawn(const SessionPlan& plan);
     void connectProcess(QProcess* process);
     void answerTools(const Messages& messages);
 
@@ -184,6 +236,7 @@ private:
     void dispatch(const std::vector<StreamEvent>& events);
     void handle(const StreamEvent& event);
     void handleMcpRequest(const StreamEvent& event);
+    void handleSessionMissing(const StreamEvent& event);
     void flushToolCalls();
 
     void conclude(Completion completion, Closing closing);
@@ -193,12 +246,15 @@ private:
     void retireProcess();
 
     ClaudeLauncher m_launcher;
+    ClaudeSession m_session;
     Request m_request;
     StreamJsonParser m_parser;
     std::optional<McpDispatcher> m_dispatcher;
 
     Stage m_stage { Stage::Idle };
+    SessionMode m_mode { SessionMode::Ephemeral };
     bool m_down { false };
+    QString m_sessionId;
 
     CompletionCreatedCallback m_callback;
     PartialTextCallback m_partial;
@@ -212,12 +268,20 @@ private:
     QTimer* m_hardTimer { nullptr };
 };
 
-ClaudeStdioClient::Run::Run(ClaudeLauncher launcher)
+ClaudeStdioClient::Run::Run(ClaudeLauncher launcher, ClaudeSession session)
     : m_launcher(std::move(launcher))
+    , m_session(std::move(session))
 {
+    if (m_session.keep && claudecli::isSessionId(m_session.resume))
+        m_sessionId = m_session.resume;
 }
 
 ClaudeStdioClient::Run::~Run() { shutdown(); }
+
+QString ClaudeStdioClient::Run::sessionId() const
+{
+    return m_session.keep ? m_sessionId : QString();
+}
 
 void ClaudeStdioClient::Run::ask(const ModelConfig& config, const Messages& messages,
                                  const ToolsMap& toolsMap,
@@ -291,7 +355,7 @@ void ClaudeStdioClient::Run::begin(const ModelConfig& config, const Messages& me
     }
 
     createTimers();
-    spawn();
+    spawn(planFor(false));
 }
 
 void ClaudeStdioClient::Run::createTimers()
@@ -319,15 +383,28 @@ void ClaudeStdioClient::Run::createTimers()
         m_hardTimer->start(m_launcher.hardTimeoutMs);
 }
 
-void ClaudeStdioClient::Run::spawn()
+SessionPlan ClaudeStdioClient::Run::planFor(bool reseed) const
+{
+    if (!m_session.keep)
+        return { SessionMode::Ephemeral, QString() };
+
+    if (!reseed && claudecli::isSessionId(m_session.resume))
+        return { SessionMode::Resume, m_session.resume };
+
+    return { SessionMode::Seed, QUuid::createUuid().toString(QUuid::WithoutBraces) };
+}
+
+void ClaudeStdioClient::Run::spawn(const SessionPlan& plan)
 {
     m_parser = StreamJsonParser();
     m_queued.clear();
+    m_mode = plan.mode;
+    m_sessionId = plan.mode == SessionMode::Resume ? plan.id : QString();
 
     auto* process = new QProcess;
     m_process = process;
     process->setProgram(m_launcher.program);
-    process->setArguments(commandLine(m_launcher, m_request));
+    process->setArguments(commandLine(m_launcher, m_request, plan));
     process->setProcessEnvironment(m_launcher.environment);
     if (!m_launcher.workingDirectory.isEmpty())
         process->setWorkingDirectory(m_launcher.workingDirectory);
@@ -340,7 +417,7 @@ void ClaudeStdioClient::Run::spawn()
         return;
 
     write(StreamJsonWriter::initialize());
-    write(StreamJsonWriter::userMessage(claudecli::conversation(m_request.messages)));
+    write(StreamJsonWriter::userMessage(transcriptFor(m_request, plan.mode)));
     restartIdleTimer();
 }
 
@@ -417,16 +494,20 @@ void ClaudeStdioClient::Run::onFinished(QProcess* process)
     if (m_down || process != m_process)
         return;
 
+    if (m_stage != Stage::Finished)
+    {
+        dispatch(m_parser.feed(process->readAllStandardOutput()));
+        if (m_down || process != m_process)
+            return;
+
+        if (m_stage != Stage::Finished)
+            dispatch(m_parser.endOfStream());
+        if (m_down || process != m_process)
+            return;
+    }
+
     stopTimer(m_idleTimer);
     stopTimer(m_hardTimer);
-    if (m_stage == Stage::Finished)
-        return;
-
-    dispatch(m_parser.feed(process->readAllStandardOutput()));
-    if (m_down || process != m_process || m_stage == Stage::Finished)
-        return;
-
-    dispatch(m_parser.endOfStream());
 }
 
 void ClaudeStdioClient::Run::onStartFailed(QProcess* process)
@@ -477,6 +558,7 @@ void ClaudeStdioClient::Run::handle(const StreamEvent& event)
     switch (event.kind)
     {
         case StreamEvent::Kind::SessionStarted:
+            m_sessionId = event.text;
             break;
         case StreamEvent::Kind::PartialText:
             if (m_stage == Stage::Running && m_partial)
@@ -496,8 +578,7 @@ void ClaudeStdioClient::Run::handle(const StreamEvent& event)
             conclude(claudecli::failure(event.text), Closing::Graceful);
             break;
         case StreamEvent::Kind::SessionMissing:
-            qCWarning(ClientLogic) << "claude session is missing:" << event.detail;
-            conclude(claudecli::failure(claudecli::kServerError), Closing::Kill);
+            handleSessionMissing(event);
             break;
     }
 }
@@ -512,6 +593,20 @@ void ClaudeStdioClient::Run::handleMcpRequest(const StreamEvent& event)
     }
 
     m_queued.push_back({ action.toolCall, action.rpcId });
+}
+
+void ClaudeStdioClient::Run::handleSessionMissing(const StreamEvent& event)
+{
+    qCWarning(ClientLogic) << "claude session is missing:" << event.detail;
+
+    if (m_mode != SessionMode::Resume)
+    {
+        conclude(claudecli::failure(claudecli::kServerError), Closing::Kill);
+        return;
+    }
+
+    retireProcess();
+    spawn(planFor(true));
 }
 
 void ClaudeStdioClient::Run::flushToolCalls()
@@ -583,9 +678,9 @@ void ClaudeStdioClient::Run::retireProcess()
     QObject::connect(process, &QProcess::errorOccurred, process, &QObject::deleteLater);
 }
 
-ClaudeStdioClient::ClaudeStdioClient(ClaudeLauncher launcher)
+ClaudeStdioClient::ClaudeStdioClient(ClaudeLauncher launcher, ClaudeSession session)
     : Client(QString(), QStringLiteral("claude-stdio"))
-    , m_run(std::make_shared<Run>(std::move(launcher)))
+    , m_run(std::make_shared<Run>(std::move(launcher), std::move(session)))
 {
 }
 
@@ -626,4 +721,13 @@ Completion ClaudeStdioClient::createCompletion(const ModelConfig& config, const 
     return result;
 }
 
+QString ClaudeStdioClient::session() const { return m_run->sessionId(); }
+
 bool ClaudeStdioClient::isAvailable() { return !claudecli::executable().isEmpty(); }
+
+void ClaudeStdioClient::forget(const ClaudeLauncher& launcher, const QString& id)
+{
+    const QString path = claudecli::sessionFile(launcher, id);
+    if (!path.isEmpty())
+        QFile::remove(path);
+}

@@ -3,12 +3,13 @@
 #include <memory>
 
 #include "claudelauncher.h"
+#include "claudesession.h"
 #include "client.h"
 
 class ClaudeStdioClient final : public Client
 {
 public:
-    explicit ClaudeStdioClient(ClaudeLauncher launcher);
+    explicit ClaudeStdioClient(ClaudeLauncher launcher, ClaudeSession session = {});
     ~ClaudeStdioClient() override;
 
     void createCompletionAsync(const ModelConfig& config, const Messages& messages,
@@ -20,7 +21,10 @@ public:
     Completion createCompletion(const ModelConfig& config, const Messages& messages,
                                 const ToolsMap& toolsMap) const override;
 
+    QString session() const override;
+
     static bool isAvailable();
+    static void forget(const ClaudeLauncher& launcher, const QString& id);
 
 private:
     class Run;

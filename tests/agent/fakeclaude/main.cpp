@@ -67,6 +67,19 @@ std::string currentDirectory()
     return getcwd(buffer, sizeof(buffer)) ? std::string(buffer) : std::string();
 }
 
+int startsSoFar()
+{
+    std::ifstream file(g_capturePath);
+    std::string line;
+    int starts = 0;
+    while (std::getline(file, line))
+    {
+        if (line.rfind("{\"argv\":", 0) == 0)
+            ++starts;
+    }
+    return starts;
+}
+
 void recordStart(int argc, char** argv)
 {
     std::string arguments;
@@ -171,12 +184,22 @@ int main(int argc, char** argv)
         return 2;
 
     g_capturePath = argv[2];
+    const int start = startsSoFar();
     recordStart(argc, argv);
 
     std::ifstream script(argv[1]);
     std::string line;
+    int section = 0;
     while (std::getline(script, line))
     {
+        if (line == "---")
+        {
+            ++section;
+            continue;
+        }
+        if (section != start)
+            continue;
+
         if (line.rfind("< ", 0) == 0)
             writeLine(line.substr(2));
         else if (line.rfind("+ ", 0) == 0)

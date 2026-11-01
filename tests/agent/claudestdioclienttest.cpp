@@ -22,21 +22,9 @@ using namespace stdiotest;
 namespace
 {
 
-const QString kSessionId = QStringLiteral("64174da0-2cdb-4392-b7ec-5fe0b2f28b20");
 const QString kCoursesRequestId = QStringLiteral("e51d362f-a1da-49c0-b955-479f5750c498");
-const QString kCourseTitles = QStringLiteral("Linux Kernel Basics\nC++ Memory Model");
-const QString kCoursesListDocstring = QStringLiteral("@brief courses_list\n"
-                                                     "@details Lists the courses of the learner.\n"
-                                                     "@return the course titles");
 
 using ToolResults = QList<QPair<QString, QString>>;
-
-QStringList startOfRun() { return handshake() + QStringList { cliSays(initEvent(kSessionId)) }; }
-
-QStringList answering(const QString& text)
-{
-    return startOfRun() + QStringList { cliSays(resultEvent(text)) };
-}
 
 QStringList slowDeltas(int count, int pauseMs)
 {
@@ -54,25 +42,6 @@ Messages afterTools(Messages messages, const ToolResults& results)
     for (const auto& [callId, content] : results)
         messages.append(toolMessage(callId, content));
     return messages;
-}
-
-QString requestThroughAgent(Agent& agent, const ClaudeStdioClient& client, const QString& message)
-{
-    bool done = false;
-    QString response;
-    AgentObserver observer;
-    observer.finished = [&response, &done](const QString& answer)
-    {
-        response = answer;
-        done = true;
-    };
-    observer.failed = [&done](const QString&) { done = true; };
-    agent.setObserver(observer);
-
-    agent.requestAsync(client, message, [](const QString&) {});
-    EXPECT_TRUE(QTest::qWaitFor([&done] { return done; }, kWaitMs));
-    agent.setObserver({});
-    return response;
 }
 
 void writeExecutable(const QString& path)

@@ -16,6 +16,7 @@
 #include <QTest>
 #include <memory>
 
+#include "agent/agent.h"
 #include "agent/claudelauncher.h"
 #include "agent/claudestdioclient.h"
 #include "agent/structures.h"
@@ -25,6 +26,8 @@ namespace stdiotest
 {
 
 constexpr int kWaitMs = 10000;
+
+inline const QString kSessionId = QStringLiteral("64174da0-2cdb-4392-b7ec-5fe0b2f28b20");
 
 inline QString compact(const QJsonObject& object)
 {
@@ -36,6 +39,8 @@ inline QString cliSays(const QJsonObject& event) { return "< " + compact(event);
 inline QString cliBuffers(const QJsonObject& event) { return "+ " + compact(event); }
 
 inline QString cliRuns(const QString& command) { return "! " + command; }
+
+inline QString nextStart() { return QStringLiteral("---"); }
 
 inline QStringList handshake() { return { ">", ">" }; }
 
@@ -49,6 +54,16 @@ inline QJsonObject resultEvent(const QString& text, bool isError = false)
 inline QJsonObject initEvent(const QString& sessionId)
 {
     return { { "type", "system" }, { "subtype", "init" }, { "session_id", sessionId } };
+}
+
+inline QStringList startOfRun(const QString& sessionId = kSessionId)
+{
+    return handshake() + QStringList { cliSays(initEvent(sessionId)) };
+}
+
+inline QStringList answering(const QString& text, const QString& sessionId = kSessionId)
+{
+    return startOfRun(sessionId) + QStringList { cliSays(resultEvent(text)) };
 }
 
 inline QJsonObject streamEvent(const QJsonObject& inner)
@@ -121,6 +136,33 @@ inline QJsonObject mcpReplyOf(const QJsonObject& input)
         .toObject()
         .value("mcp_response")
         .toObject();
+}
+
+inline const QString kCourseTitles = QStringLiteral("Linux Kernel Basics\nC++ Memory Model");
+
+inline const QString kCoursesListDocstring
+    = QStringLiteral("@brief courses_list\n"
+                     "@details Lists the courses of the learner.\n"
+                     "@return the course titles");
+
+inline QString requestThroughAgent(Agent& agent, const ClaudeStdioClient& client,
+                                   const QString& message)
+{
+    bool done = false;
+    QString response;
+    AgentObserver observer;
+    observer.finished = [&response, &done](const QString& answer)
+    {
+        response = answer;
+        done = true;
+    };
+    observer.failed = [&done](const QString&) { done = true; };
+    agent.setObserver(observer);
+
+    agent.requestAsync(client, message, [](const QString&) {});
+    EXPECT_TRUE(QTest::qWaitFor([&done] { return done; }, kWaitMs));
+    agent.setObserver({});
+    return response;
 }
 
 inline bool isAlive(qint64 pid)
