@@ -29,4 +29,6 @@ std::unique_ptr<AgentTurn> UnavailableBackend::start(const TurnRequest&, const A
     return std::make_unique<UnavailableTurn>();
 }
 
+void UnavailableBackend::forget(const QString&) { }
+
 }

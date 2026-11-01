@@ -35,6 +35,7 @@ struct TurnRequest final
     QString reasoningEffort;
     std::vector<Message> transcript;
     std::optional<ChatContext> context;
+    QString backendSession;
 };
 
 class AgentTurn : public QObject
@@ -47,6 +48,7 @@ public:
     virtual void cancel() = 0;
 
 signals:
+    void sessionReady(const QString& backendSession);
     void stepStarted(const chat::Step& step);
     void stepFinished(const chat::Step& step);
     void finished(const QString& answer);
@@ -62,6 +64,7 @@ public:
     virtual std::unique_ptr<AgentTurn> start(const TurnRequest& request,
                                              const AgentCatalog& catalog)
         = 0;
+    virtual void forget(const QString& backendSession) = 0;
 };
 
 }
