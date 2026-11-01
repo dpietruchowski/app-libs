@@ -15,7 +15,6 @@
 
 using chat::AppAgent;
 using chat::ChatMessageModel;
-using chat::Message;
 using chat::MessageStatus;
 using chat::Role;
 using chat::Step;
@@ -27,16 +26,17 @@ namespace
 
 const QString kLoginCommand = QStringLiteral("env CLAUDE_CONFIG_DIR=/data/chat claude auth login");
 
-Message message(Role role, const QString& text, MessageStatus status = MessageStatus::Complete,
-                const QString& error = QString(), const std::vector<Step>& steps = {})
+chat::Message message(Role role, const QString& text,
+                      MessageStatus status = MessageStatus::Complete,
+                      const QString& error = QString(), const std::vector<Step>& steps = {})
 {
-    Message::Data data;
+    chat::Message::Data data;
     data.role = role;
     data.text = text;
     data.status = status;
     data.error = error;
     data.steps = steps;
-    return Message::create(data, chat_test::kNow);
+    return chat::Message::create(data, chat_test::kNow);
 }
 
 Step step(StepKind kind, const QString& agent, const QString& tool, StepStatus status,
