@@ -3,7 +3,6 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QStandardPaths>
 
 #include "claudecli.h"
 #include "logging.h"
@@ -16,7 +15,7 @@ const QString kClaudePrefix = QStringLiteral("CLAUDE");
 const QString kDisableBackgroundTasks = QStringLiteral("CLAUDE_CODE_DISABLE_BACKGROUND_TASKS");
 const QString kConfigDirectory = QStringLiteral("CLAUDE_CONFIG_DIR");
 const QString kEnabled = QStringLiteral("1");
-const QString kSharedConfigDirectoryName = QStringLiteral("chat-claude");
+const QString kSharedConfigDirectoryName = QStringLiteral(".local/share/chat-claude");
 
 bool isInherited(const QString& name)
 {
@@ -36,8 +35,7 @@ QString privateDirectory(const QString& path)
 
 QString sharedConfigDirectory()
 {
-    return QDir(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation))
-        .filePath(kSharedConfigDirectoryName);
+    return QDir::home().filePath(kSharedConfigDirectoryName);
 }
 
 bool isAsciiAlphanumeric(QChar character)

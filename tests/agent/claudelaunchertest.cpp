@@ -30,22 +30,23 @@ QProcessEnvironment parentEnvironment()
     return environment;
 }
 
-class DataLocation
+class TemporaryHome
 {
 public:
-    DataLocation()
-        : m_dataHome(QDir(m_root.path()).filePath("share"))
-        , m_override("XDG_DATA_HOME", m_dataHome.toUtf8())
+    TemporaryHome()
+        : m_homeDirectory(QDir(m_root.path()).filePath("home"))
+        , m_override("HOME", m_homeDirectory.toUtf8())
     {
         EXPECT_TRUE(m_root.isValid());
     }
 
     QString root() const { return m_root.path(); }
-    QString dataHome() const { return m_dataHome; }
+    QString homeDirectory() const { return m_homeDirectory; }
+    QString configDirectory() const { return m_homeDirectory + "/.local/share/chat-claude"; }
 
 private:
     QTemporaryDir m_root;
-    QString m_dataHome;
+    QString m_homeDirectory;
     EnvironmentOverride m_override;
 };
 
@@ -118,7 +119,7 @@ TEST(ClaudeLauncherTest, GivesAnEnvironmentWithOnlyTheBackgroundSettingFromAnEmp
 
 TEST(ClaudeLauncherTest, BuildsTheDefaultLauncherInTheChatDirectory)
 {
-    const DataLocation data;
+    const TemporaryHome data;
     const QString chatDirectory = QDir(data.root()).filePath("chat");
 
     const ClaudeLauncher launcher = claudecli::defaultLauncher(chatDirectory);
@@ -130,20 +131,33 @@ TEST(ClaudeLauncherTest, BuildsTheDefaultLauncherInTheChatDirectory)
     EXPECT_EQ(launcher.hardTimeoutMs, 600000);
 }
 
-TEST(ClaudeLauncherTest, KeepsTheClaudeStateInTheChatClaudeDirectoryOfTheDataLocation)
+TEST(ClaudeLauncherTest, KeepsTheClaudeStateInTheChatClaudeDirectoryUnderTheHomeDirectory)
 {
-    const DataLocation data;
+    const TemporaryHome data;
 
     const ClaudeLauncher launcher = claudecli::defaultLauncher(QDir(data.root()).filePath("chat"));
 
     const QString configDirectory = launcher.environment.value("CLAUDE_CONFIG_DIR");
-    EXPECT_EQ(configDirectory, QFileInfo(data.dataHome() + "/chat-claude").canonicalFilePath());
+    EXPECT_EQ(configDirectory, QFileInfo(data.configDirectory()).canonicalFilePath());
     EXPECT_TRUE(QFileInfo(configDirectory).isDir());
+}
+
+TEST(ClaudeLauncherTest, KeepsTheClaudeStateUnderTheHomeDirectoryWhateverTheDataLocationIs)
+{
+    const TemporaryHome data;
+    const QString elsewhere = QDir(data.root()).filePath("elsewhere");
+    const EnvironmentOverride dataHome("XDG_DATA_HOME", elsewhere.toUtf8());
+
+    const ClaudeLauncher launcher = claudecli::defaultLauncher(QDir(data.root()).filePath("chat"));
+
+    EXPECT_EQ(launcher.environment.value("CLAUDE_CONFIG_DIR"),
+              QFileInfo(data.configDirectory()).canonicalFilePath());
+    EXPECT_FALSE(QFileInfo::exists(elsewhere));
 }
 
 TEST(ClaudeLauncherTest, SharesTheClaudeStateBetweenTheChatDirectoriesOfDifferentApps)
 {
-    const DataLocation data;
+    const TemporaryHome data;
 
     const ClaudeLauncher first = claudecli::defaultLauncher(QDir(data.root()).filePath("one"));
     const ClaudeLauncher second = claudecli::defaultLauncher(QDir(data.root()).filePath("two"));
@@ -155,30 +169,30 @@ TEST(ClaudeLauncherTest, SharesTheClaudeStateBetweenTheChatDirectoriesOfDifferen
 
 TEST(ClaudeLauncherTest, CreatesMissingParentDirectories)
 {
-    const DataLocation data;
+    const TemporaryHome data;
 
     claudecli::defaultLauncher(QDir(data.root()).filePath("data/app/chat"));
 
     EXPECT_TRUE(QFileInfo(data.root() + "/data/app/chat").isDir());
-    EXPECT_TRUE(QFileInfo(data.dataHome() + "/chat-claude").isDir());
+    EXPECT_TRUE(QFileInfo(data.configDirectory()).isDir());
 }
 
 TEST(ClaudeLauncherTest, MakesTheChatAndConfigDirectoriesPrivateToTheOwner)
 {
-    const DataLocation data;
+    const TemporaryHome data;
     const QString chatDirectory = QDir(data.root()).filePath("chat");
 
     claudecli::defaultLauncher(chatDirectory);
 
     EXPECT_TRUE(isOwnerOnly(chatDirectory));
-    EXPECT_TRUE(isOwnerOnly(data.dataHome() + "/chat-claude"));
+    EXPECT_TRUE(isOwnerOnly(data.configDirectory()));
 }
 
 TEST(ClaudeLauncherTest, TightensDirectoriesThatAlreadyExistWithWiderPermissions)
 {
-    const DataLocation data;
+    const TemporaryHome data;
     const QString chatDirectory = QDir(data.root()).filePath("chat");
-    const QString configDirectory = data.dataHome() + "/chat-claude";
+    const QString configDirectory = data.configDirectory();
     ASSERT_TRUE(QDir().mkpath(chatDirectory));
     ASSERT_TRUE(QDir().mkpath(configDirectory));
     ASSERT_TRUE(QFile::setPermissions(chatDirectory,
@@ -199,8 +213,8 @@ TEST(ClaudeLauncherTest, TightensDirectoriesThatAlreadyExistWithWiderPermissions
 
 TEST(ClaudeLauncherTest, KeepsTheCredentialsInAnExistingConfigDirectoryUntouched)
 {
-    const DataLocation data;
-    const QString configDirectory = data.dataHome() + "/chat-claude";
+    const TemporaryHome data;
+    const QString configDirectory = data.configDirectory();
     ASSERT_TRUE(QDir().mkpath(configDirectory));
     const QString credentials = configDirectory + "/.credentials.json";
     QFile file(credentials);
@@ -216,24 +230,23 @@ TEST(ClaudeLauncherTest, KeepsTheCredentialsInAnExistingConfigDirectoryUntouched
 
 TEST(ClaudeLauncherTest, ReplacesAnInheritedConfigDirectoryWithTheSharedOne)
 {
-    const DataLocation data;
+    const TemporaryHome data;
     const EnvironmentOverride inherited("CLAUDE_CONFIG_DIR", "/elsewhere");
 
     const ClaudeLauncher launcher = claudecli::defaultLauncher(QDir(data.root()).filePath("chat"));
 
     EXPECT_EQ(launcher.environment.value("CLAUDE_CONFIG_DIR"),
-              QFileInfo(data.dataHome() + "/chat-claude").canonicalFilePath());
+              QFileInfo(data.configDirectory()).canonicalFilePath());
 }
 
 TEST(ClaudeLauncherTest, BuildsTheDefaultEnvironmentFromTheCleanProcessEnvironment)
 {
-    const DataLocation data;
-    const EnvironmentOverride home("HOME", "/home/someone");
+    const TemporaryHome home;
     const EnvironmentOverride key("ANTHROPIC_API_KEY", "secret");
 
-    const ClaudeLauncher launcher = claudecli::defaultLauncher(QDir(data.root()).filePath("chat"));
+    const ClaudeLauncher launcher = claudecli::defaultLauncher(QDir(home.root()).filePath("chat"));
 
-    EXPECT_EQ(launcher.environment.value("HOME"), "/home/someone");
+    EXPECT_EQ(launcher.environment.value("HOME"), home.homeDirectory());
     EXPECT_EQ(launcher.environment.value("CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"), "1");
     for (const QString& name : launcher.environment.keys())
     {
