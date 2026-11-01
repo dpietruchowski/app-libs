@@ -12,7 +12,7 @@ CheckBox {
         control.toggle()
     }
 
-    implicitWidth: contentItem.implicitWidth + indicator.width + Theme.spacing.medium
+    implicitWidth: contentItem.implicitWidth
     implicitHeight: Math.max(contentItem.implicitHeight, indicator.height)
 
     indicator: Rectangle {
@@ -43,6 +43,6 @@ CheckBox {
         font.pixelSize: Theme.fontSize.medium
         color: Theme.colors.textPrimary
         verticalAlignment: Text.AlignVCenter
-        leftPadding: control.indicator.width + Theme.spacing.medium
+        leftPadding: control.indicator.width + (control.text !== "" ? Theme.spacing.medium : 0)
     }
 }
