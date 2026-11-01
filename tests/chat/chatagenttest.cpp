@@ -5,6 +5,7 @@
 #include <QJsonObject>
 #include <QStringList>
 #include <QUuid>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -33,6 +34,15 @@ const QString kToolResult = QStringLiteral("3 courses");
 const QString kReport = QStringLiteral("You have 3 courses.");
 const QString kAnswer = QStringLiteral("You have three courses.");
 const QString kMainSession = QStringLiteral("main-session");
+const QString kQuestion = QStringLiteral("What do I have?");
+const QString kContextLine = QStringLiteral("\n[context: Stopwatch {\"id\":\"stopwatch\"}]");
+
+chat::ChatContext stopwatchContext()
+{
+    return chat::ChatContext { QStringLiteral("app"), QStringLiteral("Stopwatch"),
+                               QJsonObject {
+                                   { QStringLiteral("id"), QStringLiteral("stopwatch") } } };
+}
 
 const QString kListCourses = QStringLiteral("@brief list_courses\n@details Lists the courses.\n"
                                             "@param limit (integer) How many courses to list.");
@@ -94,7 +104,13 @@ protected:
         ::Agent agent(QStringLiteral("model"), kCoursesPrompt);
         agent.addTool(kListCourses, appTool());
         return AppAgent { QStringLiteral("courses"), QStringLiteral("Courses"), kCoursesDescription,
-                          agent };
+                          agent, [this] { return nextFollowUp(); } };
+    }
+
+    QString nextFollowUp()
+    {
+        ++m_followUpCalls;
+        return m_followUps.isEmpty() ? QString() : m_followUps.takeFirst();
     }
 
     AppAgent factsAgent()
@@ -122,12 +138,13 @@ protected:
     std::unique_ptr<::Client> makeClient(const ClaudeSession& session)
     {
         const bool isMain = session.keep;
-        if (isMain ? m_refuseMain : m_refuseDelegates)
+        if ((isMain ? m_refuseMain : m_refuseDelegates) || m_clients.size() >= m_clientLimit)
         {
             return nullptr;
         }
         auto state = std::make_shared<ClientState>();
         state->requested = session;
+        state->oneShot = true;
         if (isMain)
         {
             state->session = m_reportedSession;
@@ -147,7 +164,7 @@ protected:
         turnRequest.model = QStringLiteral("test-model");
         turnRequest.reasoningEffort = QStringLiteral("low");
         turnRequest.transcript = transcript.empty()
-            ? std::vector<chat::Message> { message(Role::User, QStringLiteral("What do I have?")) }
+            ? std::vector<chat::Message> { message(Role::User, kQuestion) }
             : std::move(transcript);
         return turnRequest;
     }
@@ -206,6 +223,16 @@ protected:
         return client.held.front().messages.constLast().content;
     }
 
+    TurnRequest requestWithContext(const chat::ChatContext& context)
+    {
+        TurnRequest turnRequest = request();
+        turnRequest.context = context;
+        return turnRequest;
+    }
+
+    QStringList m_followUps;
+    int m_followUpCalls { 0 };
+    size_t m_clientLimit { std::numeric_limits<size_t>::max() };
     QStringList m_forgotten;
     QStringList m_events;
     std::vector<Step> m_started;
@@ -627,4 +654,246 @@ TEST_F(ChatAgentTest, Failed_AfterTheMainAgentFailed_IgnoresAnyLaterOutcome)
     m_turn->cancel();
 
     EXPECT_EQ(m_events, QStringList { QStringLiteral("failed:server_error") });
+}
+
+TEST_F(ChatAgentTest, FollowUp_ANonEmptyResult_GoesToTheSameDelegateOnAFreshClient)
+{
+    m_followUps = { QStringLiteral("check again") };
+    beginAndAsk();
+    callDelegate(QStringLiteral("courses"));
+
+    delegateClient(0).completeNext(contentCompletion(QStringLiteral("first report")));
+
+    ASSERT_EQ(m_clients.size(), 3u);
+    EXPECT_TRUE(mainClient().held.empty());
+    EXPECT_TRUE(delegateClient(0).held.empty());
+    EXPECT_FALSE(delegateClient(1).requested.keep);
+    ASSERT_EQ(delegateClient(1).held.size(), 1u);
+    const ::Messages& sent = delegateClient(1).held.front().messages;
+    ASSERT_EQ(sent.size(), 4);
+    EXPECT_EQ(sent.at(0).role, QStringLiteral("system"));
+    EXPECT_EQ(sent.at(0).content, kCoursesPrompt);
+    EXPECT_EQ(sent.at(1).content, kTask);
+    EXPECT_EQ(sent.at(2).role, QStringLiteral("assistant"));
+    EXPECT_EQ(sent.at(2).content, QStringLiteral("first report"));
+    EXPECT_EQ(sent.at(3).role, QStringLiteral("user"));
+    EXPECT_EQ(sent.at(3).content, QStringLiteral("check again"));
+}
+
+TEST_F(ChatAgentTest, FollowUp_TheSecondOne_CarriesBothEarlierRoundsToItsOwnClient)
+{
+    m_followUps = { QStringLiteral("f1"), QStringLiteral("f2") };
+    beginAndAsk();
+    callDelegate(QStringLiteral("courses"));
+    delegateClient(0).completeNext(contentCompletion(QStringLiteral("r0")));
+
+    delegateClient(1).completeNext(contentCompletion(QStringLiteral("r1")));
+
+    ASSERT_EQ(m_clients.size(), 4u);
+    ASSERT_EQ(delegateClient(2).held.size(), 1u);
+    const ::Messages& sent = delegateClient(2).held.front().messages;
+    ASSERT_EQ(sent.size(), 6);
+    EXPECT_EQ(sent.at(1).content, kTask);
+    EXPECT_EQ(sent.at(2).content, QStringLiteral("r0"));
+    EXPECT_EQ(sent.at(3).content, QStringLiteral("f1"));
+    EXPECT_EQ(sent.at(4).content, QStringLiteral("r1"));
+    EXPECT_EQ(sent.at(5).content, QStringLiteral("f2"));
+}
+
+TEST_F(ChatAgentTest, FollowUp_WhenNoClientCanBeCreated_TheReportAlreadyGivenIsDelivered)
+{
+    m_followUps = { QStringLiteral("check again") };
+    m_clientLimit = 2;
+    beginAndAsk();
+    callDelegate(QStringLiteral("courses"));
+
+    delegateClient(0).completeNext(contentCompletion(QStringLiteral("first report")));
+
+    EXPECT_EQ(m_clients.size(), 2u);
+    ASSERT_EQ(mainClient().held.size(), 1u);
+    EXPECT_TRUE(lastMessageOf(mainClient()).contains(QStringLiteral("first report")));
+    EXPECT_EQ(m_followUpCalls, 1);
+}
+
+TEST_F(ChatAgentTest, FollowUp_AfterTheDelegateAnswersIt_TheLastReportGoesToTheMainAgent)
+{
+    m_followUps = { QStringLiteral("check again") };
+    beginAndAsk();
+    callDelegate(QStringLiteral("courses"));
+    delegateClient(0).completeNext(contentCompletion(QStringLiteral("first report")));
+
+    delegateClient(1).completeNext(contentCompletion(kReport));
+
+    ASSERT_EQ(mainClient().held.size(), 1u);
+    EXPECT_TRUE(lastMessageOf(mainClient()).contains(kReport));
+    EXPECT_FALSE(lastMessageOf(mainClient()).contains(QStringLiteral("first report")));
+    EXPECT_EQ(m_followUpCalls, 2);
+}
+
+TEST_F(ChatAgentTest, FollowUp_AnEmptyResult_ReportsAsBefore)
+{
+    beginAndAsk();
+    callDelegate(QStringLiteral("courses"));
+
+    delegateClient().completeNext(contentCompletion(kReport));
+
+    EXPECT_TRUE(delegateClient().held.empty());
+    ASSERT_EQ(mainClient().held.size(), 1u);
+    EXPECT_TRUE(lastMessageOf(mainClient()).contains(kReport));
+    EXPECT_EQ(m_followUpCalls, 1);
+}
+
+TEST_F(ChatAgentTest, FollowUp_AnAgentWithoutOne_ReportsAsBefore)
+{
+    beginAndAsk();
+    callDelegate(QStringLiteral("facts"));
+
+    delegateClient().completeNext(contentCompletion(kReport));
+
+    EXPECT_TRUE(delegateClient().held.empty());
+    ASSERT_EQ(mainClient().held.size(), 1u);
+    EXPECT_TRUE(lastMessageOf(mainClient()).contains(kReport));
+    EXPECT_EQ(m_followUpCalls, 0);
+}
+
+TEST_F(ChatAgentTest, FollowUp_IsBoundedAtTwoPerDelegation)
+{
+    m_followUps = { QStringLiteral("f1"), QStringLiteral("f2"), QStringLiteral("f3") };
+    beginAndAsk();
+    callDelegate(QStringLiteral("courses"));
+
+    delegateClient(0).completeNext(contentCompletion(QStringLiteral("r0")));
+    EXPECT_EQ(lastMessageOf(delegateClient(1)), QStringLiteral("f1"));
+    delegateClient(1).completeNext(contentCompletion(QStringLiteral("r1")));
+    EXPECT_EQ(lastMessageOf(delegateClient(2)), QStringLiteral("f2"));
+    delegateClient(2).completeNext(contentCompletion(QStringLiteral("r2")));
+
+    EXPECT_EQ(m_clients.size(), 4u);
+    EXPECT_TRUE(delegateClient(2).held.empty());
+    ASSERT_EQ(mainClient().held.size(), 1u);
+    EXPECT_TRUE(lastMessageOf(mainClient()).contains(QStringLiteral("r2")));
+    EXPECT_EQ(m_followUpCalls, 2);
+    EXPECT_EQ(m_followUps, QStringList { QStringLiteral("f3") });
+}
+
+TEST_F(ChatAgentTest, FollowUp_TheBoundCountsPerDelegationNotPerTurn)
+{
+    m_followUps = { QStringLiteral("f1"), QStringLiteral("f2"), QStringLiteral("f3") };
+    beginAndAsk();
+    mainClient().completeNext(
+        toolCallsCompletion({ toolCall(QStringLiteral("c1"), QStringLiteral("courses"),
+                                       { { QStringLiteral("task"), QStringLiteral("a") } }),
+                              toolCall(QStringLiteral("c2"), QStringLiteral("courses"),
+                                       { { QStringLiteral("task"), QStringLiteral("b") } }) }));
+    delegateClient(0).completeNext(contentCompletion(QStringLiteral("a0")));
+    delegateClient(1).completeNext(contentCompletion(QStringLiteral("a1")));
+    delegateClient(2).completeNext(contentCompletion(QStringLiteral("a2")));
+    ASSERT_EQ(m_clients.size(), 5u);
+
+    delegateClient(3).completeNext(contentCompletion(QStringLiteral("b0")));
+
+    EXPECT_EQ(lastMessageOf(delegateClient(4)), QStringLiteral("f3"));
+}
+
+TEST_F(ChatAgentTest, FollowUp_ToolStepsOfTheFollowUp_StayUnderTheSameDelegation)
+{
+    m_followUps = { QStringLiteral("check again") };
+    beginAndAsk();
+    callDelegate(QStringLiteral("courses"));
+    delegateClient(0).completeNext(contentCompletion(QStringLiteral("first report")));
+
+    delegateClient(1).completeNext(toolCallCompletion(
+        QStringLiteral("t1"), QStringLiteral("list_courses"), { { QStringLiteral("limit"), 3 } }));
+    delegateClient(1).completeNext(contentCompletion(kReport));
+
+    EXPECT_EQ(m_events,
+              (QStringList { "start:Delegation courses", "start:Tool courses list_courses",
+                             "end:Tool courses list_courses Ok", "end:Delegation courses Ok" }));
+    ASSERT_EQ(m_started.size(), 2u);
+    EXPECT_EQ(m_started.at(1).parentId, m_started.at(0).id);
+}
+
+TEST_F(ChatAgentTest, FollowUp_ADelegateThatFailsOnIt_ReachesTheMainAgentAsItsResult)
+{
+    m_followUps = { QStringLiteral("check again") };
+    beginAndAsk();
+    callDelegate(QStringLiteral("courses"));
+    delegateClient(0).completeNext(contentCompletion(QStringLiteral("first report")));
+
+    delegateClient(1).completeNext(failedCompletion(QStringLiteral("server_error")));
+
+    ASSERT_EQ(mainClient().held.size(), 1u);
+    EXPECT_TRUE(lastMessageOf(mainClient()).contains(QStringLiteral("server_error")));
+    EXPECT_EQ(m_followUpCalls, 1);
+}
+
+TEST_F(ChatAgentTest, FollowUp_CancelWhileItRuns_ClosesTheStepsAndIgnoresTheLateAnswer)
+{
+    m_followUps = { QStringLiteral("check again") };
+    beginAndAsk();
+    callDelegate(QStringLiteral("courses"));
+    delegateClient(0).completeNext(contentCompletion(QStringLiteral("first report")));
+    ASSERT_EQ(delegateClient(1).held.size(), 1u);
+
+    m_turn->cancel();
+    delegateClient(1).completeNext(contentCompletion(kReport));
+
+    EXPECT_EQ(m_events,
+              (QStringList { "start:Delegation courses", "end:Delegation courses Failed",
+                             "failed:cancelled" }));
+    EXPECT_TRUE(mainClient().held.empty());
+    EXPECT_EQ(m_followUpCalls, 1);
+}
+
+TEST_F(ChatAgentTest, Context_IsAppendedToTheQuestionOfTheMainAgent)
+{
+    begin(requestWithContext(stopwatchContext()));
+    settle();
+
+    EXPECT_EQ(lastMessageOf(mainClient()), kQuestion + kContextLine);
+}
+
+TEST_F(ChatAgentTest, Context_IsAppendedToEveryDelegationTask)
+{
+    begin(requestWithContext(stopwatchContext()));
+    settle();
+
+    callDelegate(QStringLiteral("courses"));
+
+    EXPECT_EQ(lastMessageOf(delegateClient()), kTask + kContextLine);
+}
+
+TEST_F(ChatAgentTest, Context_WithoutData_StillNamesTheTitle)
+{
+    chat::ChatContext bare = stopwatchContext();
+    bare.data = QJsonObject();
+    begin(requestWithContext(bare));
+    settle();
+
+    EXPECT_EQ(lastMessageOf(mainClient()), kQuestion + QStringLiteral("\n[context: Stopwatch {}]"));
+}
+
+TEST_F(ChatAgentTest, Context_Absent_LeavesTheQuestionAndTheTaskUnchanged)
+{
+    beginAndAsk();
+    EXPECT_EQ(lastMessageOf(mainClient()), kQuestion);
+
+    callDelegate(QStringLiteral("courses"));
+
+    EXPECT_EQ(lastMessageOf(delegateClient()), kTask);
+}
+
+TEST_F(ChatAgentTest, Delegate_RunsOnTheModelAndReasoningEffortOfTheTurn)
+{
+    TurnRequest chosen = request();
+    chosen.model = QStringLiteral("chosen-model");
+    chosen.reasoningEffort = QStringLiteral("high");
+    begin(chosen);
+    settle();
+
+    callDelegate(QStringLiteral("courses"));
+
+    const ModelConfig& config = delegateClient().held.front().config;
+    EXPECT_EQ(config.model, QStringLiteral("chosen-model"));
+    EXPECT_EQ(config.reasoningEffort, QStringLiteral("high"));
 }
