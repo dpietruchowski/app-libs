@@ -228,6 +228,15 @@ QtObject {
         }
     }
 
+    property QtObject chart: QtObject {
+        readonly property int rowSpacing: theme.spacing.medium
+        readonly property int barSpacing: theme.spacing.xSmall
+        readonly property int barHeight: theme.scaled(12)
+        readonly property int valueSpacing: theme.spacing.small
+        readonly property var label: theme.text.label
+        readonly property var value: theme.text.bodyMuted
+    }
+
     property QtObject segmented: QtObject {
         readonly property int height: theme.scaled(40)
         readonly property int padding: theme.scaled(3)
