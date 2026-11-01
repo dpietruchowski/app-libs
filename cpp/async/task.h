@@ -1,14 +1,21 @@
 #pragma once
 
+#include <QCoreApplication>
 #include <QDebug>
 #include <QFuture>
+#include <QHash>
 #include <QMetaObject>
+#include <QMutex>
+#include <QMutexLocker>
 #include <QObject>
+#include <QPointer>
 #include <QPromise>
+#include <QThread>
 #include <functional>
 #include <memory>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "async/result.h"
 
@@ -65,6 +72,66 @@ template <typename U> QFuture<Result<U>> readyFuture(Result<U> result)
     promise.finish();
     return future;
 }
+
+class ContinuationAnchors final
+{
+public:
+    static QObject* forThreadOf(QObject* context)
+    {
+        return instance().anchorFor(context->thread());
+    }
+
+    static void destroyAll()
+    {
+        ContinuationAnchors& anchors = instance();
+        QMutexLocker lock(&anchors.m_mutex);
+        for (QObject* anchor : anchors.m_created)
+        {
+            delete anchor;
+        }
+        anchors.m_created.clear();
+        anchors.m_byThread.clear();
+    }
+
+private:
+    struct Entry
+    {
+        QPointer<QThread> thread;
+        QObject* anchor = nullptr;
+    };
+
+    static ContinuationAnchors& instance()
+    {
+        static ContinuationAnchors anchors;
+        return anchors;
+    }
+
+    QObject* anchorFor(QThread* thread)
+    {
+        QMutexLocker lock(&m_mutex);
+        if (m_created.empty())
+        {
+            qAddPostRoutine(&ContinuationAnchors::destroyAll);
+        }
+        const auto found = m_byThread.constFind(thread);
+        if (found != m_byThread.constEnd() && found->thread == thread)
+        {
+            return found->anchor;
+        }
+        auto* anchor = new QObject;
+        if (thread != QThread::currentThread())
+        {
+            anchor->moveToThread(thread);
+        }
+        m_created.push_back(anchor);
+        m_byThread.insert(thread, Entry { QPointer<QThread>(thread), anchor });
+        return anchor;
+    }
+
+    QMutex m_mutex;
+    QHash<QThread*, Entry> m_byThread;
+    std::vector<QObject*> m_created;
+};
 }
 
 template <typename T> class [[nodiscard]] Task final
@@ -111,15 +178,14 @@ public:
 
     Task& onError(QObject* context, std::function<void(const QString&)> handler)
     {
-        m_future.then(context,
-                      [handler = std::move(handler)](Result<T> result)
-                      {
-                          if (result.isFailure())
-                          {
-                              handler(result.error());
-                          }
-                          return result;
-                      });
+        afterFinish(context,
+                    [handler = std::move(handler)](Result<T> result)
+                    {
+                        if (result.isFailure())
+                        {
+                            handler(result.error());
+                        }
+                    });
         return *this;
     }
 
@@ -127,20 +193,19 @@ public:
 
     Task& warnOnError(QObject* context, const char* what)
     {
-        return onError(context,
-                       [what](const QString& error)
-                       {
-                           qWarning().noquote()
-                               << QStringLiteral("Failed to %1: %2")
-                                      .arg(QString::fromUtf8(what), error);
-                       });
+        return onError(
+            context,
+            [what](const QString& error)
+            {
+                qWarning().noquote()
+                    << QStringLiteral("Failed to %1: %2").arg(QString::fromUtf8(what), error);
+            });
     }
 
     template <typename F> void finally(QObject* context, F&& handler)
     {
-        m_future.then(context,
-                      [handler = std::forward<F>(handler)](Result<T> result) mutable
-                      { handler(std::move(result)); });
+        afterFinish(context, [handler = std::forward<F>(handler)](Result<T> result) mutable
+                    { handler(std::move(result)); });
     }
 
     QObject* worker() const { return m_worker; }
@@ -157,7 +222,7 @@ private:
         else if constexpr (task_detail::is_result_v<Ret>)
         {
             using U = typename Ret::value_type;
-            QFuture<Result<U>> next = m_future.then(
+            QFuture<Result<U>> next = continueWith<Result<U>>(
                 context,
                 [fn = std::forward<F>(fn)](Result<T> result) mutable -> Result<U>
                 {
@@ -172,7 +237,7 @@ private:
         else
         {
             using U = Ret;
-            QFuture<Result<U>> next = m_future.then(
+            QFuture<Result<U>> next = continueWith<Result<U>>(
                 context,
                 [fn = std::forward<F>(fn)](Result<T> result) mutable -> Result<U>
                 {
@@ -198,7 +263,7 @@ private:
     {
         using Inner = decltype(task_detail::callWith(fn, std::declval<Result<T>>()));
         using U = typename Inner::value_type;
-        QFuture<QFuture<Result<U>>> nested = m_future.then(
+        QFuture<QFuture<Result<U>>> nested = continueWith<QFuture<Result<U>>>(
             context,
             [fn = std::forward<F>(fn)](Result<T> result) mutable -> QFuture<Result<U>>
             {
@@ -209,6 +274,33 @@ private:
                 return task_detail::callWith(fn, result).future();
             });
         return Task<U>(m_worker, nested.unwrap());
+    }
+
+    template <typename F> void afterFinish(QObject* context, F&& fn)
+    {
+        m_future.then(
+            task_detail::ContinuationAnchors::forThreadOf(context),
+            [guard = QPointer<QObject>(context), fn = std::forward<F>(fn)](Result<T> result) mutable
+            {
+                if (guard)
+                {
+                    fn(std::move(result));
+                }
+            });
+    }
+
+    template <typename U, typename F> QFuture<U> continueWith(QObject* context, F&& fn)
+    {
+        auto promise = std::make_shared<QPromise<U>>();
+        promise->start();
+        QFuture<U> next = promise->future();
+        afterFinish(context,
+                    [promise, fn = std::forward<F>(fn)](Result<T> result) mutable
+                    {
+                        promise->addResult(fn(std::move(result)));
+                        promise->finish();
+                    });
+        return next;
     }
 
     QObject* m_worker;
