@@ -1,30 +1,15 @@
 #include <gtest/gtest.h>
 
-#include <QByteArray>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QTemporaryDir>
 
 #include "agent/claudecli.h"
+#include "environmentoverride.h"
 
 namespace
 {
-
-class PathOverride
-{
-public:
-    explicit PathOverride(const QString& value)
-        : m_previous(qgetenv("PATH"))
-    {
-        qputenv("PATH", value.toUtf8());
-    }
-
-    ~PathOverride() { qputenv("PATH", m_previous); }
-
-private:
-    QByteArray m_previous;
-};
 
 ModelConfig configOf(const QString& model, const QString& effort = {}) { return { model, effort }; }
 
@@ -84,7 +69,7 @@ TEST(ClaudeCliTest, FindsTheClaudeExecutableOnThePath)
     file.close();
     ASSERT_TRUE(file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner
                                     | QFileDevice::ExeOwner));
-    const PathOverride path(directory.path());
+    const EnvironmentOverride path("PATH", directory.path().toUtf8());
 
     EXPECT_EQ(QFileInfo(claudecli::executable()), QFileInfo(program));
 }
@@ -93,7 +78,7 @@ TEST(ClaudeCliTest, ReportsNoExecutableWhenThePathHasNone)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    const PathOverride path(directory.path());
+    const EnvironmentOverride path("PATH", directory.path().toUtf8());
 
     EXPECT_TRUE(claudecli::executable().isEmpty());
 }

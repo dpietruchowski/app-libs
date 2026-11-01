@@ -7,32 +7,12 @@
 
 #include "agent/mcpdispatcher.h"
 #include "fixturefile.h"
+#include "toolsmapof.h"
 
 namespace
 {
 
 const QString kRequestId = QStringLiteral("req-1");
-
-ToolData toolData(const QString& name, const QString& description)
-{
-    const QJsonObject parameters { { "type", "object" },
-                                   { "properties", QJsonObject() },
-                                   { "additionalProperties", false } };
-    const QJsonObject function { { "strict", true },
-                                 { "name", name },
-                                 { "description", description },
-                                 { "parameters", parameters } };
-    return ToolData { .tool = nullptr,
-                      .json = QJsonObject { { "type", "function" }, { "function", function } } };
-}
-
-ToolsMap toolsMapOf(const QStringList& names)
-{
-    ToolsMap toolsMap;
-    for (const QString& name : names)
-        toolsMap.insert(name, toolData(name, "Does " + name + "."));
-    return toolsMap;
-}
 
 QJsonObject rpc(const QString& method, const QJsonValue& id, const QJsonObject& params = {})
 {
