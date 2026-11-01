@@ -1,18 +1,15 @@
-#include "chatclaude/streamjsonwriter.h"
+#include "streamjsonwriter.h"
 
 #include <QJsonDocument>
 #include <QJsonValue>
 
-namespace chat::claude
-{
-
 namespace
 {
 
-    QByteArray lineOf(const QJsonObject& object)
-    {
-        return QJsonDocument(object).toJson(QJsonDocument::Compact) + '\n';
-    }
+QByteArray lineOf(const QJsonObject& object)
+{
+    return QJsonDocument(object).toJson(QJsonDocument::Compact) + '\n';
+}
 
 }
 
@@ -41,6 +38,4 @@ QByteArray StreamJsonWriter::mcpResponse(const QString& requestId, const QJsonOb
             QJsonObject { { "subtype", "success" },
                           { "request_id", requestId },
                           { "response", QJsonObject { { "mcp_response", rpcResponse } } } } } });
-}
-
 }

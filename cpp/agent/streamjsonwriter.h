@@ -4,9 +4,6 @@
 #include <QJsonObject>
 #include <QString>
 
-namespace chat::claude
-{
-
 class StreamJsonWriter final
 {
 public:
@@ -14,5 +11,3 @@ public:
     static QByteArray userMessage(const QString& text);
     static QByteArray mcpResponse(const QString& requestId, const QJsonObject& rpcResponse);
 };
-
-}

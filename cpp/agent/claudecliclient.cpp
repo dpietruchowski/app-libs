@@ -7,18 +7,13 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QProcess>
-#include <QStandardPaths>
+#include <QStringList>
+
+#include "claudecli.h"
 
 namespace
 {
 const int kTimeoutMs = 180000;
-
-QString roleLabel(const Message& message)
-{
-    if (message.role == QStringLiteral("tool"))
-        return QStringLiteral("[tool result]");
-    return QStringLiteral("[%1]").arg(message.role);
-}
 
 QString systemPrompt(const Messages& messages, const ToolsMap& toolsMap)
 {
@@ -26,11 +21,7 @@ QString systemPrompt(const Messages& messages, const ToolsMap& toolsMap)
         "You stand in for a chat completions API. Answer as the assistant would, with the next "
         "message only, and no preamble about what you are doing.\n\n");
 
-    for (const Message& message : messages)
-    {
-        if (message.role == QStringLiteral("system"))
-            prompt += message.content + QStringLiteral("\n\n");
-    }
+    prompt += claudecli::systemMessages(messages);
 
     if (!toolsMap.isEmpty())
     {
@@ -49,34 +40,6 @@ QString systemPrompt(const Messages& messages, const ToolsMap& toolsMap)
     return prompt.trimmed();
 }
 
-QString messageText(const Message& message)
-{
-    if (message.tool_calls.isEmpty())
-        return message.content;
-
-    QStringList calls;
-    for (const ToolCall& call : message.tool_calls)
-    {
-        const QJsonObject object { { QStringLiteral("tool"), call.name },
-                                   { QStringLiteral("arguments"),
-                                     QJsonObject::fromVariantMap(call.arguments) } };
-        calls.append(QString::fromUtf8(QJsonDocument(object).toJson(QJsonDocument::Compact)));
-    }
-    return calls.join(QLatin1Char('\n'));
-}
-
-QString conversation(const Messages& messages)
-{
-    QString prompt = QStringLiteral("Conversation so far:\n");
-    for (const Message& message : messages)
-    {
-        if (message.role == QStringLiteral("system"))
-            continue;
-        prompt += roleLabel(message) + QLatin1Char(' ') + messageText(message) + QLatin1Char('\n');
-    }
-    return prompt;
-}
-
 QString stripFence(const QString& text)
 {
     QString trimmed = text.trimmed();
@@ -93,12 +56,7 @@ QString stripFence(const QString& text)
     return trimmed.trimmed();
 }
 
-Completion failure(const QString& error)
-{
-    Completion completion;
-    completion.error = error;
-    return completion;
-}
+using claudecli::failure;
 
 int objectEnd(const QString& text, int start)
 {
@@ -302,33 +260,12 @@ Completion completionFromOutput(const QByteArray& output, const QStringList& too
     const QJsonObject object = QJsonDocument::fromJson(output).object();
     const QString answer = object.value(QStringLiteral("result")).toString();
     if (answer.isEmpty())
-        return failure(QStringLiteral("server_error"));
+        return failure(claudecli::kServerError);
 
     if (object.value(QStringLiteral("is_error")).toBool())
-        return failure(QStringLiteral("server_error"));
+        return failure(claudecli::kServerError);
 
     return completionFromAnswer(answer, toolNames);
-}
-
-QString modelOf(const ModelConfig& config)
-{
-    static const QStringList aliases { QStringLiteral("haiku"), QStringLiteral("sonnet"),
-                                       QStringLiteral("opus"), QStringLiteral("fable"),
-                                       QStringLiteral("default"), QStringLiteral("sonnet[1m]"),
-                                       QStringLiteral("opus[1m]") };
-    const QString model = config.model.toLower();
-    if (aliases.contains(model) || model.startsWith(QStringLiteral("claude")))
-        return model;
-    return QStringLiteral("haiku");
-}
-
-QString effortOf(const ModelConfig& config)
-{
-    static const QStringList levels { QStringLiteral("low"), QStringLiteral("medium"),
-                                      QStringLiteral("high"), QStringLiteral("xhigh"),
-                                      QStringLiteral("max") };
-    const QString effort = config.reasoningEffort.toLower();
-    return levels.contains(effort) ? effort : QString();
 }
 
 QStringList arguments(const ModelConfig& config, const Messages& messages,
@@ -338,11 +275,11 @@ QStringList arguments(const ModelConfig& config, const Messages& messages,
                        QStringLiteral("--output-format"),
                        QStringLiteral("json"),
                        QStringLiteral("--model"),
-                       modelOf(config),
+                       claudecli::modelOf(config),
                        QStringLiteral("--safe-mode"),
                        QStringLiteral("--no-session-persistence") };
 
-    const QString effort = effortOf(config);
+    const QString effort = claudecli::effortOf(config);
     if (!effort.isEmpty())
         args << QStringLiteral("--effort") << effort;
 
@@ -355,7 +292,7 @@ void ask(QProcess& process, const ModelConfig& config, const Messages& messages,
          const ToolsMap& toolsMap)
 {
     process.start(ClaudeCliClient::executable(), arguments(config, messages, toolsMap));
-    process.write(conversation(messages).toUtf8());
+    process.write(claudecli::conversation(messages).toUtf8());
     process.closeWriteChannel();
 }
 }
@@ -365,10 +302,7 @@ ClaudeCliClient::ClaudeCliClient()
 {
 }
 
-QString ClaudeCliClient::executable()
-{
-    return QStandardPaths::findExecutable(QStringLiteral("claude"));
-}
+QString ClaudeCliClient::executable() { return claudecli::executable(); }
 
 bool ClaudeCliClient::isAvailable() { return !executable().isEmpty(); }
 
@@ -378,7 +312,7 @@ void ClaudeCliClient::createCompletionAsync(const ModelConfig& config, const Mes
 {
     if (!isAvailable())
     {
-        Completion completion = failure(QStringLiteral("network_error"));
+        Completion completion = failure(claudecli::kNetworkError);
         callback(completion);
         return;
     }
@@ -392,7 +326,7 @@ void ClaudeCliClient::createCompletionAsync(const ModelConfig& config, const Mes
                          if (*answered)
                              return;
                          *answered = true;
-                         Completion completion = failure(QStringLiteral("network_error"));
+                         Completion completion = failure(claudecli::kNetworkError);
                          callback(completion);
                          process->deleteLater();
                      });
@@ -417,13 +351,13 @@ Completion ClaudeCliClient::createCompletion(const ModelConfig& config, const Me
                                              const ToolsMap& toolsMap) const
 {
     if (!isAvailable())
-        return failure(QStringLiteral("network_error"));
+        return failure(claudecli::kNetworkError);
 
     QProcess process;
     ask(process, config, messages, toolsMap);
 
     if (!process.waitForFinished(kTimeoutMs))
-        return failure(QStringLiteral("server_error"));
+        return failure(claudecli::kServerError);
 
     return completionFromOutput(process.readAllStandardOutput(), toolsMap.keys());
 }

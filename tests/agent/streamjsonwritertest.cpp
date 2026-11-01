@@ -5,9 +5,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
-#include "chatclaude/streamjsonwriter.h"
-
-using chat::claude::StreamJsonWriter;
+#include "agent/streamjsonwriter.h"
+#include "fixturefile.h"
 
 namespace
 {
@@ -77,6 +76,26 @@ TEST(StreamJsonWriterTest, WrapsAnMcpResponseInAControlResponse)
     };
 
     EXPECT_EQ(parsedLine(StreamJsonWriter::mcpResponse("req-42", rpc)), expected);
+}
+
+TEST(StreamJsonWriterTest, ReproducesTheLinesTheHostWroteInARecordedRun)
+{
+    const QList<QByteArray> written = readFixtureSide("stdio-tool-run.jsonl", kHostSays);
+    ASSERT_EQ(written.size(), 6);
+
+    EXPECT_EQ(parsedLine(StreamJsonWriter::initialize()),
+              QJsonDocument::fromJson(written[0]).object());
+    EXPECT_EQ(parsedLine(StreamJsonWriter::userMessage("List my courses.")),
+              QJsonDocument::fromJson(written[1]).object());
+    for (qsizetype at = 2; at < written.size(); ++at)
+    {
+        const QJsonObject recorded = QJsonDocument::fromJson(written[at]).object();
+        const QJsonObject response = recorded.value("response").toObject();
+        const QByteArray rebuilt = StreamJsonWriter::mcpResponse(
+            response.value("request_id").toString(),
+            response.value("response").toObject().value("mcp_response").toObject());
+        EXPECT_EQ(parsedLine(rebuilt), recorded) << "host line " << at;
+    }
 }
 
 TEST(StreamJsonWriterTest, KeepsTheResponseOfAFailedRpcAsItIs)
