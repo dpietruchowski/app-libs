@@ -53,8 +53,10 @@ ThemedPage {
         id: settingsPanel
 
         model: page.chat.model
+        agents: page.chat.agents
         reasoningEffort: page.chat.reasoningEffort
         onModelChosen: (model) => page.chat.model = model
+        onAgentModelChosen: (key, model) => page.chat.setAgentModel(key, model)
         onReasoningEffortChosen: (effort) => page.chat.reasoningEffort = effort
     }
 

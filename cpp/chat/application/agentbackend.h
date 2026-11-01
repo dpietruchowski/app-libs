@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QHash>
 #include <QString>
 #include <QUuid>
 #include <memory>
@@ -20,6 +21,7 @@ struct TurnRequest final
     QString mainInstructions;
     QString model;
     QString reasoningEffort;
+    QHash<QString, QString> agentModels;
     std::vector<Message> transcript;
     std::optional<ChatContext> context;
     QString backendSession;

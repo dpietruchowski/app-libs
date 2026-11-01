@@ -78,6 +78,7 @@ ChatModule::ChatModule(const Config& config, Clients clients, std::unique_ptr<Ch
 {
     QObject::connect(&m_chat, &Chat::modelChanged, &m_chat, [this] { refreshProfile(); });
     QObject::connect(&m_chat, &Chat::reasoningEffortChanged, &m_chat, [this] { refreshProfile(); });
+    QObject::connect(&m_chat, &Chat::agentsChanged, &m_chat, [this] { refreshProfile(); });
     refreshProfile();
     m_runner.forgetSessions(m_storage->droppedSessions());
 }
@@ -89,7 +90,15 @@ ChatModule::~ChatModule()
         m_config.worker, [this] { m_storage->close(); }, Qt::BlockingQueuedConnection);
 }
 
-bool ChatModule::addAgent(AppAgent agent) { return m_catalog.add(std::move(agent)); }
+bool ChatModule::addAgent(AppAgent agent)
+{
+    if (!m_catalog.add(std::move(agent)))
+    {
+        return false;
+    }
+    emit m_chat.agentsChanged();
+    return true;
+}
 
 void ChatModule::registerQml(QmlRegistrator& registrator)
 {
@@ -105,8 +114,8 @@ void ChatModule::setNotes(const QString& notes)
 
 void ChatModule::refreshProfile()
 {
-    m_runner.setProfile(
-        TurnProfile { mainInstructions(), m_chat.model(), m_chat.reasoningEffort() });
+    m_runner.setProfile(TurnProfile { mainInstructions(), m_chat.model(), m_chat.reasoningEffort(),
+                                      m_chat.chosenAgentModels() });
 }
 
 Chat& ChatModule::chat() { return m_chat; }

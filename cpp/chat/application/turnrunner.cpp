@@ -229,6 +229,7 @@ void TurnRunner::begin(const QUuid& conversationId, const QUuid& assistantMessag
     request.mainInstructions = m_profile.mainInstructions;
     request.model = m_profile.model;
     request.reasoningEffort = m_profile.reasoningEffort;
+    request.agentModels = m_profile.agentModels;
     request.transcript = transcript.messages;
     request.context = lastUserContext(messages);
     if (transcript.resumed)

@@ -10,10 +10,12 @@ ThemedPanel {
 
     property string model: ""
     property string reasoningEffort: ""
+    property var agents: []
     readonly property var models: ["haiku", "sonnet", "opus"]
     readonly property var reasoningEfforts: ["Minimal", "Low", "Medium", "High"]
 
     signal modelChosen(string model)
+    signal agentModelChosen(string key, string model)
     signal reasoningEffortChosen(string reasoningEffort)
 
     component ChoiceRow: RowLayout {
@@ -57,6 +59,31 @@ ThemedPanel {
         choices: root.models
         current: root.model
         onChosen: (choice) => root.modelChosen(choice)
+    }
+
+    Repeater {
+        model: root.agents
+
+        ColumnLayout {
+            id: agentModel
+
+            required property var modelData
+
+            Layout.fillWidth: true
+            spacing: Theme.spacing.small
+
+            ThemedOverline {
+                Layout.topMargin: Theme.spacing.small
+                text: qsTr("%1 model").arg(agentModel.modelData.title)
+            }
+
+            ChoiceRow {
+                namePrefix: "chatAgentModel_" + agentModel.modelData.key + "_"
+                choices: root.models
+                current: agentModel.modelData.model
+                onChosen: (choice) => root.agentModelChosen(agentModel.modelData.key, choice)
+            }
+        }
     }
 
     ThemedOverline {

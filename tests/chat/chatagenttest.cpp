@@ -1016,6 +1016,51 @@ TEST_F(ChatAgentTest, Delegate_WithOnlyItsOwnReasoningEffort_FollowsTheModelOfTh
     EXPECT_EQ(config.reasoningEffort, QStringLiteral("max"));
 }
 
+TEST_F(ChatAgentTest, Delegate_WithAChosenModel_RunsOnItInsteadOfItsOwnModelAndTheTurn)
+{
+    useCoursesAgent(QStringLiteral("own-model"), QStringLiteral("max"));
+    TurnRequest chosen = request();
+    chosen.model = QStringLiteral("chosen-model");
+    chosen.agentModels.insert(QStringLiteral("courses"), QStringLiteral("picked-model"));
+    begin(chosen);
+    settle();
+
+    callDelegate(QStringLiteral("courses"));
+
+    const ModelConfig& config = delegateClient().held.front().config;
+    EXPECT_EQ(config.model, QStringLiteral("picked-model"));
+    EXPECT_EQ(config.reasoningEffort, QStringLiteral("max"));
+}
+
+TEST_F(ChatAgentTest, Delegate_WithAChosenModelOfAnotherAgent_KeepsItsOwnModel)
+{
+    useCoursesAgent(QStringLiteral("own-model"), QString());
+    TurnRequest chosen = request();
+    chosen.agentModels.insert(QStringLiteral("facts"), QStringLiteral("picked-model"));
+    begin(chosen);
+    settle();
+
+    callDelegate(QStringLiteral("courses"));
+
+    EXPECT_EQ(delegateClient().held.front().config.model, QStringLiteral("own-model"));
+}
+
+TEST_F(ChatAgentTest, FollowUp_KeepsTheChosenModelOfTheDelegate)
+{
+    useCoursesAgent(QStringLiteral("own-model"), QStringLiteral("max"));
+    m_followUps = { QStringLiteral("check again") };
+    TurnRequest chosen = request();
+    chosen.agentModels.insert(QStringLiteral("courses"), QStringLiteral("picked-model"));
+    begin(chosen);
+    settle();
+    callDelegate(QStringLiteral("courses"));
+
+    delegateClient(0).completeNext(contentCompletion(QStringLiteral("first report")));
+
+    ASSERT_EQ(delegateClient(1).held.size(), 1u);
+    EXPECT_EQ(delegateClient(1).held.front().config.model, QStringLiteral("picked-model"));
+}
+
 TEST_F(ChatAgentTest, FollowUp_KeepsTheOwnModelAndReasoningEffortOfTheDelegate)
 {
     useCoursesAgent(QStringLiteral("own-model"), QStringLiteral("max"));
