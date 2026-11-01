@@ -8,6 +8,8 @@ Item {
 
     required property var session
 
+    property bool inputEnabled: true
+
     readonly property var chat: conversation.session.chat
     readonly property bool available: conversation.chat.available
 
@@ -31,6 +33,7 @@ Item {
             objectName: "chatComposer"
             Layout.fillWidth: true
             Layout.bottomMargin: Theme.spacing.small
+            enabled: conversation.inputEnabled
             busy: conversation.session.busy
 
             onSent: (text) => conversation.session.send(text)
