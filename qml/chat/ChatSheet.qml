@@ -67,6 +67,15 @@ ThemedPanel {
                 }
 
                 ThemedButton {
+                    objectName: "chatSettingsButton"
+                    buttonSize: Theme.button.icon
+                    buttonStyle: Theme.button.ghost
+                    iconSource: Theme.icons.sliders
+                    Accessible.name: qsTr("Chat settings")
+                    onClicked: settingsPanel.open()
+                }
+
+                ThemedButton {
                     objectName: "chatNewButton"
                     buttonSize: Theme.button.small
                     buttonStyle: Theme.button.ghostPrimary
@@ -75,15 +84,6 @@ ThemedPanel {
                     iconSource: Theme.icons.plus
                     iconColor: Theme.colors.primary
                     onClicked: sheet.session.conversationId = ""
-                }
-
-                ThemedButton {
-                    objectName: "chatSettingsButton"
-                    buttonSize: Theme.button.icon
-                    buttonStyle: Theme.button.ghost
-                    iconSource: Theme.icons.sliders
-                    Accessible.name: qsTr("Chat settings")
-                    onClicked: settingsPanel.open()
                 }
             }
 
