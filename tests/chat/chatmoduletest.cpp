@@ -99,6 +99,29 @@ protected:
 
     const ClientRequest& request() const { return m_clients.back()->held.front(); }
 
+    static chat::AppAgent coursesAgent()
+    {
+        return chat::AppAgent { QStringLiteral("courses"), QStringLiteral("Courses"),
+                                QStringLiteral("Handles courses."),
+                                ::Agent(QStringLiteral("haiku"), QStringLiteral("prompt")) };
+    }
+
+    ClientRequest delegationRequest(const QUuid& id)
+    {
+        m_clients.back()->completeNext(
+            toolCallCompletion(QStringLiteral("call-courses"), QStringLiteral("courses"),
+                               { { QStringLiteral("task"), QStringLiteral("list them") } }));
+        EXPECT_TRUE(QTest::qWaitFor(
+            [&] { return m_clients.size() == 2 && !m_clients.back()->held.empty(); },
+            kWaitMilliseconds));
+        const ClientRequest delegated = request();
+        m_clients.at(1)->completeNext(contentCompletion(QStringLiteral("report")));
+        m_clients.at(0)->completeNext(contentCompletion(QStringLiteral("answer")));
+        EXPECT_TRUE(QTest::qWaitFor([&] { return !m_module->chat().runner().isBusy(id); },
+                                    kWaitMilliseconds));
+        return delegated;
+    }
+
     std::unique_ptr<ChatModule> m_module;
     std::vector<std::shared_ptr<ClientState>> m_clients;
     QStringList m_forgotten;
@@ -187,6 +210,45 @@ TEST_F(ChatModuleTest, Turn_AfterTheChatSettingsChange_UsesTheNewModelAndReasoni
     EXPECT_EQ(request().config.model, QStringLiteral("opus"));
     EXPECT_EQ(request().config.reasoningEffort, QStringLiteral("High"));
     finishTurn(id);
+}
+
+TEST_F(ChatModuleTest, Delegation_WithoutAChoice_RunsOnTheModelOfTheChat)
+{
+    start();
+    ASSERT_TRUE(m_module->addAgent(coursesAgent()));
+    m_module->chat().setModel(QStringLiteral("opus"));
+
+    const QUuid id = startTurn();
+
+    EXPECT_EQ(delegationRequest(id).config.model, QStringLiteral("opus"));
+}
+
+TEST_F(ChatModuleTest, Delegation_RunsOnTheModelChosenForTheAgent)
+{
+    start();
+    ASSERT_TRUE(m_module->addAgent(coursesAgent()));
+    m_module->chat().setModel(QStringLiteral("opus"));
+    m_module->chat().setAgentModel(QStringLiteral("courses"), QStringLiteral("haiku"));
+
+    const QUuid id = startTurn();
+
+    EXPECT_EQ(request().config.model, QStringLiteral("opus"));
+    EXPECT_EQ(delegationRequest(id).config.model, QStringLiteral("haiku"));
+}
+
+TEST_F(ChatModuleTest, Delegation_AfterARestart_RunsOnTheModelChosenInTheLastRun)
+{
+    start();
+    ASSERT_TRUE(m_module->addAgent(coursesAgent()));
+    m_module->chat().setAgentModel(QStringLiteral("courses"), QStringLiteral("haiku"));
+    m_module.reset();
+    m_clients.clear();
+    start();
+    ASSERT_TRUE(m_module->addAgent(coursesAgent()));
+
+    const QUuid id = startTurn();
+
+    EXPECT_EQ(delegationRequest(id).config.model, QStringLiteral("haiku"));
 }
 
 TEST_F(ChatModuleTest, Turn_CarriesTheAppNameAndPurposeInItsInstructions)

@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QSettings>
 #include <QString>
+#include <QVariantList>
 
 #include "chat/ui/chatconversationmodel.h"
 
@@ -22,6 +23,7 @@ class Chat : public QObject
     Q_PROPERTY(QString model READ model WRITE setModel NOTIFY modelChanged)
     Q_PROPERTY(QString reasoningEffort READ reasoningEffort WRITE setReasoningEffort NOTIFY
                    reasoningEffortChanged)
+    Q_PROPERTY(QVariantList agents READ agents NOTIFY agentsChanged)
     Q_PROPERTY(ChatConversationModel* conversations READ conversations CONSTANT)
 
 public:
@@ -49,6 +51,10 @@ public:
     QString reasoningEffort() const;
     void setReasoningEffort(const QString& reasoningEffort);
 
+    QVariantList agents() const;
+    QHash<QString, QString> chosenAgentModels() const;
+    Q_INVOKABLE void setAgentModel(const QString& key, const QString& model);
+
     ChatConversationModel* conversations();
 
     Q_INVOKABLE void remove(const QString& conversationId);
@@ -57,11 +63,14 @@ public:
 signals:
     void modelChanged();
     void reasoningEffortChanged();
+    void agentsChanged();
 
 private:
     void reloadConversations();
     QString modelKey() const;
     QString reasoningEffortKey() const;
+    QString agentModelKey(const QString& agentKey) const;
+    QString chosenAgentModel(const QString& agentKey) const;
 
     ChatStore& m_store;
     TurnRunner& m_runner;

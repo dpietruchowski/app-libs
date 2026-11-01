@@ -81,6 +81,30 @@ TEST(AgentCatalogTest, Add_ABlankDescription_IsRejected)
     EXPECT_TRUE(catalog.agents().empty());
 }
 
+TEST(AgentCatalogTest, ModelFor_AChosenModel_WinsOverTheOwnModelAndTheChat)
+{
+    chat::AppAgent agent = appAgent(QStringLiteral("courses"));
+    agent.config.model = QStringLiteral("own");
+
+    EXPECT_EQ(agent.modelFor(QStringLiteral("chosen"), QStringLiteral("chat")),
+              QStringLiteral("chosen"));
+}
+
+TEST(AgentCatalogTest, ModelFor_WithoutAChoice_IsTheOwnModel)
+{
+    chat::AppAgent agent = appAgent(QStringLiteral("courses"));
+    agent.config.model = QStringLiteral("own");
+
+    EXPECT_EQ(agent.modelFor(QString(), QStringLiteral("chat")), QStringLiteral("own"));
+}
+
+TEST(AgentCatalogTest, ModelFor_WithoutAChoiceOrAnOwnModel_IsTheModelOfTheChat)
+{
+    const chat::AppAgent agent = appAgent(QStringLiteral("courses"));
+
+    EXPECT_EQ(agent.modelFor(QString(), QStringLiteral("chat")), QStringLiteral("chat"));
+}
+
 TEST(AgentCatalogTest, Find_AnUnknownKey_ReturnsNothing)
 {
     chat::AgentCatalog catalog;
