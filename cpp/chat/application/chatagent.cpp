@@ -1,5 +1,6 @@
 #include "chat/application/chatagent.h"
 
+#include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonValue>
 #include <QMetaObject>
@@ -23,6 +24,18 @@ namespace
 {
 
     const QString kTaskParameter = QStringLiteral("task");
+    constexpr int kMaxFollowUps = 2;
+
+    QString withContext(const QString& text, const std::optional<ChatContext>& context)
+    {
+        if (!context)
+        {
+            return text;
+        }
+        const QString data
+            = QString::fromUtf8(QJsonDocument(context->data).toJson(QJsonDocument::Compact));
+        return text + QStringLiteral("\n[context: %1 %2]").arg(context->title, data);
+    }
 
     QString delegationDocstring(const AppAgent& entry)
     {
@@ -61,7 +74,22 @@ namespace
     {
         std::unique_ptr<::Client> client;
         std::unique_ptr<::Agent> agent;
+        int followUps { 0 };
     };
+
+    QString nextFollowUp(const AppAgent& entry, DelegateRun& run)
+    {
+        if (!entry.followUp || run.followUps >= kMaxFollowUps)
+        {
+            return QString();
+        }
+        const QString message = entry.followUp();
+        if (!message.isEmpty())
+        {
+            ++run.followUps;
+        }
+        return message;
+    }
 
     class ChatTurn final : public AgentTurn
     {
@@ -70,7 +98,10 @@ namespace
                  std::unique_ptr<::Client> client)
             : m_agents(std::move(agents))
             , m_clients(std::move(clients))
-            , m_question(request.transcript.back().text())
+            , m_context(request.context)
+            , m_model(request.model)
+            , m_reasoningEffort(request.reasoningEffort)
+            , m_question(withContext(request.transcript.back().text(), m_context))
             , m_client(std::move(client))
             , m_agent(request.model, request.mainInstructions)
         {
@@ -139,7 +170,7 @@ namespace
             return observer;
         }
 
-        AgentObserver delegateObserver(const AppAgent& entry, ToolDone done)
+        AgentObserver delegateObserver(const AppAgent& entry, DelegateRun& run, ToolDone done)
         {
             AgentObserver observer;
             observer.toolStarted = [this, &entry](const ToolCall& call, ToolEffect effect)
@@ -156,8 +187,14 @@ namespace
                     finishStep(m_tool, StepStatus::Ok, QJsonValue::fromVariant(result));
                 }
             };
-            observer.finished = [this, done](const QString& report)
+            observer.finished = [this, &entry, &run, done](const QString& report)
             {
+                const QString message = nextFollowUp(entry, run);
+                if (!message.isEmpty())
+                {
+                    run.agent->requestAsync(*run.client, message, [](const QString&) {});
+                    return;
+                }
                 retireRun();
                 done(report);
             };
@@ -180,10 +217,13 @@ namespace
             }
             run->agent = std::make_unique<::Agent>(entry.agent);
             run->agent->clear();
-            run->agent->setObserver(delegateObserver(entry, std::move(done)));
+            run->agent->setModel(m_model);
+            run->agent->setReasoningEffort(m_reasoningEffort);
+            run->agent->setObserver(delegateObserver(entry, *run, std::move(done)));
             m_running = run;
-            run->agent->requestAsync(*run->client, arguments.value(kTaskParameter).toString(),
-                                     [](const QString&) {});
+            run->agent->requestAsync(
+                *run->client, withContext(arguments.value(kTaskParameter).toString(), m_context),
+                [](const QString&) {});
         }
 
         void retireRun()
@@ -236,6 +276,9 @@ namespace
 
         std::vector<AppAgent> m_agents;
         ClientFactory m_clients;
+        std::optional<ChatContext> m_context;
+        QString m_model;
+        QString m_reasoningEffort;
         QString m_question;
         std::unique_ptr<::Client> m_client;
         ::Agent m_agent;

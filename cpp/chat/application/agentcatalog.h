@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QString>
+#include <functional>
 #include <vector>
 
 #include "agent/agent.h"
@@ -14,6 +15,7 @@ struct AppAgent final
     QString title;
     QString description;
     ::Agent agent;
+    std::function<QString()> followUp;
 };
 
 class AgentCatalog final
