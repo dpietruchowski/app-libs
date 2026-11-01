@@ -391,9 +391,25 @@ TEST_F(McpDispatcherTest, AnswersMalformedJsonWithAParseError)
     EXPECT_TRUE(body.value("id").isNull());
 }
 
+TEST_F(McpDispatcherTest, AnswersBodiesThatAreNotASingleJsonValueWithAParseError)
+{
+    for (const QByteArray body :
+         { QByteArray(), QByteArray("   "), QByteArray("not json"), QByteArray("[1"),
+           QByteArray("1,2"), QByteArray("42 43"), QByteArray("{} {}"), QByteArray("1],[2") })
+    {
+        const HttpResponse response = send(postTo("/mcp/courses", body));
+
+        EXPECT_EQ(response.status, 400) << body.toStdString();
+        EXPECT_EQ(bodyOf(response).value("error").toObject().value("code").toInt(), -32700)
+            << body.toStdString();
+    }
+}
+
 TEST_F(McpDispatcherTest, RefusesBatchesAndOtherNonObjectBodies)
 {
-    for (const QByteArray body : { QByteArray("[]"), QByteArray("42"), QByteArray("\"text\"") })
+    for (const QByteArray body :
+         { QByteArray("[]"), QByteArray("[{}]"), QByteArray("42"), QByteArray("-1.5e3"),
+           QByteArray("\"text\""), QByteArray("true"), QByteArray("null"), QByteArray(" 42 ") })
     {
         const HttpResponse response = send(postTo("/mcp/courses", body));
 

@@ -110,6 +110,12 @@ namespace
             : QString();
     }
 
+    bool isSingleJsonValue(const QByteArray& body)
+    {
+        const QJsonDocument wrapped = QJsonDocument::fromJson("[" + body + "]");
+        return wrapped.isArray() && wrapped.array().size() == 1;
+    }
+
 }
 
 McpDispatcher::McpDispatcher(const AgentCatalog& catalog, QByteArray token, QObject* parent)
@@ -137,7 +143,7 @@ Task<HttpResponse> McpDispatcher::dispatch(const HttpRequest& request)
 
     QJsonParseError parseError;
     const QJsonDocument document = QJsonDocument::fromJson(request.body, &parseError);
-    if (parseError.error != QJsonParseError::NoError)
+    if (parseError.error != QJsonParseError::NoError && !isSingleJsonValue(request.body))
         return ready(rpcError(400, QJsonValue(QJsonValue::Null), kParseError,
                               QStringLiteral("Parse error")));
     if (!document.isObject())
