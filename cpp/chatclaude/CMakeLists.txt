@@ -1,6 +1,6 @@
 set(LIBRARY_NAME app_chat_claude)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Network)
+find_package(Qt6 REQUIRED COMPONENTS Core)
 
 file(GLOB_RECURSE SOURCES "*.cpp")
 file(GLOB_RECURSE HEADERS "*.h")
@@ -18,7 +18,6 @@ target_link_libraries(${LIBRARY_NAME}
     PUBLIC
         app_chat
         Qt6::Core
-        Qt6::Network
 )
 
 target_compile_options(${LIBRARY_NAME} PRIVATE

@@ -5,7 +5,6 @@ add_executable(chatclaude_tests ${CHAT_CLAUDE_TEST_SOURCES} ${CHAT_CLAUDE_TEST_H
 
 target_link_libraries(chatclaude_tests PRIVATE
     Qt6::Core
-    Qt6::Network
     Qt6::Test
     gtest
     app_chat_claude
