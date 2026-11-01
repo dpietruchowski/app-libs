@@ -1,22 +1,17 @@
 #pragma once
 
-#include <QCoreApplication>
 #include <QDebug>
 #include <QFuture>
-#include <QHash>
 #include <QMetaObject>
-#include <QMutex>
-#include <QMutexLocker>
 #include <QObject>
 #include <QPointer>
 #include <QPromise>
-#include <QThread>
 #include <functional>
 #include <memory>
 #include <type_traits>
 #include <utility>
-#include <vector>
 
+#include "async/continuationanchors.h"
 #include "async/result.h"
 
 template <typename T> class Task;
@@ -72,66 +67,6 @@ template <typename U> QFuture<Result<U>> readyFuture(Result<U> result)
     promise.finish();
     return future;
 }
-
-class ContinuationAnchors final
-{
-public:
-    static QObject* forThreadOf(QObject* context)
-    {
-        return instance().anchorFor(context->thread());
-    }
-
-    static void destroyAll()
-    {
-        ContinuationAnchors& anchors = instance();
-        QMutexLocker lock(&anchors.m_mutex);
-        for (QObject* anchor : anchors.m_created)
-        {
-            delete anchor;
-        }
-        anchors.m_created.clear();
-        anchors.m_byThread.clear();
-    }
-
-private:
-    struct Entry
-    {
-        QPointer<QThread> thread;
-        QObject* anchor = nullptr;
-    };
-
-    static ContinuationAnchors& instance()
-    {
-        static ContinuationAnchors anchors;
-        return anchors;
-    }
-
-    QObject* anchorFor(QThread* thread)
-    {
-        QMutexLocker lock(&m_mutex);
-        if (m_created.empty())
-        {
-            qAddPostRoutine(&ContinuationAnchors::destroyAll);
-        }
-        const auto found = m_byThread.constFind(thread);
-        if (found != m_byThread.constEnd() && found->thread == thread)
-        {
-            return found->anchor;
-        }
-        auto* anchor = new QObject;
-        if (thread != QThread::currentThread())
-        {
-            anchor->moveToThread(thread);
-        }
-        m_created.push_back(anchor);
-        m_byThread.insert(thread, Entry { QPointer<QThread>(thread), anchor });
-        return anchor;
-    }
-
-    QMutex m_mutex;
-    QHash<QThread*, Entry> m_byThread;
-    std::vector<QObject*> m_created;
-};
 }
 
 template <typename T> class [[nodiscard]] Task final
@@ -279,7 +214,7 @@ private:
     template <typename F> void afterFinish(QObject* context, F&& fn)
     {
         m_future.then(
-            task_detail::ContinuationAnchors::forThreadOf(context),
+            task_detail::continuationAnchorFor(context),
             [guard = QPointer<QObject>(context), fn = std::forward<F>(fn)](Result<T> result) mutable
             {
                 if (guard)
