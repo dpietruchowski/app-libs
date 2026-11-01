@@ -7,7 +7,6 @@
 #include "async/timeprovider.h"
 #include "chat/infrastructure/conversationrepositorydb.h"
 #include "chat/infrastructure/conversationserializer.h"
-#include "chat/infrastructure/enumcodec.h"
 #include "chat/infrastructure/messagerepositorydb.h"
 #include "chat/infrastructure/messageserializer.h"
 #include "chat/infrastructure/stepserializer.h"
@@ -133,8 +132,7 @@ bool ChatStorage::migrate()
 std::optional<QStringList> ChatStorage::interruptRunning()
 {
     const Where runningMessage
-        = Where(MessageSerializer::kStatus)
-              .equals(enum_codec::messageStatusToSql(MessageStatus::Running));
+        = Where(MessageSerializer::kStatus).equals(sql_codec::toSql(MessageStatus::Running));
 
     Select interruptedConversations({ MessageSerializer::kConversationId });
     interruptedConversations.from(MessageSerializer::kTable).where(runningMessage);
@@ -154,16 +152,14 @@ std::optional<QStringList> ChatStorage::interruptRunning()
         .where(interruptedConversation);
 
     Update interruptMessages(MessageSerializer::kTable);
-    interruptMessages
-        .set(MessageSerializer::kStatus, enum_codec::messageStatusToSql(MessageStatus::Interrupted))
+    interruptMessages.set(MessageSerializer::kStatus, sql_codec::toSql(MessageStatus::Interrupted))
         .where(runningMessage);
 
     Update failSteps(StepSerializer::kTable);
-    failSteps.set(StepSerializer::kStatus, enum_codec::stepStatusToSql(StepStatus::Failed))
+    failSteps.set(StepSerializer::kStatus, sql_codec::toSql(StepStatus::Failed))
         .set(StepSerializer::kFinishedAt,
              sql_codec::toSql(TimeProvider::instance().currentDateTime()))
-        .where(Where(StepSerializer::kStatus)
-                   .equals(enum_codec::stepStatusToSql(StepStatus::Running)));
+        .where(Where(StepSerializer::kStatus).equals(sql_codec::toSql(StepStatus::Running)));
 
     Transaction transaction(*m_storage);
     if (!transaction.isActive())

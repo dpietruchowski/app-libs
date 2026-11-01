@@ -1,29 +1,31 @@
 #pragma once
 
-#include <QJsonObject>
-#include <QJsonValue>
 #include <QString>
 #include <vector>
 
-#include "async/task.h"
-#include "chat/domain/agentdefinition.h"
+#include "agent/agent.h"
 
 namespace chat
 {
 
+struct AppAgent final
+{
+    QString key;
+    QString title;
+    QString description;
+    ::Agent agent;
+};
+
 class AgentCatalog final
 {
 public:
-    void add(AgentDefinition agent);
+    bool add(AppAgent agent);
 
-    const AgentDefinition* find(const QString& agentKey) const;
-    const std::vector<AgentDefinition>& agents() const { return m_agents; }
-
-    Task<QJsonValue> invoke(const QString& agentKey, const QString& toolName,
-                            const QJsonObject& arguments) const;
+    const AppAgent* find(const QString& agentKey) const;
+    const std::vector<AppAgent>& agents() const { return m_agents; }
 
 private:
-    std::vector<AgentDefinition> m_agents;
+    std::vector<AppAgent> m_agents;
 };
 
 }

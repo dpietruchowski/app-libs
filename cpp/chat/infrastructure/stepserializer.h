@@ -25,6 +25,7 @@ public:
     static inline const QString kInput = QStringLiteral("input_json");
     static inline const QString kOutput = QStringLiteral("output_json");
     static inline const QString kStatus = QStringLiteral("status");
+    static inline const QString kEffect = QStringLiteral("effect");
     static inline const QString kStartedAt = QStringLiteral("started_at");
     static inline const QString kFinishedAt = QStringLiteral("finished_at");
 

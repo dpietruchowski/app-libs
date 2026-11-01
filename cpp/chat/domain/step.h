@@ -6,6 +6,7 @@
 #include <QUuid>
 #include <optional>
 
+#include "agent/tooleffect.h"
 #include "chat/domain/enums.h"
 
 namespace chat
@@ -21,6 +22,7 @@ struct Step final
     QJsonObject input;
     QJsonValue output;
     StepStatus status { StepStatus::Running };
+    ToolEffect effect { ToolEffect::Reads };
 
     bool operator==(const Step& other) const = default;
 };

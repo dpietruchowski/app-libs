@@ -1,138 +1,90 @@
 #include <gtest/gtest.h>
 
-#include <QJsonObject>
-#include <QJsonValue>
-
 #include "chat/application/agentcatalog.h"
 
 namespace
 {
 
-Result<QJsonValue> await(Task<QJsonValue> task) { return task.future().result(); }
-
-chat::ToolSpec echoTool(const QString& name, int& callCount)
+chat::AppAgent appAgent(const QString& key,
+                        const QString& description = QStringLiteral("Does the work."))
 {
-    chat::ToolSpec tool(name, "Echoes the text argument");
-    tool.string("text", "Text to echo")
-        .handler(
-            [&callCount](const QJsonObject& arguments)
-            {
-                ++callCount;
-                return Task<QJsonValue>::ready(
-                    nullptr, Result<QJsonValue>::success(arguments.value("text")));
-            });
-    return tool;
-}
-
-chat::AgentDefinition agentWith(const QString& key, const chat::ToolSpec& tool)
-{
-    return chat::AgentDefinition { .key = key, .title = key, .tools = { tool } };
+    return chat::AppAgent { key, key.toUpper(), description,
+                            ::Agent(QStringLiteral("model"), QStringLiteral("prompt")) };
 }
 
 }
 
-class AgentCatalogTest : public ::testing::Test
+TEST(AgentCatalogTest, Add_AValidAgent_IsStoredAndFoundByItsKey)
 {
-protected:
     chat::AgentCatalog catalog;
-    int callCount { 0 };
-};
 
-TEST_F(AgentCatalogTest, Invoke_KnownTool_PassesArgumentsAndReturnsHandlerValue)
-{
-    catalog.add(agentWith("courses", echoTool("echo", callCount)));
-
-    const Result<QJsonValue> result
-        = await(catalog.invoke("courses", "echo", QJsonObject { { "text", "hello" } }));
-
-    ASSERT_TRUE(result.isSuccess());
-    EXPECT_EQ(result.value().toString(), "hello");
-    EXPECT_EQ(callCount, 1);
-}
-
-TEST_F(AgentCatalogTest, Invoke_UnknownAgent_FailsWithoutCallingAnyHandler)
-{
-    catalog.add(agentWith("courses", echoTool("echo", callCount)));
-
-    const Result<QJsonValue> result = await(catalog.invoke("lessons", "echo", {}));
-
-    ASSERT_TRUE(result.isFailure());
-    EXPECT_TRUE(result.error().contains("lessons"));
-    EXPECT_EQ(callCount, 0);
-}
-
-TEST_F(AgentCatalogTest, Invoke_UnknownTool_FailsWithoutCallingAnyHandler)
-{
-    catalog.add(agentWith("courses", echoTool("echo", callCount)));
-
-    const Result<QJsonValue> result = await(catalog.invoke("courses", "shout", {}));
-
-    ASSERT_TRUE(result.isFailure());
-    EXPECT_TRUE(result.error().contains("shout"));
-    EXPECT_EQ(callCount, 0);
-}
-
-TEST_F(AgentCatalogTest, Invoke_ToolWithoutHandler_Fails)
-{
-    catalog.add(agentWith("courses", chat::ToolSpec("echo", "No handler attached")));
-
-    const Result<QJsonValue> result = await(catalog.invoke("courses", "echo", {}));
-
-    ASSERT_TRUE(result.isFailure());
-    EXPECT_TRUE(result.error().contains("echo"));
-}
-
-TEST_F(AgentCatalogTest, Invoke_ToolOfAnotherAgent_Fails)
-{
-    catalog.add(agentWith("courses", echoTool("echo", callCount)));
-    catalog.add(agentWith("lessons", echoTool("read", callCount)));
-
-    const Result<QJsonValue> result = await(catalog.invoke("lessons", "echo", {}));
-
-    ASSERT_TRUE(result.isFailure());
-    EXPECT_EQ(callCount, 0);
-}
-
-TEST_F(AgentCatalogTest, Invoke_ToolSharedByTwoAgents_ResolvesThroughBoth)
-{
-    const chat::ToolSpec shared = echoTool("echo", callCount);
-    catalog.add(agentWith("courses", shared));
-    catalog.add(agentWith("lessons", shared));
-
-    const Result<QJsonValue> viaCourses
-        = await(catalog.invoke("courses", "echo", QJsonObject { { "text", "a" } }));
-    const Result<QJsonValue> viaLessons
-        = await(catalog.invoke("lessons", "echo", QJsonObject { { "text", "b" } }));
-
-    ASSERT_TRUE(viaCourses.isSuccess());
-    ASSERT_TRUE(viaLessons.isSuccess());
-    EXPECT_EQ(viaCourses.value().toString(), "a");
-    EXPECT_EQ(viaLessons.value().toString(), "b");
-    EXPECT_EQ(callCount, 2);
-}
-
-TEST_F(AgentCatalogTest, Add_SameKeyTwice_ReplacesTheFirstAgent)
-{
-    catalog.add(chat::AgentDefinition { .key = "courses", .title = "First" });
-    catalog.add(chat::AgentDefinition { .key = "courses", .title = "Second" });
+    EXPECT_TRUE(catalog.add(appAgent(QStringLiteral("courses"))));
 
     ASSERT_EQ(catalog.agents().size(), 1u);
-    EXPECT_EQ(catalog.find("courses")->title, "Second");
+    const chat::AppAgent* found = catalog.find(QStringLiteral("courses"));
+    ASSERT_NE(found, nullptr);
+    EXPECT_EQ(found->title, QStringLiteral("COURSES"));
+    EXPECT_EQ(found->description, QStringLiteral("Does the work."));
 }
 
-TEST_F(AgentCatalogTest, Add_DifferentKeys_KeepsInsertionOrder)
+TEST(AgentCatalogTest, Add_KeepsTheOrderOfRegistration)
 {
-    catalog.add(chat::AgentDefinition { .key = "courses" });
-    catalog.add(chat::AgentDefinition { .key = "lessons" });
+    chat::AgentCatalog catalog;
 
-    ASSERT_EQ(catalog.agents().size(), 2u);
-    EXPECT_EQ(catalog.agents().at(0).key, "courses");
-    EXPECT_EQ(catalog.agents().at(1).key, "lessons");
+    catalog.add(appAgent(QStringLiteral("courses")));
+    catalog.add(appAgent(QStringLiteral("facts")));
+    catalog.add(appAgent(QStringLiteral("progress")));
+
+    ASSERT_EQ(catalog.agents().size(), 3u);
+    EXPECT_EQ(catalog.agents().at(0).key, QStringLiteral("courses"));
+    EXPECT_EQ(catalog.agents().at(1).key, QStringLiteral("facts"));
+    EXPECT_EQ(catalog.agents().at(2).key, QStringLiteral("progress"));
 }
 
-TEST_F(AgentCatalogTest, Find_UnknownKey_ReturnsNull)
+TEST(AgentCatalogTest, Add_ARepeatedKey_IsRejectedAndKeepsTheFirstAgent)
 {
-    catalog.add(chat::AgentDefinition { .key = "courses" });
+    chat::AgentCatalog catalog;
+    catalog.add(appAgent(QStringLiteral("courses"), QStringLiteral("First.")));
 
-    EXPECT_EQ(catalog.find("lessons"), nullptr);
+    EXPECT_FALSE(catalog.add(appAgent(QStringLiteral("courses"), QStringLiteral("Second."))));
+
+    ASSERT_EQ(catalog.agents().size(), 1u);
+    EXPECT_EQ(catalog.find(QStringLiteral("courses"))->description, QStringLiteral("First."));
+}
+
+TEST(AgentCatalogTest, Add_AKeyThatIsNotAToolName_IsRejected)
+{
+    chat::AgentCatalog catalog;
+
+    EXPECT_FALSE(catalog.add(appAgent(QString())));
+    EXPECT_FALSE(catalog.add(appAgent(QStringLiteral("two words"))));
+    EXPECT_FALSE(catalog.add(appAgent(QStringLiteral("with-dash"))));
+    EXPECT_FALSE(catalog.add(appAgent(QStringLiteral("courses\n"))));
+
+    EXPECT_TRUE(catalog.agents().empty());
+}
+
+TEST(AgentCatalogTest, Add_AKeyWithUnderscoresAndDigits_IsAccepted)
+{
+    chat::AgentCatalog catalog;
+
+    EXPECT_TRUE(catalog.add(appAgent(QStringLiteral("fact_checker2"))));
+}
+
+TEST(AgentCatalogTest, Add_ABlankDescription_IsRejected)
+{
+    chat::AgentCatalog catalog;
+
+    EXPECT_FALSE(catalog.add(appAgent(QStringLiteral("courses"), QString())));
+    EXPECT_FALSE(catalog.add(appAgent(QStringLiteral("courses"), QStringLiteral(" \n "))));
+
+    EXPECT_TRUE(catalog.agents().empty());
+}
+
+TEST(AgentCatalogTest, Find_AnUnknownKey_ReturnsNothing)
+{
+    chat::AgentCatalog catalog;
+    catalog.add(appAgent(QStringLiteral("courses")));
+
+    EXPECT_EQ(catalog.find(QStringLiteral("facts")), nullptr);
 }

@@ -14,6 +14,7 @@ target_link_libraries(${LIBRARY_NAME}
     PUBLIC
         Qt6::Core
         Qt6::Sql
+        app_agent
         app_async
         app_dbtoolkit
 )

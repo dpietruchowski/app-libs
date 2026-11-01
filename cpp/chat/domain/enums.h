@@ -31,10 +31,4 @@ enum class StepStatus
     Failed
 };
 
-enum class ToolEffect
-{
-    Reads,
-    Writes
-};
-
 }

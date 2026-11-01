@@ -2,7 +2,6 @@
 
 #include <optional>
 
-#include "chat/infrastructure/jsoncodec.h"
 #include "dbtoolkit/sqlcodec.h"
 
 using namespace sql_codec;
@@ -36,7 +35,7 @@ QVariantMap ConversationSerializer::toRow(const Conversation& conversation)
     {
         row[kContextKey] = toSql(origin->key);
         row[kContextTitle] = toSql(origin->title);
-        row[kContextData] = json_codec::objectToSql(origin->data);
+        row[kContextData] = jsonObjectToSql(origin->data);
     }
     if (const std::optional<BackendSession>& session = conversation.backendSession())
     {
@@ -53,7 +52,7 @@ Conversation ConversationSerializer::fromRow(const QVariantMap& row)
     {
         origin
             = ChatContext { row.value(kContextKey).toString(), row.value(kContextTitle).toString(),
-                            json_codec::objectFromSql(row.value(kContextData)) };
+                            jsonObjectFromSql(row.value(kContextData)) };
     }
 
     std::optional<BackendSession> session;

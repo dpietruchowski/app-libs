@@ -254,6 +254,23 @@ TEST_F(ChatStoreTest, SaveStep_KeepsTheParentOfANestedStep)
     EXPECT_EQ(stepOf(stored.front(), 1).parentId, parent.id);
 }
 
+TEST_F(ChatStoreTest, SaveStep_KeepsWhetherTheToolReadsOrWrites)
+{
+    const Conversation conversation = newConversation();
+    const Message answer = appendRunningAnswer(conversation.id());
+    Step writes = toolStep();
+    writes.effect = ToolEffect::Writes;
+    Step reads = toolStep();
+
+    awaitOk(m_store->saveStep(answer.id(), writes));
+    awaitOk(m_store->saveStep(answer.id(), reads));
+
+    const std::vector<Message> stored = messagesOf(conversation.id());
+    ASSERT_EQ(stored.front().steps().size(), 2u);
+    EXPECT_EQ(stepOf(stored.front(), 0).effect, ToolEffect::Writes);
+    EXPECT_EQ(stepOf(stored.front(), 1).effect, ToolEffect::Reads);
+}
+
 TEST_F(ChatStoreTest, SaveStep_RoundTripsInputAndEveryKindOfOutput)
 {
     const Conversation conversation = newConversation();
