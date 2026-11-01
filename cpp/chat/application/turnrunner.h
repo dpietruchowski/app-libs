@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QHash>
 #include <QObject>
 #include <QString>
 #include <QStringList>
@@ -29,6 +30,7 @@ struct TurnProfile final
     QString mainInstructions;
     QString model;
     QString reasoningEffort;
+    QHash<QString, QString> agentModels;
 };
 
 class TurnRunner : public QObject

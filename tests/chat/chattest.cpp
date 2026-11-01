@@ -62,6 +62,16 @@ protected:
         return QTest::qWaitFor(predicate, kWaitMilliseconds);
     }
 
+    void addAgent(const QString& key, const QString& ownModel = QString())
+    {
+        AppAgent agent { key, key.toUpper(), QStringLiteral("Does the work."),
+                         ::Agent(QStringLiteral("model"), QStringLiteral("prompt")) };
+        agent.config.model = ownModel;
+        ASSERT_TRUE(m_catalog.add(std::move(agent)));
+    }
+
+    QVariantMap agentAt(int index) const { return m_chat->agents().at(index).toMap(); }
+
     QString titleAt(int row) const
     {
         const ChatConversationModel* model = m_chat->conversations();
@@ -158,6 +168,133 @@ TEST_F(ChatTest, TheChoices_LiveUnderTheConfiguredGroup)
     EXPECT_EQ(reread.value(QStringLiteral("assistant/model")).toString(), QStringLiteral("opus"));
     EXPECT_EQ(reread.value(QStringLiteral("assistant/reasoningEffort")).toString(),
               QStringLiteral("High"));
+}
+
+TEST_F(ChatTest, Agents_WithoutAppAgents_AreEmpty)
+{
+    createChat();
+
+    EXPECT_TRUE(m_chat->agents().isEmpty());
+    EXPECT_TRUE(m_chat->chosenAgentModels().isEmpty());
+}
+
+TEST_F(ChatTest, Agents_ListEveryAppAgentWithItsKeyTitleAndTheModelItRunsOn)
+{
+    addAgent(QStringLiteral("courses"));
+    addAgent(QStringLiteral("facts"), QStringLiteral("opus"));
+    createChat();
+
+    ASSERT_EQ(m_chat->agents().size(), 2);
+    EXPECT_EQ(agentAt(0).value(QStringLiteral("key")).toString(), QStringLiteral("courses"));
+    EXPECT_EQ(agentAt(0).value(QStringLiteral("title")).toString(), QStringLiteral("COURSES"));
+    EXPECT_EQ(agentAt(0).value(QStringLiteral("model")).toString(), QStringLiteral("sonnet"));
+    EXPECT_EQ(agentAt(0).value(QStringLiteral("chosen")).toString(), QString());
+    EXPECT_EQ(agentAt(1).value(QStringLiteral("key")).toString(), QStringLiteral("facts"));
+    EXPECT_EQ(agentAt(1).value(QStringLiteral("model")).toString(), QStringLiteral("opus"));
+}
+
+TEST_F(ChatTest, SetAgentModel_StoresTheChoiceAndNotifies)
+{
+    addAgent(QStringLiteral("courses"), QStringLiteral("opus"));
+    createChat();
+    QSignalSpy changed(m_chat.get(), &Chat::agentsChanged);
+
+    m_chat->setAgentModel(QStringLiteral("courses"), QStringLiteral("haiku"));
+
+    EXPECT_EQ(agentAt(0).value(QStringLiteral("model")).toString(), QStringLiteral("haiku"));
+    EXPECT_EQ(agentAt(0).value(QStringLiteral("chosen")).toString(), QStringLiteral("haiku"));
+    EXPECT_EQ(m_chat->chosenAgentModels(),
+              (QHash<QString, QString> { { QStringLiteral("courses"), QStringLiteral("haiku") } }));
+    EXPECT_EQ(changed.count(), 1);
+}
+
+TEST_F(ChatTest, SetAgentModel_ToTheCurrentChoice_NotifiesNothing)
+{
+    addAgent(QStringLiteral("courses"));
+    createChat();
+    m_chat->setAgentModel(QStringLiteral("courses"), QStringLiteral("haiku"));
+    QSignalSpy changed(m_chat.get(), &Chat::agentsChanged);
+
+    m_chat->setAgentModel(QStringLiteral("courses"), QStringLiteral("haiku"));
+
+    EXPECT_EQ(changed.count(), 0);
+}
+
+TEST_F(ChatTest, SetAgentModel_Empty_ReturnsToTheDefaultOfTheAgent)
+{
+    addAgent(QStringLiteral("courses"), QStringLiteral("opus"));
+    createChat();
+    m_chat->setAgentModel(QStringLiteral("courses"), QStringLiteral("haiku"));
+    QSignalSpy changed(m_chat.get(), &Chat::agentsChanged);
+
+    m_chat->setAgentModel(QStringLiteral("courses"), QString());
+
+    EXPECT_EQ(agentAt(0).value(QStringLiteral("model")).toString(), QStringLiteral("opus"));
+    EXPECT_TRUE(m_chat->chosenAgentModels().isEmpty());
+    EXPECT_EQ(changed.count(), 1);
+}
+
+TEST_F(ChatTest, SetAgentModel_ForAnUnknownKey_ChangesNothing)
+{
+    addAgent(QStringLiteral("courses"));
+    createChat();
+    QSignalSpy changed(m_chat.get(), &Chat::agentsChanged);
+
+    m_chat->setAgentModel(QStringLiteral("facts"), QStringLiteral("haiku"));
+
+    EXPECT_EQ(changed.count(), 0);
+    EXPECT_TRUE(m_chat->chosenAgentModels().isEmpty());
+    QSettings reread(m_directory.filePath(QStringLiteral("chat.ini")), QSettings::IniFormat);
+    EXPECT_FALSE(reread.contains(QStringLiteral("chat/agentModels/facts")));
+}
+
+TEST_F(ChatTest, AnAgentWithoutAChoiceOrAnOwnModel_FollowsTheModelOfTheChat)
+{
+    addAgent(QStringLiteral("courses"));
+    createChat();
+    QSignalSpy changed(m_chat.get(), &Chat::agentsChanged);
+
+    m_chat->setModel(QStringLiteral("opus"));
+
+    EXPECT_EQ(agentAt(0).value(QStringLiteral("model")).toString(), QStringLiteral("opus"));
+    EXPECT_EQ(changed.count(), 1);
+}
+
+TEST_F(ChatTest, AChosenAgentModel_DoesNotFollowTheModelOfTheChat)
+{
+    addAgent(QStringLiteral("courses"));
+    createChat();
+    m_chat->setAgentModel(QStringLiteral("courses"), QStringLiteral("haiku"));
+
+    m_chat->setModel(QStringLiteral("opus"));
+
+    EXPECT_EQ(agentAt(0).value(QStringLiteral("model")).toString(), QStringLiteral("haiku"));
+}
+
+TEST_F(ChatTest, TheAgentChoices_SurviveARecreatedChat)
+{
+    addAgent(QStringLiteral("courses"));
+    addAgent(QStringLiteral("facts"));
+    createChat();
+    m_chat->setAgentModel(QStringLiteral("facts"), QStringLiteral("haiku"));
+
+    createChat();
+
+    EXPECT_EQ(m_chat->chosenAgentModels(),
+              (QHash<QString, QString> { { QStringLiteral("facts"), QStringLiteral("haiku") } }));
+    EXPECT_EQ(agentAt(1).value(QStringLiteral("model")).toString(), QStringLiteral("haiku"));
+}
+
+TEST_F(ChatTest, TheAgentChoices_LiveNextToTheModelUnderTheConfiguredGroup)
+{
+    addAgent(QStringLiteral("courses"));
+    createChat(true, QStringLiteral("assistant"));
+
+    m_chat->setAgentModel(QStringLiteral("courses"), QStringLiteral("haiku"));
+
+    QSettings reread(m_directory.filePath(QStringLiteral("chat.ini")), QSettings::IniFormat);
+    EXPECT_EQ(reread.value(QStringLiteral("assistant/agentModels/courses")).toString(),
+              QStringLiteral("haiku"));
 }
 
 TEST_F(ChatTest, WhenAvailable_ThereIsNoReason)

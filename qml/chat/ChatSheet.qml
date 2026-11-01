@@ -29,8 +29,10 @@ ThemedPanel {
         id: settingsPanel
 
         model: sheet.chat.model
+        agents: sheet.chat.agents
         reasoningEffort: sheet.chat.reasoningEffort
         onModelChosen: (model) => sheet.chat.model = model
+        onAgentModelChosen: (key, model) => sheet.chat.setAgentModel(key, model)
         onReasoningEffortChosen: (effort) => sheet.chat.reasoningEffort = effort
     }
 

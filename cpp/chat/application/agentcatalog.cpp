@@ -18,6 +18,15 @@ namespace
 
 }
 
+QString AppAgent::modelFor(const QString& chosen, const QString& chatModel) const
+{
+    if (!chosen.isEmpty())
+    {
+        return chosen;
+    }
+    return config.model.isEmpty() ? chatModel : config.model;
+}
+
 bool AgentCatalog::add(AppAgent agent)
 {
     if (!isToolName(agent.key) || agent.description.simplified().isEmpty() || find(agent.key))

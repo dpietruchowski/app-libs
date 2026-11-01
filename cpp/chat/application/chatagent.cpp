@@ -1,5 +1,6 @@
 #include "chat/application/chatagent.h"
 
+#include <QHash>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonValue>
@@ -101,6 +102,7 @@ namespace
             , m_context(request.context)
             , m_model(request.model)
             , m_reasoningEffort(request.reasoningEffort)
+            , m_agentModels(request.agentModels)
             , m_question(withContext(request.transcript.back().text(), m_context))
             , m_client(std::move(client))
             , m_agent(request.model, request.mainInstructions)
@@ -222,7 +224,7 @@ namespace
             }
             run->agent = std::make_unique<::Agent>(entry.agent);
             run->agent->clear();
-            run->agent->setModel(entry.config.model.isEmpty() ? m_model : entry.config.model);
+            run->agent->setModel(entry.modelFor(m_agentModels.value(entry.key), m_model));
             run->agent->setReasoningEffort(entry.config.reasoningEffort.isEmpty()
                                                ? m_reasoningEffort
                                                : entry.config.reasoningEffort);
@@ -286,6 +288,7 @@ namespace
         std::optional<ChatContext> m_context;
         QString m_model;
         QString m_reasoningEffort;
+        QHash<QString, QString> m_agentModels;
         QString m_question;
         std::unique_ptr<::Client> m_client;
         ::Agent m_agent;

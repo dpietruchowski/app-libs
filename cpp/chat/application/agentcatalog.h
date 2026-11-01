@@ -17,6 +17,8 @@ struct AppAgent final
     ::Agent agent;
     std::function<QString()> followUp;
     ModelConfig config;
+
+    QString modelFor(const QString& chosen, const QString& chatModel) const;
 };
 
 class AgentCatalog final
