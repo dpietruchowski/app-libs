@@ -5,6 +5,8 @@
 #include <QElapsedTimer>
 #include <QEventLoop>
 #include <QHostAddress>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTcpServer>
 #include <QTcpSocket>
 
@@ -24,6 +26,11 @@ int contentLength(const QByteArray& headers)
         }
     }
     return 0;
+}
+
+QJsonObject requestJson(const QByteArray& request)
+{
+    return QJsonDocument::fromJson(request.mid(request.indexOf("\r\n\r\n") + 4)).object();
 }
 }
 
@@ -116,6 +123,42 @@ TEST_F(ClientIntegrationTest, CreateCompletion_SendsModelAndMessagesInRequestBod
     EXPECT_TRUE(lastRequest.contains("gpt-test"));
     EXPECT_TRUE(lastRequest.contains("ping"));
     EXPECT_TRUE(lastRequest.contains("Bearer test-key"));
+}
+
+TEST_F(ClientIntegrationTest, CreateCompletion_SendsReasoningEffortInLowerCase)
+{
+    Client client(url(), "test-key");
+
+    client.createCompletion(ModelConfig { .model = "gpt-test", .reasoningEffort = "Minimal" },
+                            Messages {}, ToolsMap {});
+
+    const QJsonObject body = requestJson(lastRequest);
+    EXPECT_EQ(body.value("reasoning_effort").toString(), "minimal");
+    EXPECT_FALSE(body.contains("reasoning"));
+}
+
+TEST_F(ClientIntegrationTest, CreateCompletion_SendsNestedReasoningEffortInLowerCase)
+{
+    Client client(url(), "test-key");
+    client.setReasoningNested(true);
+
+    client.createCompletion(ModelConfig { .model = "gpt-test", .reasoningEffort = "High" },
+                            Messages {}, ToolsMap {});
+
+    const QJsonObject body = requestJson(lastRequest);
+    EXPECT_EQ(body.value("reasoning").toObject().value("effort").toString(), "high");
+    EXPECT_FALSE(body.contains("reasoning_effort"));
+}
+
+TEST_F(ClientIntegrationTest, CreateCompletion_OmitsReasoningEffortWhenNoneIsSet)
+{
+    Client client(url(), "test-key");
+
+    client.createCompletion(ModelConfig { .model = "gpt-test" }, Messages {}, ToolsMap {});
+
+    const QJsonObject body = requestJson(lastRequest);
+    EXPECT_FALSE(body.contains("reasoning_effort"));
+    EXPECT_FALSE(body.contains("reasoning"));
 }
 
 TEST_F(ClientIntegrationTest, Agent_RequestThroughRealClient_ReturnsContent)
