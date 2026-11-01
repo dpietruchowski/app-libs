@@ -508,6 +508,7 @@ QtObject {
         readonly property int handleHeight: theme.scaled(4)
         readonly property int titleSize: theme.fontSize.large
         readonly property real maxHeightRatio: 0.75
+        readonly property real sideWidthRatio: 0.85
     }
 
     property QtObject input: QtObject {
