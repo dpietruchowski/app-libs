@@ -111,14 +111,14 @@ void ChatConversationModel::arrange(const std::vector<Conversation>& conversatio
     while (row < wanted)
     {
         const QUuid& id = conversations[static_cast<size_t>(row)].id();
-        if (rowOf(id, row) == row)
+        const int from = rowOf(id, row);
+        if (from == row)
         {
             ++row;
             continue;
         }
 
-        const int from = rowOf(id, row + 1);
-        if (from >= 0)
+        if (from > row)
         {
             beginMoveRows(QModelIndex(), from, from, QModelIndex(), row);
             std::rotate(m_conversations.begin() + row, m_conversations.begin() + from,
@@ -129,7 +129,8 @@ void ChatConversationModel::arrange(const std::vector<Conversation>& conversatio
         }
 
         int last = row;
-        while (last + 1 < wanted && rowOf(conversations[static_cast<size_t>(last + 1)].id(), 0) < 0)
+        while (last + 1 < wanted
+               && !contains(m_conversations, conversations[static_cast<size_t>(last + 1)].id()))
         {
             ++last;
         }
