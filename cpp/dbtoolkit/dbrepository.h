@@ -15,6 +15,7 @@
 #include "query/where.h"
 
 class CreateTable;
+class Delete;
 
 class DbRepository : public QObject
 {
@@ -66,6 +67,7 @@ public:
 
     int update(const QVariantMap& item, const Where& condition = Where());
     int remove(const Where& condition);
+    int removeAll();
 
     bool exists(const Where& condition) const;
     int count(const Where& condition = {}) const;
@@ -85,6 +87,7 @@ private:
     DbStorage& m_storage;
 
 private:
+    int executeDelete(const Delete& command);
     QVector<QVariant> batchInsert(const QVector<QVariantMap>& items);
     QVector<QVariant> batchUpsert(const QVector<QVariantMap>& items);
     QVector<QVariant> executeInsert(Insert& insertCommand, const QVector<QVariantMap>& items,

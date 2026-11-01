@@ -267,7 +267,20 @@ int DbRepository::remove(const Where& condition)
         deleteCommand.where(condition);
     }
 
-    int rowsAffected = m_storage.execute(deleteCommand).toInt();
+    return executeDelete(deleteCommand);
+}
+
+int DbRepository::removeAll()
+{
+    Delete deleteCommand;
+    deleteCommand.from(m_tableName).all();
+
+    return executeDelete(deleteCommand);
+}
+
+int DbRepository::executeDelete(const Delete& command)
+{
+    int rowsAffected = m_storage.execute(command).toInt();
 
     if (rowsAffected < 0)
     {
