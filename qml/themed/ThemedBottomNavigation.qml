@@ -4,13 +4,17 @@ import Themed.Components
 
 Rectangle {
     id: bottomNav
-    height: Theme.navigation.barHeight + bottomInset
+    height: Theme.navigation.barHeight + bottomInset + handleStripHeight
     color: Theme.colors.surface
 
     property var model: []
     property int currentIndex: 0
     property int bottomInset: 0
+    property bool replacesStack: true
+    property bool handleVisible: false
+    readonly property int handleStripHeight: handleVisible ? Theme.navigation.handleStripHeight : 0
     signal itemSelected(int index)
+    signal handleClicked()
 
     function select(index) {
         if (index < 0 || index >= model.length)
@@ -21,7 +25,7 @@ Rectangle {
         }
         bottomNav.currentIndex = index
         bottomNav.itemSelected(index)
-        if (model[index].screen && stackView)
+        if (bottomNav.replacesStack && model[index].screen && stackView)
             stackView.replace(null, model[index].screen)
     }
 
@@ -49,10 +53,28 @@ Rectangle {
         anchors.top: parent.top
     }
 
+    MouseArea {
+        objectName: "navHandle"
+        visible: bottomNav.handleVisible
+        anchors.top: parent.top
+        width: parent.width
+        height: bottomNav.handleStripHeight
+        cursorShape: Qt.PointingHandCursor
+        onClicked: bottomNav.handleClicked()
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: Theme.panel.handleWidth
+            height: Theme.panel.handleHeight
+            radius: height / 2
+            color: Theme.colors.borderStrong
+        }
+    }
+
     Row {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        anchors.topMargin: (Theme.navigation.barHeight - height) / 2
+        anchors.topMargin: bottomNav.handleStripHeight + (Theme.navigation.barHeight - height) / 2
         spacing: Theme.spacing.medium
 
         Repeater {
