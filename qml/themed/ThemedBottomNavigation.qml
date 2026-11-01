@@ -10,6 +10,7 @@ Rectangle {
     property var model: []
     property int currentIndex: 0
     property int bottomInset: 0
+    property bool replacesStack: true
     signal itemSelected(int index)
 
     function select(index) {
@@ -21,7 +22,7 @@ Rectangle {
         }
         bottomNav.currentIndex = index
         bottomNav.itemSelected(index)
-        if (model[index].screen && stackView)
+        if (bottomNav.replacesStack && model[index].screen && stackView)
             stackView.replace(null, model[index].screen)
     }
 
