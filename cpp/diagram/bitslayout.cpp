@@ -95,11 +95,12 @@ namespace
             const qreal to = std::min(rect.height(), rect.width() - offset);
             if (to - from < 1)
                 continue;
-            lines.append(SceneLine { { QPointF(rect.left() + offset + from, rect.bottom() - from),
-                                       QPointF(rect.left() + offset + to, rect.bottom() - to) },
-                                     ColorRole::Divider,
-                                     false,
-                                     ArrowHead::None });
+            lines.emplaceBack(
+                SceneLine { { QPointF(rect.left() + offset + from, rect.bottom() - from),
+                              QPointF(rect.left() + offset + to, rect.bottom() - to) },
+                            ColorRole::Divider,
+                            false,
+                            ArrowHead::None });
         }
         return lines;
     }
