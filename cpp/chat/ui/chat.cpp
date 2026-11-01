@@ -118,7 +118,7 @@ void Chat::reloadConversations()
 {
     m_store.conversations()
         .then(this, [this](const std::vector<Conversation>& conversations)
-              { m_conversations.reset(conversations); })
+              { m_conversations.update(conversations); })
         .warnOnError(this, "load the conversations");
 }
 

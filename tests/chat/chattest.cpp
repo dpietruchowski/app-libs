@@ -299,3 +299,90 @@ TEST_F(ChatTest, ATurn_MovesItsConversationToTheTopOfTheList)
     m_backend.latest->complete(QStringLiteral("answer"));
     ASSERT_TRUE(waitUntil([&] { return !m_runner->isBusy(older.id()); }));
 }
+
+TEST_F(ChatTest, ATurn_UpdatesTheRowsOfTheListWithoutResettingIt)
+{
+    const Conversation older = newConversation(QStringLiteral("Older"));
+    const Conversation newer = newConversation(QStringLiteral("Newer"));
+    createChat();
+    ASSERT_TRUE(waitUntil([&] { return rows() == 2; }));
+    advanceClock(60);
+    QSignalSpy resets(m_chat->conversations(), &QAbstractItemModel::modelReset);
+    QSignalSpy moves(m_chat->conversations(), &QAbstractItemModel::rowsMoved);
+    QSignalSpy changes(m_chat->conversations(), &QAbstractItemModel::dataChanged);
+
+    ASSERT_TRUE(m_runner->send(older.id(), QStringLiteral("question")));
+
+    ASSERT_TRUE(waitUntil([&] { return moves.count() == 1; }));
+    EXPECT_EQ(idAt(0), idText(older));
+    EXPECT_EQ(idAt(1), idText(newer));
+    ASSERT_TRUE(waitUntil([&] { return !m_backend.latest.isNull(); }));
+    const int changesAtStart = changes.count();
+    advanceClock(60);
+    m_backend.latest->complete(QStringLiteral("answer"));
+    ASSERT_TRUE(waitUntil([&] { return !m_runner->isBusy(older.id()); }));
+    ASSERT_TRUE(waitUntil([&] { return changes.count() > changesAtStart; }));
+    EXPECT_EQ(changes.last().at(0).value<QModelIndex>().row(), 0);
+    EXPECT_EQ(changes.last().at(2).value<QList<int>>(),
+              QList<int> { ChatConversationModel::UpdatedAtRole });
+    EXPECT_EQ(moves.count(), 1);
+    EXPECT_EQ(resets.count(), 0);
+}
+
+TEST_F(ChatTest, TheTurnOfANewConversation_InsertsItsRowWithoutResettingTheList)
+{
+    const Conversation existing = newConversation(QStringLiteral("Existing"));
+    createChat();
+    ASSERT_TRUE(waitUntil([&] { return rows() == 1; }));
+    advanceClock(60);
+    const Conversation fresh = newConversation(QStringLiteral("Fresh"));
+    QSignalSpy resets(m_chat->conversations(), &QAbstractItemModel::modelReset);
+    QSignalSpy inserts(m_chat->conversations(), &QAbstractItemModel::rowsInserted);
+
+    ASSERT_TRUE(m_runner->send(fresh.id(), QStringLiteral("question")));
+
+    ASSERT_TRUE(waitUntil([&] { return inserts.count() == 1; }));
+    EXPECT_EQ(inserts.first().at(1).toInt(), 0);
+    EXPECT_EQ(inserts.first().at(2).toInt(), 0);
+    EXPECT_EQ(idAt(0), idText(fresh));
+    EXPECT_EQ(idAt(1), idText(existing));
+    EXPECT_EQ(resets.count(), 0);
+    ASSERT_TRUE(waitUntil([&] { return !m_backend.latest.isNull(); }));
+    m_backend.latest->complete(QStringLiteral("answer"));
+    ASSERT_TRUE(waitUntil([&] { return !m_runner->isBusy(fresh.id()); }));
+}
+
+TEST_F(ChatTest, Remove_RemovesOnlyTheRowOfTheConversationWithoutResettingTheList)
+{
+    const Conversation kept = newConversation(QStringLiteral("Kept"));
+    const Conversation dropped = newConversation(QStringLiteral("Dropped"));
+    createChat();
+    ASSERT_TRUE(waitUntil([&] { return rows() == 2; }));
+    QSignalSpy resets(m_chat->conversations(), &QAbstractItemModel::modelReset);
+    QSignalSpy removals(m_chat->conversations(), &QAbstractItemModel::rowsRemoved);
+
+    m_chat->remove(idText(dropped));
+
+    ASSERT_TRUE(waitUntil([&] { return removals.count() == 1; }));
+    EXPECT_EQ(removals.first().at(1).toInt(), 0);
+    EXPECT_EQ(removals.first().at(2).toInt(), 0);
+    EXPECT_EQ(idAt(0), idText(kept));
+    EXPECT_EQ(resets.count(), 0);
+}
+
+TEST_F(ChatTest, Rename_ChangesOnlyTheTitleOfItsRowWithoutResettingTheList)
+{
+    const Conversation conversation = newConversation(QStringLiteral("Old"));
+    createChat();
+    ASSERT_TRUE(waitUntil([&] { return rows() == 1; }));
+    QSignalSpy resets(m_chat->conversations(), &QAbstractItemModel::modelReset);
+    QSignalSpy changes(m_chat->conversations(), &QAbstractItemModel::dataChanged);
+
+    m_chat->rename(idText(conversation), QStringLiteral("Renamed"));
+
+    ASSERT_TRUE(waitUntil([&] { return changes.count() == 1; }));
+    EXPECT_EQ(changes.first().at(0).value<QModelIndex>().row(), 0);
+    EXPECT_TRUE(
+        changes.first().at(2).value<QList<int>>().contains(ChatConversationModel::TitleRole));
+    EXPECT_EQ(resets.count(), 0);
+}
