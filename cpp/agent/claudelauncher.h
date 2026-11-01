@@ -23,4 +23,6 @@ ClaudeLauncher defaultLauncher(const QString& chatDirectory);
 
 QString sessionFile(const ClaudeLauncher& launcher, const QString& id);
 
+QString loginCommand(const ClaudeLauncher& launcher);
+
 }

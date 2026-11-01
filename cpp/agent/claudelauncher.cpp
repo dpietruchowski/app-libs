@@ -95,4 +95,10 @@ QString sessionFile(const ClaudeLauncher& launcher, const QString& id)
             QStringLiteral("projects/%1/%2.jsonl").arg(projectName(launcher.workingDirectory), id));
 }
 
+QString loginCommand(const ClaudeLauncher& launcher)
+{
+    return QStringLiteral("env %1=%2 claude auth login")
+        .arg(kConfigDirectory, launcher.environment.value(kConfigDirectory));
+}
+
 }

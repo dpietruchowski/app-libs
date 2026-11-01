@@ -17,6 +17,7 @@ target_link_libraries(${LIBRARY_NAME}
         app_agent
         app_async
         app_dbtoolkit
+        app_qmlutils
 )
 
 target_compile_options(${LIBRARY_NAME} PRIVATE

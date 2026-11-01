@@ -298,3 +298,11 @@ TEST(ClaudeLauncherTest, NeverPointsOutsideTheConfigDirectory)
 
     EXPECT_TRUE(claudecli::sessionFile(launcher, kSessionId).startsWith("/cfg/projects/"));
 }
+
+TEST(ClaudeLauncherTest, LogsInWithTheConfigDirectoryOfTheLauncher)
+{
+    const ClaudeLauncher launcher = launcherAt("/cfg", "/data/chat");
+
+    EXPECT_EQ(claudecli::loginCommand(launcher).toStdString(),
+              "env CLAUDE_CONFIG_DIR=/cfg claude auth login");
+}
