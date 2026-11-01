@@ -275,6 +275,10 @@ QtObject {
         readonly property int lineSpacing: theme.spacing.xSmall
         readonly property int iconSize: theme.scaled(24)
         readonly property color iconColor: theme.colors.textSecondary
+        readonly property QtObject done: QtObject {
+            readonly property color color: theme.colors.textDisabled
+            readonly property bool strikeout: true
+        }
     }
 
     property QtObject scroll: QtObject {
@@ -490,6 +494,14 @@ QtObject {
             readonly property color pressed: Qt.rgba(theme.colors.error.r, theme.colors.error.g, theme.colors.error.b, theme.isNightMode ? 0.26 : 0.18)
             readonly property color border: Qt.rgba(theme.colors.error.r, theme.colors.error.g, theme.colors.error.b, 0.60)
             readonly property color text: theme.colors.error
+        }
+
+        readonly property QtObject disabled: QtObject {
+            readonly property color background: theme.colors.surface
+            readonly property color hovered: theme.colors.surface
+            readonly property color pressed: theme.colors.surface
+            readonly property color border: theme.colors.border
+            readonly property color text: theme.colors.textDisabled
         }
     }
 

@@ -19,6 +19,7 @@ Button {
     property bool keyNavigable: true
     property bool keyDefault: false
     property int maximumLineCount: 1
+    readonly property var activeStyle: control.enabled ? control.buttonStyle : Theme.button.disabled
 
     function keyActivate() {
         if (control.checkable)
@@ -33,12 +34,11 @@ Button {
 
     background: Rectangle {
         radius: circular ? Math.min(width, height) / 2 : pill ? height / 2 : control.radius
-        color: !control.enabled ? Theme.colors.surface :
-               control.down ? buttonStyle.pressed :
-               control.hovered ? buttonStyle.hovered :
-               buttonStyle.background
+        color: control.down ? control.activeStyle.pressed :
+               control.hovered ? control.activeStyle.hovered :
+               control.activeStyle.background
         border.width: Theme.border.thin
-        border.color: buttonStyle.border
+        border.color: control.activeStyle.border
 
         Behavior on color { ColorAnimation { duration: 120 } }
     }
@@ -66,7 +66,7 @@ Button {
             ThemedIcon {
                 visible: content.hasIcon
                 svgSource: iconSource
-                color: !control.enabled ? Theme.colors.textDisabled : control.iconColor
+                color: control.enabled ? control.iconColor : control.activeStyle.text
                 width: control.iconSize
                 height: control.iconSize
                 anchors.verticalCenter: parent.verticalCenter
@@ -81,7 +81,7 @@ Button {
                 wrapMode: control.maximumLineCount > 1 ? Text.WordWrap : Text.NoWrap
                 maximumLineCount: control.maximumLineCount
                 font.pixelSize: buttonSize.fontSize
-                color: !control.enabled ? Theme.colors.textDisabled : buttonStyle.text
+                color: control.activeStyle.text
                 verticalAlignment: Text.AlignVCenter
                 horizontalAlignment: content.leftAligned ? Text.AlignLeft : Text.AlignHCenter
                 anchors.verticalCenter: parent.verticalCenter
