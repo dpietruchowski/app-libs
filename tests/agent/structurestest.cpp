@@ -68,6 +68,15 @@ TEST_F(StructuresTest, Usage_RoundTrips)
     EXPECT_EQ(restored.total_tokens, 33);
 }
 
+TEST_F(StructuresTest, Usage_ContextTokensAreThePromptTokensOfAServerReply)
+{
+    Usage original { .prompt_tokens = 11, .completion_tokens = 22, .total_tokens = 33 };
+
+    Usage restored = Usage::fromJsonObject(original.toJsonObject());
+
+    EXPECT_EQ(restored.context_tokens, 11);
+}
+
 TEST_F(StructuresTest, Completion_RoundTripsFullObject)
 {
     Completion original;

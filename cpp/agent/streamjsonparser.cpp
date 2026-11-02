@@ -27,17 +27,23 @@ StreamEvent makeEvent(StreamEvent::Kind kind, QString text = {}, QString detail 
     return event;
 }
 
-Usage usageOf(const QJsonObject& resultEvent)
+int inputTokensOf(const QJsonObject& usage)
 {
-    const QJsonObject usage = resultEvent.value("usage").toObject();
     const int fresh = usage.value("input_tokens").toInt();
     const int written = usage.value("cache_creation_input_tokens").toInt();
     const int read = usage.value("cache_read_input_tokens").toInt();
+    return fresh + written + read;
+}
+
+Usage usageOf(const QJsonObject& resultEvent, int lastRequestInputTokens)
+{
+    const QJsonObject usage = resultEvent.value("usage").toObject();
 
     Usage result {};
-    result.prompt_tokens = fresh + written + read;
+    result.prompt_tokens = inputTokensOf(usage);
     result.completion_tokens = usage.value("output_tokens").toInt();
     result.total_tokens = result.prompt_tokens + result.completion_tokens;
+    result.context_tokens = lastRequestInputTokens;
     return result;
 }
 
@@ -141,6 +147,8 @@ void StreamJsonParser::handleStreamEvent(const QJsonObject& event, std::vector<S
     if (innerType == kMessageStart)
     {
         m_messageText.clear();
+        m_lastRequestInputTokens
+            = inputTokensOf(inner.value("message").toObject().value("usage").toObject());
         return;
     }
 
@@ -182,7 +190,7 @@ void StreamJsonParser::handleResult(const QJsonObject& event, std::vector<Stream
     if (succeeded)
     {
         StreamEvent answer = makeEvent(StreamEvent::Kind::Answer, event.value("result").toString());
-        answer.usage = usageOf(event);
+        answer.usage = usageOf(event, m_lastRequestInputTokens);
         conclude(std::move(answer), events);
     }
     else if (!m_initSeen && subtype == kExecutionErrorSubtype)

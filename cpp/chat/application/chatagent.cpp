@@ -1,5 +1,6 @@
 #include "chat/application/chatagent.h"
 
+#include <QDateTime>
 #include <QHash>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -16,6 +17,7 @@
 #include "agent/agent.h"
 #include "chat/application/agentcatalog.h"
 #include "chat/application/agentturn.h"
+#include "chat/application/delegatecontexts.h"
 #include "chat/domain/enumnames.h"
 
 namespace chat
@@ -76,7 +78,22 @@ namespace
         std::unique_ptr<::Client> client;
         std::unique_ptr<::Agent> agent;
         int followUps { 0 };
+        int inputTokens { 0 };
+        QDateTime requestStarted;
     };
+
+    ClaudeSession sessionFor(const AppAgent& entry, const QString& session)
+    {
+        return entry.keepContext ? ClaudeSession { .resume = session, .keep = true }
+                                 : ClaudeSession {};
+    }
+
+    std::unique_ptr<::Agent> freshAgent(const AppAgent& entry)
+    {
+        auto agent = std::make_unique<::Agent>(entry.agent);
+        agent->clear();
+        return agent;
+    }
 
     QString nextFollowUp(const AppAgent& entry, DelegateRun& run)
     {
@@ -96,9 +113,11 @@ namespace
     {
     public:
         ChatTurn(const TurnRequest& request, std::vector<AppAgent> agents, ClientFactory clients,
-                 std::unique_ptr<::Client> client)
+                 std::shared_ptr<DelegateContexts> contexts, std::unique_ptr<::Client> client)
             : m_agents(std::move(agents))
             , m_clients(std::move(clients))
+            , m_contexts(std::move(contexts))
+            , m_conversationId(request.conversationId)
             , m_context(request.context)
             , m_model(request.model)
             , m_reasoningEffort(request.reasoningEffort)
@@ -135,6 +154,7 @@ namespace
             if (m_running)
             {
                 m_running->agent->cancel();
+                m_contexts->forgetSession(m_running->client->session());
                 retireRun();
             }
             m_retired.push_back(std::shared_ptr<void>(std::move(m_client)));
@@ -192,12 +212,16 @@ namespace
                     finishStep(m_tool, StepStatus::Ok, QJsonValue::fromVariant(result));
                 }
             };
+            observer.requestStarted = [this, &run] { run.requestStarted = m_contexts->now(); };
+            observer.usageReported
+                = [&run](const Usage& usage) { run.inputTokens = usage.context_tokens; };
             observer.finished = [this, &entry, &run, done](const QString& report)
             {
                 const QString message = nextFollowUp(entry, run);
                 if (!message.isEmpty())
                 {
-                    if (std::unique_ptr<::Client> next = m_clients(ClaudeSession {}))
+                    if (std::unique_ptr<::Client> next
+                        = m_clients(sessionFor(entry, run.client->session())))
                     {
                         m_retired.push_back(std::shared_ptr<void>(std::move(run.client)));
                         run.client = std::move(next);
@@ -205,15 +229,57 @@ namespace
                         return;
                     }
                 }
+                if (entry.keepContext)
+                {
+                    m_contexts->keep(m_conversationId, entry.key,
+                                     DelegateContext { std::move(run.agent), run.client->session(),
+                                                       run.inputTokens, run.requestStarted });
+                }
                 retireRun();
                 done(report);
             };
-            observer.failed = [this, &entry, done](const QString& errorToken)
+            observer.failed = [this, &entry, &run, done](const QString& errorToken)
             {
+                m_contexts->forgetSession(run.client->session());
                 retireRun();
                 reportDelegationFailure(entry, errorToken, done);
             };
             return observer;
+        }
+
+        void compactThenSend(const AppAgent& entry, DelegateRun& run, const QString& task,
+                             const ToolDone& done)
+        {
+            AgentObserver observer = delegateObserver(entry, run, done);
+            observer.finished = [this, &entry, &run, task, done](const QString& reply)
+            { restart(entry, run, task, done, entry.keepContext->compactedContext(reply)); };
+            observer.failed = [this, &entry, &run, task, done](const QString&)
+            { restart(entry, run, task, done, QString()); };
+            run.agent->setObserver(observer);
+            run.agent->requestAsync(*run.client, entry.keepContext->compactionRequest,
+                                    [](const QString&) {});
+        }
+
+        void restart(const AppAgent& entry, DelegateRun& run, const QString& task,
+                     const ToolDone& done, const QString& summary)
+        {
+            m_contexts->forgetSession(run.client->session());
+            run.agent->clear();
+            if (!summary.isEmpty())
+            {
+                run.agent->addMessage(QStringLiteral("user"), summary);
+            }
+            std::unique_ptr<::Client> next = m_clients(sessionFor(entry, QString()));
+            if (!next)
+            {
+                retireRun();
+                reportDelegationFailure(entry, turn_error::kUnavailable, done);
+                return;
+            }
+            m_retired.push_back(std::shared_ptr<void>(std::move(run.client)));
+            run.client = std::move(next);
+            run.agent->setObserver(delegateObserver(entry, run, done));
+            run.agent->requestAsync(*run.client, task, [](const QString&) {});
         }
 
         void reportDelegationFailure(const AppAgent& entry, const QString& errorToken,
@@ -230,24 +296,37 @@ namespace
                 reportDelegationFailure(entry, turn_error::kTooManyDelegations, done);
                 return;
             }
+            std::optional<DelegateContext> kept;
+            if (entry.keepContext)
+            {
+                kept = m_contexts->take(m_conversationId, entry.key, *entry.keepContext);
+            }
             auto run = std::make_shared<DelegateRun>();
-            run->client = m_clients(ClaudeSession {});
+            run->client = m_clients(sessionFor(entry, kept ? kept->session : QString()));
             if (!run->client)
             {
+                if (kept)
+                {
+                    m_contexts->keep(m_conversationId, entry.key, std::move(*kept));
+                }
                 reportDelegationFailure(entry, turn_error::kUnavailable, done);
                 return;
             }
-            run->agent = std::make_unique<::Agent>(entry.agent);
-            run->agent->clear();
+            const bool compact = kept && kept->exceeds(*entry.keepContext);
+            run->agent = kept ? std::move(kept->agent) : freshAgent(entry);
             run->agent->setModel(entry.modelFor(m_agentModels.value(entry.key), m_model));
             run->agent->setReasoningEffort(entry.config.reasoningEffort.isEmpty()
                                                ? m_reasoningEffort
                                                : entry.config.reasoningEffort);
-            run->agent->setObserver(delegateObserver(entry, *run, std::move(done)));
             m_running = run;
-            run->agent->requestAsync(
-                *run->client, withContext(arguments.value(kTaskParameter).toString(), m_context),
-                [](const QString&) {});
+            const QString task = withContext(arguments.value(kTaskParameter).toString(), m_context);
+            if (compact)
+            {
+                compactThenSend(entry, *run, task, done);
+                return;
+            }
+            run->agent->setObserver(delegateObserver(entry, *run, std::move(done)));
+            run->agent->requestAsync(*run->client, task, [](const QString&) {});
         }
 
         void retireRun()
@@ -300,6 +379,8 @@ namespace
 
         std::vector<AppAgent> m_agents;
         ClientFactory m_clients;
+        std::shared_ptr<DelegateContexts> m_contexts;
+        QUuid m_conversationId;
         std::optional<ChatContext> m_context;
         QString m_model;
         QString m_reasoningEffort;
@@ -319,10 +400,11 @@ namespace
 }
 
 ChatAgent::ChatAgent(ClientFactory clients, std::function<bool()> available,
-                     std::function<void(const QString&)> forget)
+                     std::function<void(const QString&)> forget, Clock clock)
     : m_clients(std::move(clients))
     , m_available(std::move(available))
     , m_forget(std::move(forget))
+    , m_contexts(std::make_shared<DelegateContexts>(std::move(clock), m_forget))
 {
 }
 
@@ -340,7 +422,8 @@ std::unique_ptr<AgentTurn> ChatAgent::start(const TurnRequest& request, const Ag
     {
         return nullptr;
     }
-    return std::make_unique<ChatTurn>(request, catalog.agents(), m_clients, std::move(client));
+    return std::make_unique<ChatTurn>(request, catalog.agents(), m_clients, m_contexts,
+                                      std::move(client));
 }
 
 void ChatAgent::forget(const QString& backendSession)
@@ -349,6 +432,11 @@ void ChatAgent::forget(const QString& backendSession)
     {
         m_forget(backendSession);
     }
+}
+
+void ChatAgent::forgetConversation(const QUuid& conversationId)
+{
+    m_contexts->forgetConversation(conversationId);
 }
 
 }

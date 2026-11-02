@@ -46,8 +46,14 @@ public:
 
     void forget(const QString& backendSession) override { forgotten.append(backendSession); }
 
+    void forgetConversation(const QUuid& conversationId) override
+    {
+        forgottenConversations.push_back(conversationId);
+    }
+
     std::vector<chat::TurnRequest> requests;
     QStringList forgotten;
+    std::vector<QUuid> forgottenConversations;
     QPointer<FakeTurn> latest;
     bool refuseToStart { false };
 };

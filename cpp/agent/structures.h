@@ -68,9 +68,10 @@ Messages fromJsonArray(const QJsonArray& json);
 
 struct Usage
 {
-    int prompt_tokens;
-    int completion_tokens;
-    int total_tokens;
+    int prompt_tokens { 0 };
+    int completion_tokens { 0 };
+    int total_tokens { 0 };
+    int context_tokens { 0 };
 
     QJsonObject toJsonObject() const;
     static Usage fromJsonObject(const QJsonObject& json);

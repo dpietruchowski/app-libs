@@ -170,6 +170,7 @@ Usage Usage::fromJsonObject(const QJsonObject& json)
     usage.prompt_tokens = json[kJsonPromptTokensKey].toInt();
     usage.completion_tokens = json[kJsonCompletionTokensKey].toInt();
     usage.total_tokens = json[kJsonTotalTokensKey].toInt();
+    usage.context_tokens = usage.prompt_tokens;
     return usage;
 }
 

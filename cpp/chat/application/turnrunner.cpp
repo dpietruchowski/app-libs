@@ -357,6 +357,7 @@ void TurnRunner::removeConversation(const QUuid& conversationId)
                      {
                          m_backend.forget(result.value()->id);
                      }
+                     m_backend.forgetConversation(conversationId);
                      emit conversationRemoved(conversationId);
                  });
 }

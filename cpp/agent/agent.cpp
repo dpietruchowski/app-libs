@@ -211,6 +211,11 @@ bool Agent::asynRequestInProgress() const { return m_responseReceivedCallback !=
 
 void Agent::createCompletionAsync(const Client& client)
 {
+    const auto requestStarted = m_observer.requestStarted;
+    if (requestStarted)
+    {
+        requestStarted();
+    }
     client.createCompletionAsync(
         m_config, m_messages, m_toolsMap,
         [this, &client, alive = m_life.watch()](const Completion& completion)
@@ -267,6 +272,12 @@ void Agent::onCompletionReceived(const Client& client, const Completion& complet
         }
         deliverResponse("", error);
         return;
+    }
+
+    const auto usageReported = m_observer.usageReported;
+    if (usageReported)
+    {
+        usageReported(completion.usage);
     }
 
     auto& choice = completion.choices.at(0);

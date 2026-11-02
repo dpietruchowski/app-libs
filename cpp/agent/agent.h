@@ -13,6 +13,8 @@ struct AgentObserver
     std::function<void(const ToolCall& call, const QVariant& result)> toolFinished;
     std::function<void(const QString& answer)> finished;
     std::function<void(const QString& errorToken)> failed;
+    std::function<void()> requestStarted;
+    std::function<void(const Usage& usage)> usageReported;
 };
 
 class Agent

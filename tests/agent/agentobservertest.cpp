@@ -154,6 +154,56 @@ TEST_F(AgentObserverTest, ToolRound_ReportsToolStartToolFinishAndAnswerInOrder)
     EXPECT_EQ(events, expected);
 }
 
+TEST_F(AgentObserverTest, RequestStarted_FiresBeforeEveryRequestToTheClient)
+{
+    AgentObserver observer = loggingObserver();
+    observer.requestStarted
+        = [this] { events << QStringLiteral("request %1").arg(client.held.size()); };
+    agent.setObserver(observer);
+    agent.addTool(kEchoDocstring, echoTool());
+    request();
+
+    completeToolCall();
+    client.completeNext(contentCompletion("all done"));
+
+    const QStringList expected { "request 0", "started echo reads", "finished echo hi", "request 0",
+                                 "answer all done" };
+    EXPECT_EQ(events, expected);
+}
+
+TEST_F(AgentObserverTest, UsageReported_ReceivesTheUsageOfEveryCompletionBeforeItIsActedOn)
+{
+    AgentObserver observer = loggingObserver();
+    observer.usageReported = [this](const Usage& usage)
+    { events << QStringLiteral("usage %1").arg(usage.context_tokens); };
+    agent.setObserver(observer);
+    agent.addTool(kEchoDocstring, echoTool());
+    request();
+    Completion toolRound = toolCallCompletion("c1", "echo", kEchoArguments);
+    toolRound.usage.context_tokens = 7;
+    Completion answer = contentCompletion("all done");
+    answer.usage.context_tokens = 9;
+
+    client.completeNext(toolRound);
+    client.completeNext(answer);
+
+    const QStringList expected { "usage 7", "started echo reads", "finished echo hi", "usage 9",
+                                 "answer all done" };
+    EXPECT_EQ(events, expected);
+}
+
+TEST_F(AgentObserverTest, UsageReported_IsNotCalledForAFailedCompletion)
+{
+    AgentObserver observer = loggingObserver();
+    observer.usageReported = [this](const Usage&) { events << QStringLiteral("usage"); };
+    agent.setObserver(observer);
+    request();
+
+    client.completeNext(failedCompletion("server_error"));
+
+    EXPECT_EQ(events, QStringList { "failed server_error" });
+}
+
 TEST_F(AgentObserverTest, ToolRound_ImageResultKeepsPixelsOutOfTheTextAndOnTheMessage)
 {
     const QByteArray pixels("\x89PNG-pixels");

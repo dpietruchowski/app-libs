@@ -112,6 +112,27 @@ QJsonObject streamEvent(const QJsonObject& inner)
 
 QJsonObject messageStart() { return streamEvent({ { "type", "message_start" } }); }
 
+QJsonObject messageStartWithUsage(int fresh, int written, int read)
+{
+    const QJsonObject usage { { "input_tokens", fresh },
+                              { "cache_creation_input_tokens", written },
+                              { "cache_read_input_tokens", read },
+                              { "output_tokens", 1 } };
+    return streamEvent(
+        { { "type", "message_start" }, { "message", QJsonObject { { "usage", usage } } } });
+}
+
+QJsonObject resultEventWithUsage(int fresh, int written, int read, int output)
+{
+    QJsonObject event = resultEvent("success", false, "fine");
+    event.insert("usage",
+                 QJsonObject { { "input_tokens", fresh },
+                               { "cache_creation_input_tokens", written },
+                               { "cache_read_input_tokens", read },
+                               { "output_tokens", output } });
+    return event;
+}
+
 QJsonObject deltaOf(const QString& deltaType, const QString& field, const QString& value)
 {
     return streamEvent({ { "type", "content_block_delta" },
@@ -202,6 +223,29 @@ TEST_F(StreamJsonParserTest, ReportsNoTokensForAnAnswerWithoutUsage)
     EXPECT_EQ(events[0].usage.prompt_tokens, 0);
     EXPECT_EQ(events[0].usage.completion_tokens, 0);
     EXPECT_EQ(events[0].usage.total_tokens, 0);
+}
+
+TEST_F(StreamJsonParserTest, ReportsTheInputOfTheLastRequestOfTheRunAsTheContextTokensOfTheAnswer)
+{
+    const QByteArray stream = line(messageStartWithUsage(3, 100, 2000))
+        + line(messageStartWithUsage(5, 200, 4000)) + line(resultEventWithUsage(8, 300, 6000, 9));
+
+    const std::vector<StreamEvent> events = parseStream(stream);
+
+    ASSERT_EQ(events.size(), 1u);
+    EXPECT_EQ(events[0].usage.context_tokens, 5 + 200 + 4000);
+    EXPECT_EQ(events[0].usage.prompt_tokens, 8 + 300 + 6000);
+}
+
+TEST_F(StreamJsonParserTest, ReportsNoContextTokensWithoutAMessageStartWithUsage)
+{
+    const QByteArray stream = line(messageStart()) + line(resultEventWithUsage(8, 300, 6000, 9));
+
+    const std::vector<StreamEvent> events = parseStream(stream);
+
+    ASSERT_EQ(events.size(), 1u);
+    EXPECT_EQ(events[0].usage.context_tokens, 0);
+    EXPECT_EQ(events[0].usage.prompt_tokens, 8 + 300 + 6000);
 }
 
 TEST_F(StreamJsonParserTest, GivesTheSameEventsWhateverTheChunking)
