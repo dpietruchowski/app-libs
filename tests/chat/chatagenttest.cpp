@@ -115,6 +115,21 @@ protected:
         m_catalog.add(std::move(entry));
     }
 
+    void limitCoursesAgentTo(int delegations)
+    {
+        AppAgent entry = coursesAgent();
+        entry.maxDelegations = delegations;
+        m_catalog = AgentCatalog();
+        m_catalog.add(std::move(entry));
+        m_catalog.add(factsAgent());
+    }
+
+    void delegateAndReport(const QString& key, size_t clientIndex)
+    {
+        callDelegate(key);
+        delegateClient(clientIndex).completeNext(contentCompletion(kReport));
+    }
+
     QString nextFollowUp()
     {
         ++m_followUpCalls;
@@ -579,6 +594,82 @@ TEST_F(ChatAgentTest, Delegation_ThatHitsTheToolCallLimit_EndsAsAFailedStepAndTe
     ASSERT_FALSE(m_ended.empty());
     EXPECT_EQ(m_ended.back().kind, StepKind::Delegation);
     EXPECT_EQ(m_ended.back().status, StepStatus::Failed);
+}
+
+TEST_F(ChatAgentTest, Delegation_TheCeilingDefaultsToThree)
+{
+    EXPECT_EQ(AppAgent::kDefaultMaxDelegations, 3);
+    EXPECT_EQ(coursesAgent().maxDelegations, AppAgent::kDefaultMaxDelegations);
+}
+
+TEST_F(ChatAgentTest, Delegation_PastTheCeiling_FailsWithTheLimitTokenAndTellsTheMainAgent)
+{
+    limitCoursesAgentTo(2);
+    beginAndAsk();
+    delegateAndReport(QStringLiteral("courses"), 0);
+    delegateAndReport(QStringLiteral("courses"), 1);
+    const size_t clients = m_clients.size();
+
+    callDelegate(QStringLiteral("courses"));
+
+    EXPECT_EQ(m_clients.size(), clients);
+    EXPECT_TRUE(lastMessageOf(mainClient())
+                    .contains(QStringLiteral("The Courses agent failed (too_many_delegations).")));
+    EXPECT_EQ(m_events.last(), "end:Delegation courses Failed");
+    ASSERT_FALSE(m_ended.empty());
+    EXPECT_EQ(m_ended.back().status, StepStatus::Failed);
+    EXPECT_EQ(m_ended.back().output.toString(),
+              QStringLiteral("The Courses agent failed (too_many_delegations)."));
+}
+
+TEST_F(ChatAgentTest, Delegation_PastTheCeiling_DoesNotAskTheAgentForAFollowUp)
+{
+    limitCoursesAgentTo(1);
+    beginAndAsk();
+    delegateAndReport(QStringLiteral("courses"), 0);
+    const int calls = m_followUpCalls;
+
+    callDelegate(QStringLiteral("courses"));
+
+    EXPECT_EQ(m_followUpCalls, calls);
+}
+
+TEST_F(ChatAgentTest, Delegation_WithinTheCeiling_StillRunsTheAgent)
+{
+    limitCoursesAgentTo(2);
+    beginAndAsk();
+    delegateAndReport(QStringLiteral("courses"), 0);
+    delegateAndReport(QStringLiteral("courses"), 1);
+
+    EXPECT_EQ(m_clients.size(), 3u);
+    EXPECT_EQ(m_events.count("end:Delegation courses Ok"), 2);
+    EXPECT_EQ(m_events.count("end:Delegation courses Failed"), 0);
+}
+
+TEST_F(ChatAgentTest, Delegation_TheCeilingCountsPerAgent)
+{
+    limitCoursesAgentTo(1);
+    beginAndAsk();
+    delegateAndReport(QStringLiteral("courses"), 0);
+
+    delegateAndReport(QStringLiteral("facts"), 1);
+
+    EXPECT_EQ(m_events.last(), "end:Delegation facts Ok");
+}
+
+TEST_F(ChatAgentTest, Delegation_TheCeilingStartsAgainWithTheNextTurn)
+{
+    limitCoursesAgentTo(1);
+    beginAndAsk();
+    delegateAndReport(QStringLiteral("courses"), 0);
+    m_turn.reset();
+    m_clients.clear();
+    m_events.clear();
+    beginAndAsk();
+
+    delegateAndReport(QStringLiteral("courses"), 0);
+
+    EXPECT_EQ(m_events.last(), "end:Delegation courses Ok");
 }
 
 TEST_F(ChatAgentTest, Delegation_AfterAFailedOne_ASuccessfulOneEndsOk)

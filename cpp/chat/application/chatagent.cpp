@@ -225,6 +225,11 @@ namespace
 
         void delegate(const AppAgent& entry, const QVariantMap& arguments, ToolDone done)
         {
+            if (++m_delegations[entry.key] > entry.maxDelegations)
+            {
+                reportDelegationFailure(entry, turn_error::kTooManyDelegations, done);
+                return;
+            }
             auto run = std::make_shared<DelegateRun>();
             run->client = m_clients(ClaudeSession {});
             if (!run->client)
@@ -306,6 +311,7 @@ namespace
         std::optional<Step> m_tool;
         std::shared_ptr<DelegateRun> m_running;
         std::vector<std::shared_ptr<void>> m_retired;
+        QHash<QString, int> m_delegations;
         bool m_delegationFailed { false };
         bool m_concluded { false };
     };

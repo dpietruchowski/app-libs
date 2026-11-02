@@ -13,6 +13,7 @@ namespace turn_error
 
     inline const QString kCancelled = QStringLiteral("cancelled");
     inline const QString kUnavailable = QStringLiteral("unavailable");
+    inline const QString kTooManyDelegations = QStringLiteral("too_many_delegations");
 
 }
 
