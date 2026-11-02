@@ -137,12 +137,14 @@ Completion completionOf(const QString& finishReason, Message message)
     return completion;
 }
 
-Completion answerCompletion(const QString& text)
+Completion answerCompletion(const QString& text, const Usage& usage)
 {
     Message message;
     message.role = kAssistantRole;
     message.content = text;
-    return completionOf(kFinishStop, std::move(message));
+    Completion completion = completionOf(kFinishStop, std::move(message));
+    completion.usage = usage;
+    return completion;
 }
 
 Completion toolCallsCompletion(const std::vector<ToolRequest>& requests)
@@ -572,7 +574,10 @@ void ClaudeStdioClient::Run::handle(const StreamEvent& event)
             handleMcpRequest(event);
             break;
         case StreamEvent::Kind::Answer:
-            conclude(answerCompletion(event.text), Closing::Graceful);
+            qCInfo(ClientLogic) << "claude usage: prompt" << event.usage.prompt_tokens
+                                << "completion" << event.usage.completion_tokens << "total"
+                                << event.usage.total_tokens;
+            conclude(answerCompletion(event.text, event.usage), Closing::Graceful);
             break;
         case StreamEvent::Kind::Failure:
             qCWarning(ClientLogic) << "claude run failed:" << event.text << event.detail;

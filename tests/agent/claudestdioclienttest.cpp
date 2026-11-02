@@ -71,6 +71,24 @@ TEST(ClaudeStdioClientTest, AnswersWithTheResultOfTheRun)
     EXPECT_TRUE(outcome.toolCalls().isEmpty());
 }
 
+TEST(ClaudeStdioClientTest, CarriesTheTokensOfTheRunInTheCompletion)
+{
+    QJsonObject result = resultEvent("pong");
+    result.insert("usage",
+                  QJsonObject { { "input_tokens", 3 },
+                                { "cache_creation_input_tokens", 100 },
+                                { "cache_read_input_tokens", 1000 },
+                                { "output_tokens", 20 } });
+    const FakeClaude claude(startOfRun() + QStringList { cliSays(result) });
+    const ClaudeStdioClient client(claude.launcher());
+
+    const Outcome outcome = ask(client, conversationOf("ping"));
+
+    EXPECT_EQ(outcome.completion.usage.prompt_tokens, 1103);
+    EXPECT_EQ(outcome.completion.usage.completion_tokens, 20);
+    EXPECT_EQ(outcome.completion.usage.total_tokens, 1123);
+}
+
 TEST(ClaudeStdioClientTest, StartsTheCliInStreamJsonModeAndPersistsNothing)
 {
     const FakeClaude claude(answering("pong"));

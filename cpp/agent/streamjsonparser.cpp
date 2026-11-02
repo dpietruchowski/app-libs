@@ -27,6 +27,20 @@ StreamEvent makeEvent(StreamEvent::Kind kind, QString text = {}, QString detail 
     return event;
 }
 
+Usage usageOf(const QJsonObject& resultEvent)
+{
+    const QJsonObject usage = resultEvent.value("usage").toObject();
+    const int fresh = usage.value("input_tokens").toInt();
+    const int written = usage.value("cache_creation_input_tokens").toInt();
+    const int read = usage.value("cache_read_input_tokens").toInt();
+
+    Usage result {};
+    result.prompt_tokens = fresh + written + read;
+    result.completion_tokens = usage.value("output_tokens").toInt();
+    result.total_tokens = result.prompt_tokens + result.completion_tokens;
+    return result;
+}
+
 QString failureDetail(const QJsonObject& resultEvent)
 {
     const QString text = resultEvent.value("result").toString();
@@ -166,7 +180,11 @@ void StreamJsonParser::handleResult(const QJsonObject& event, std::vector<Stream
         = subtype == QStringLiteral("success") && !event.value("is_error").toBool();
 
     if (succeeded)
-        conclude(makeEvent(StreamEvent::Kind::Answer, event.value("result").toString()), events);
+    {
+        StreamEvent answer = makeEvent(StreamEvent::Kind::Answer, event.value("result").toString());
+        answer.usage = usageOf(event);
+        conclude(std::move(answer), events);
+    }
     else if (!m_initSeen && subtype == kExecutionErrorSubtype)
         conclude(makeEvent(StreamEvent::Kind::SessionMissing, {}, failureDetail(event)), events);
     else
