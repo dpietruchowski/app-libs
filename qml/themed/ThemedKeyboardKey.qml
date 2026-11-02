@@ -10,6 +10,7 @@ Item {
     property string value: label
     property url iconSource: ""
     property bool round: false
+    property bool pill: false
     property Component face: null
     readonly property bool hasFace: face !== null
     property bool special: false
@@ -110,7 +111,7 @@ Item {
         anchors.centerIn: parent
         width: root.round ? 2 * root.circleRadius : root.width
         height: root.round ? width : root.height
-        radius: root.round ? width / 2 : Theme.keyboard.keyRadius
+        radius: root.round || root.pill ? root.circleRadius : Theme.keyboard.keyRadius
         color: root.active ? Theme.keyboard.activeKeyBackground
              : area.pressed ? Theme.keyboard.keyPressedBackground
              : root.special ? Theme.keyboard.specialKeyBackground
@@ -439,7 +440,7 @@ Item {
         }
 
         onPressAndHold: (mouse) => {
-            if (flicking)
+            if (flicking || swipePreview.highlighted >= 0)
                 return
             if (root.alternates.length > 0) {
                 crossTimer.stop()
