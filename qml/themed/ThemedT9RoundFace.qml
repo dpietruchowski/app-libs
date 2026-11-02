@@ -20,7 +20,7 @@ Item {
     }
 
     Repeater {
-        model: root.key.ringShown ? root.key.swipes.length + 1 : 0
+        model: root.key.swipes.length + 1
 
         Item {
             required property int index
