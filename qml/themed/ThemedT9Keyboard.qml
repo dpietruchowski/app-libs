@@ -56,8 +56,13 @@ Rectangle {
     readonly property real popupUnit: (innerWidth - 9 * Theme.keyboard.keySpacing) / 10
     readonly property real sideWidth: unit * Theme.keyboard.t9SideKeyUnits
     readonly property real sideHalfWidth: (sideWidth - Theme.keyboard.keySpacing) / 2
-    readonly property real keyHeight: Theme.keyboard.t9KeyHeight
-    readonly property real tallKeyHeight: 2 * keyHeight + Theme.keyboard.rowSpacing
+    readonly property real rowsHeight: 4 * Theme.keyboard.t9KeyHeight + 3 * Theme.keyboard.rowSpacing
+    readonly property real keyHeight: roundStyle ? Theme.keyboard.t9RoundKeyHeight
+                                                 : Theme.keyboard.t9KeyHeight
+    readonly property real rowGap: roundStyle ? Theme.keyboard.keySpacing : Theme.keyboard.rowSpacing
+    readonly property real bottomRowHeight: rowsHeight - 3 * (keyHeight + rowGap)
+    readonly property real backspaceHeight: 2 * keyHeight + rowGap
+    readonly property real enterHeight: keyHeight + rowGap + bottomRowHeight
     readonly property bool upperCase: buffer !== null && buffer.upperCase && !symbolsActive
     readonly property bool predictionAvailable: predictor !== null
     readonly property bool predicting: predictionAvailable && predictiveEnabled && !symbolsActive
@@ -273,9 +278,7 @@ Rectangle {
 
     objectName: "t9Keyboard"
     implicitWidth: Theme.applicationWidth
-    implicitHeight: candidateBarSpace + 4 * keyHeight
-                    + 3 * Theme.keyboard.rowSpacing
-                    + 2 * Theme.keyboard.padding
+    implicitHeight: candidateBarSpace + rowsHeight + 2 * Theme.keyboard.padding
     color: Theme.keyboard.background
 
     onPredictingChanged: {
@@ -410,7 +413,7 @@ Rectangle {
             z: 1
             columns: 3
             columnSpacing: Theme.keyboard.keySpacing
-            rowSpacing: Theme.keyboard.rowSpacing
+            rowSpacing: root.rowGap
 
             Repeater {
                 model: root.digitKeys
@@ -467,7 +470,7 @@ Rectangle {
                 ThemedKeyboardKey {
                     objectName: "t9KeyLayer"
                     width: root.halfUnit
-                    height: root.keyHeight
+                    height: root.bottomRowHeight
                     pill: root.roundStyle
                     special: true
                     label: root.symbolsActive ? root.languageLayout.layerLabel : "?123"
@@ -478,7 +481,7 @@ Rectangle {
                 ThemedKeyboardKey {
                     objectName: "t9KeyShift"
                     width: root.halfUnit
-                    height: root.keyHeight
+                    height: root.bottomRowHeight
                     pill: root.roundStyle
                     special: true
                     enabled: !root.symbolsActive
@@ -496,7 +499,7 @@ Rectangle {
             ThemedKeyboardKey {
                 objectName: "t9KeySpace"
                 width: root.unit
-                height: root.keyHeight
+                height: root.bottomRowHeight
                 pill: root.roundStyle
                 label: "0"
                 hint: "␣"
@@ -519,7 +522,7 @@ Rectangle {
                         objectName: "t9KeySwitch_" + modelData.name
                         width: (root.unit - (root.switchKeys.length - 1) * Theme.keyboard.keySpacing)
                                / root.switchKeys.length
-                        height: root.keyHeight
+                        height: root.bottomRowHeight
                         pill: root.roundStyle
                         special: true
                         iconSource: modelData.icon
@@ -531,12 +534,12 @@ Rectangle {
         }
 
         Column {
-            spacing: Theme.keyboard.rowSpacing
+            spacing: root.rowGap
 
             ThemedKeyboardKey {
                 objectName: "t9KeyBackspace"
                 width: root.sideWidth
-                height: root.tallKeyHeight
+                height: root.backspaceHeight
                 pill: root.roundStyle
                 special: true
                 repeats: true
@@ -548,7 +551,7 @@ Rectangle {
             ThemedKeyboardKey {
                 objectName: "t9KeyEnter"
                 width: root.sideWidth
-                height: root.tallKeyHeight
+                height: root.enterHeight
                 pill: root.roundStyle
                 special: true
                 active: true

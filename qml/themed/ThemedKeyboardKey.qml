@@ -13,6 +13,7 @@ Item {
     property bool pill: false
     property Component face: null
     readonly property bool hasFace: face !== null
+    readonly property bool hintBeside: pill
     property bool special: false
     property bool active: false
     property bool accented: false
@@ -121,7 +122,8 @@ Item {
     Text {
         id: labelText
         anchors.centerIn: parent
-        anchors.verticalCenterOffset: root.hint === "" ? 0 : -hintText.height / 2
+        anchors.verticalCenterOffset: root.hint === "" || root.hintBeside ? 0 : -hintText.height / 2
+        anchors.horizontalCenterOffset: root.hint === "" || !root.hintBeside ? 0 : -hintText.width / 2
         visible: !root.hasFace && root.iconSource.toString() === ""
         text: root.displayed(root.label)
         font.pixelSize: root.special ? Theme.keyboard.specialFontSize : Theme.keyboard.fontSize
@@ -131,7 +133,9 @@ Item {
     Text {
         id: hintText
         anchors.top: labelText.bottom
+        anchors.topMargin: root.hintBeside ? labelText.baselineOffset - baselineOffset - labelText.height : 0
         anchors.horizontalCenter: parent.horizontalCenter
+        anchors.horizontalCenterOffset: root.hintBeside ? labelText.width / 2 : 0
         visible: !root.hasFace && root.hint !== ""
         text: root.displayed(root.hint)
         font.pixelSize: Theme.keyboard.hintFontSize

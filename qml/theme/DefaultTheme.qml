@@ -533,6 +533,7 @@ QtObject {
         readonly property int doubleTapInterval: 300
         readonly property int multiTapTimeout: 900
         readonly property int t9KeyHeight: theme.scaled(52)
+        readonly property int t9RoundKeyHeight: theme.scaled(60)
         readonly property real t9SideKeyUnits: 0.75
         readonly property int hintFontSize: theme.fontSize.small
         readonly property color hintText: theme.colors.textSecondary
