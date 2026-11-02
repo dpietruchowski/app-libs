@@ -24,6 +24,8 @@ Rectangle {
     property int candidateLimit: 8
     property string joiners: "'-"
 
+    readonly property var declaredAlternates: Object.values(languageLayout.alternates)
+        .reduce((all, alternates) => all.concat(alternates), [])
     readonly property var groups: symbolsActive ? symbolGroups : letterGroups
     readonly property var digitKeys: [root.punctuation].concat(root.groups).map((group, index) => {
         var digit = String(index + 1)
@@ -35,7 +37,7 @@ Rectangle {
             letters: group,
             value: group + digit,
             characters: Array.from(group + digit),
-            swipes: root.baseCharacters(index > 0 ? group : layouts.t9PunctuationSwipes).concat(digit),
+            swipes: root.swipeCharacters(index > 0 ? group : layouts.t9PunctuationSwipes).concat(digit),
             flicks: flicks,
             extras: Array.from(group).filter(character => !flicks.includes(character)).concat(digit),
             predictive: index > 0
@@ -64,6 +66,10 @@ Rectangle {
 
     function baseCharacters(group) {
         return Array.from(group).filter(character => character.normalize("NFD").length === 1)
+    }
+
+    function swipeCharacters(group) {
+        return root.baseCharacters(group).filter(character => !root.declaredAlternates.includes(character))
     }
 
     function compose(characters) {
@@ -403,7 +409,6 @@ Rectangle {
                     alternatesInRing: digitKey.roundStyle
                     alternates: digitKey.roundStyle ? modelData.characters : modelData.extras
                     swipes: digitKey.roundStyle ? modelData.swipes : []
-                    swipeArcSpan: digitKey.roundStyle ? 360 : 180
                     flicks: digitKey.roundStyle ? [] : modelData.flicks
                     showsSwipeRing: true
                     onTouched: root.keyTapped()
