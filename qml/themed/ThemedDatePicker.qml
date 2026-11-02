@@ -1,25 +1,17 @@
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 
 import Themed.Components
 
-Control {
+ThemedPickerField {
     id: control
-
-    property string value: ""
-    property string placeholder: ""
-    property bool keyNavigable: true
 
     property int viewYear: 0
     property int viewMonth: 0
     property string today: ""
 
-    readonly property bool hasValue: control.dateOf(control.value) !== null
     readonly property string title: Qt.locale().monthName(control.viewMonth) + " " + control.viewYear
     readonly property var days: control.monthDays(control.viewYear, control.viewMonth)
-
-    signal picked(string value)
 
     function isoOf(date) {
         return String(date.getFullYear()).padStart(4, "0") + "-"
@@ -61,167 +53,103 @@ Control {
     function pick(iso) {
         control.value = iso
         control.picked(iso)
-        popup.close()
-    }
-
-    function keyActivate() {
-        popup.open()
+        control.close()
     }
 
     implicitWidth: Theme.datePicker.fieldWidth
     implicitHeight: Theme.datePicker.fieldHeight
-    leftPadding: Theme.padding.medium
-    rightPadding: Theme.padding.medium
+    hasValue: control.dateOf(control.value) !== null
+    iconSource: Theme.icons.calendar
+    iconSize: Theme.datePicker.iconSize
+    popupContentWidth: 7 * Theme.datePicker.cellSize
 
     Component.onCompleted: control.showMonthOf(control.value)
+    onOpening: control.showMonthOf(control.value)
 
-    background: Rectangle {
-        color: Theme.colors.surface
-        border.color: Theme.colors.cardBorder
-        border.width: Theme.border.thin
-        radius: Theme.radius.xLarge
-    }
+    RowLayout {
+        Layout.fillWidth: true
 
-    contentItem: RowLayout {
-        spacing: Theme.spacing.small
+        ThemedButton {
+            objectName: control.objectName ? control.objectName + "_previous" : ""
+            buttonSize: Theme.button.square
+            buttonStyle: Theme.button.ghost
+            iconSource: Theme.icons.back
+            onClicked: control.step(-1)
+        }
 
-        Text {
+        ThemedText {
             Layout.fillWidth: true
-            text: control.hasValue ? control.value : control.placeholder
-            color: control.hasValue ? Theme.colors.textPrimary : Theme.colors.textPlaceholder
-            font.pixelSize: Theme.fontSize.medium
-            verticalAlignment: Text.AlignVCenter
-            elide: Text.ElideRight
+            text: control.title
+            textStyle: Theme.datePicker.title
+            horizontalAlignment: Text.AlignHCenter
         }
 
-        ThemedIcon {
-            Layout.preferredWidth: Theme.datePicker.iconSize
-            Layout.preferredHeight: Theme.datePicker.iconSize
-            svgSource: Theme.icons.calendar
-            color: Theme.colors.textSecondary
+        ThemedButton {
+            objectName: control.objectName ? control.objectName + "_next" : ""
+            buttonSize: Theme.button.square
+            buttonStyle: Theme.button.ghost
+            iconSource: Theme.icons.next
+            onClicked: control.step(1)
         }
     }
 
-    TapHandler {
-        onTapped: control.keyActivate()
+    RowLayout {
+        spacing: 0
+
+        Repeater {
+            model: 7
+
+            ThemedText {
+                required property int index
+
+                Layout.preferredWidth: Theme.datePicker.cellSize
+                text: Qt.locale().dayName((Qt.locale().firstDayOfWeek + index) % 7, Locale.NarrowFormat)
+                textStyle: Theme.datePicker.weekday
+                horizontalAlignment: Text.AlignHCenter
+            }
+        }
     }
 
-    Popup {
-        id: popup
+    GridLayout {
+        columns: 7
+        columnSpacing: 0
+        rowSpacing: 0
 
-        readonly property Item overlayItem: control.Overlay.overlay
-        property bool above: false
+        Repeater {
+            model: control.days
 
-        objectName: control.objectName ? control.objectName + "_popup" : ""
-        y: popup.above ? -popup.implicitHeight - Theme.spacing.xSmall : control.height + Theme.spacing.xSmall
-        width: 7 * Theme.datePicker.cellSize + leftPadding + rightPadding
-        margins: Theme.spacing.medium
-        padding: Theme.padding.small
-        focus: true
+            Item {
+                id: cell
 
-        onAboutToShow: {
-            control.showMonthOf(control.value)
-            const bottom = control.mapToItem(popup.overlayItem, 0, control.height).y
-                           + Theme.spacing.xSmall + popup.implicitHeight + popup.margins
-            popup.above = bottom > popup.overlayItem.height
-        }
+                required property var modelData
 
-        background: Rectangle {
-            color: Theme.colors.surface
-            border.color: Theme.colors.cardBorder
-            border.width: Theme.border.thin
-            radius: Theme.radius.xLarge
-        }
+                readonly property bool selected: cell.modelData.iso === control.value
 
-        contentItem: ColumnLayout {
-            spacing: Theme.spacing.small
+                objectName: control.objectName ? control.objectName + "_day" + cell.modelData.iso : ""
+                Layout.preferredWidth: Theme.datePicker.cellSize
+                Layout.preferredHeight: Theme.datePicker.cellSize
 
-            RowLayout {
-                Layout.fillWidth: true
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: Theme.datePicker.daySize
+                    height: Theme.datePicker.daySize
+                    radius: Theme.radius.full
+                    color: cell.selected ? Theme.datePicker.selectedBackground : "transparent"
+                    border.width: cell.modelData.iso === control.today ? Theme.border.thin : 0
+                    border.color: Theme.datePicker.todayBorder
 
-                ThemedButton {
-                    objectName: control.objectName ? control.objectName + "_previous" : ""
-                    buttonSize: Theme.button.square
-                    buttonStyle: Theme.button.ghost
-                    iconSource: Theme.icons.back
-                    onClicked: control.step(-1)
-                }
-
-                ThemedText {
-                    Layout.fillWidth: true
-                    text: control.title
-                    textStyle: Theme.datePicker.title
-                    horizontalAlignment: Text.AlignHCenter
-                }
-
-                ThemedButton {
-                    objectName: control.objectName ? control.objectName + "_next" : ""
-                    buttonSize: Theme.button.square
-                    buttonStyle: Theme.button.ghost
-                    iconSource: Theme.icons.next
-                    onClicked: control.step(1)
-                }
-            }
-
-            RowLayout {
-                spacing: 0
-
-                Repeater {
-                    model: 7
-
-                    ThemedText {
-                        required property int index
-
-                        Layout.preferredWidth: Theme.datePicker.cellSize
-                        text: Qt.locale().dayName((Qt.locale().firstDayOfWeek + index) % 7, Locale.NarrowFormat)
-                        textStyle: Theme.datePicker.weekday
-                        horizontalAlignment: Text.AlignHCenter
+                    Text {
+                        anchors.centerIn: parent
+                        text: cell.modelData.day
+                        font.pixelSize: Theme.fontSize.normal
+                        color: cell.selected ? Theme.datePicker.selectedText
+                               : cell.modelData.inMonth ? Theme.colors.textPrimary
+                               : Theme.datePicker.outsideText
                     }
                 }
-            }
 
-            GridLayout {
-                columns: 7
-                columnSpacing: 0
-                rowSpacing: 0
-
-                Repeater {
-                    model: control.days
-
-                    Item {
-                        id: cell
-
-                        required property var modelData
-
-                        readonly property bool selected: cell.modelData.iso === control.value
-
-                        objectName: control.objectName ? control.objectName + "_day" + cell.modelData.iso : ""
-                        Layout.preferredWidth: Theme.datePicker.cellSize
-                        Layout.preferredHeight: Theme.datePicker.cellSize
-
-                        Rectangle {
-                            anchors.centerIn: parent
-                            width: Theme.datePicker.daySize
-                            height: Theme.datePicker.daySize
-                            radius: Theme.radius.full
-                            color: cell.selected ? Theme.datePicker.selectedBackground : "transparent"
-                            border.width: cell.modelData.iso === control.today ? Theme.border.thin : 0
-                            border.color: Theme.datePicker.todayBorder
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: cell.modelData.day
-                                font.pixelSize: Theme.fontSize.normal
-                                color: cell.selected ? Theme.datePicker.selectedText
-                                       : cell.modelData.inMonth ? Theme.colors.textPrimary
-                                       : Theme.datePicker.outsideText
-                            }
-                        }
-
-                        TapHandler {
-                            onTapped: control.pick(cell.modelData.iso)
-                        }
-                    }
+                TapHandler {
+                    onTapped: control.pick(cell.modelData.iso)
                 }
             }
         }
