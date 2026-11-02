@@ -284,7 +284,7 @@ void Agent::onCompletionReceived(const Client& client, const Completion& complet
 
 void Agent::handleToolCallsAsync(const Client& client, QVector<ToolCall> toolCalls, int index)
 {
-    if (index == 0 && ++m_toolCallsCount > m_maxToolCalls)
+    if (index == 0 && ++m_toolCallsCount > m_maxToolCalls && m_maxToolCalls != kUnlimitedToolCalls)
     {
         qCWarning(AgentLogic) << "Too many tool calls count";
         deliverResponse("", QStringLiteral("too_many_tool_calls"));
