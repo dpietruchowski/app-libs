@@ -21,6 +21,7 @@ public:
     using ResponseReceivedCallback = std::function<void(const QString& response)>;
     using ErrorReceivedCallback = std::function<void(const QString& error)>;
     static constexpr int kDefaultMaxToolCalls = 20;
+    static constexpr int kUnlimitedToolCalls = 0;
 
     Agent(const QString& model, const QString& systemPrompt);
 

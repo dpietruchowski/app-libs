@@ -11,12 +11,15 @@ namespace chat
 
 struct AppAgent final
 {
+    static constexpr int kDefaultMaxDelegations = 3;
+
     QString key;
     QString title;
     QString description;
     ::Agent agent;
     std::function<QString()> followUp;
     ModelConfig config;
+    int maxDelegations { kDefaultMaxDelegations };
 
     QString modelFor(const QString& chosen, const QString& chatModel) const;
 };

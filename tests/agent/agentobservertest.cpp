@@ -308,6 +308,39 @@ TEST_F(AgentObserverTest, ARaisedToolCallLimitLetsTheAgentGoPastTwenty)
     EXPECT_FALSE(client.held.empty());
 }
 
+TEST_F(AgentObserverTest, AnUnlimitedToolCallLimitNeverStopsTheAgent)
+{
+    agent.setMaxToolCalls(Agent::kUnlimitedToolCalls);
+    agent.addTool(kEchoDocstring, echoTool());
+    request();
+
+    for (int round = 0; round < 100; ++round)
+    {
+        completeToolCall();
+    }
+
+    EXPECT_EQ(agent.maxToolCalls(), Agent::kUnlimitedToolCalls);
+    EXPECT_TRUE(events.filter("failed").isEmpty());
+    EXPECT_EQ(toolRuns, 100);
+    EXPECT_FALSE(client.held.empty());
+}
+
+TEST_F(AgentObserverTest, AnUnlimitedAgentStillFinishesWhenTheModelAnswers)
+{
+    agent.setMaxToolCalls(Agent::kUnlimitedToolCalls);
+    agent.addTool(kEchoDocstring, echoTool());
+    request();
+
+    for (int round = 0; round < 30; ++round)
+    {
+        completeToolCall();
+    }
+    client.completeNext(contentCompletion("done"));
+
+    EXPECT_EQ(events.last(), "answer done");
+    EXPECT_EQ(toolRuns, 30);
+}
+
 TEST_F(AgentObserverTest, Finish_FiresOnceAndTheAgentAcceptsTheNextRequest)
 {
     request();
