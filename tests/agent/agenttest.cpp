@@ -71,6 +71,34 @@ TEST_F(AgentTest, Request_WithoutTools_ReturnsAssistantContent)
     EXPECT_EQ(client.calls, 1);
 }
 
+TEST_F(AgentTest, Request_KeepsTheRawContentOfTheFinalReply)
+{
+    MockClient client;
+    Completion completion = contentCompletion("reply");
+    completion.choices[0].message.raw_content
+        = QJsonArray { QJsonObject { { "type", "thinking" } }, QJsonObject { { "type", "text" } } };
+    client.script = { completion };
+
+    Agent agent("gpt-test", "system prompt");
+    requestSync(agent, client, "hi");
+
+    EXPECT_TRUE(agent.messages().last().raw_content == completion.choices[0].message.raw_content);
+}
+
+TEST_F(AgentTest, Request_KeepsTheRawContentOfAToolCallReply)
+{
+    MockClient client;
+    Completion toolCall = toolCallCompletion("call_1", "missing_tool", {});
+    toolCall.choices[0].message.raw_content = QJsonArray { QJsonObject { { "type", "thinking" } } };
+    client.script = { toolCall, contentCompletion("done") };
+
+    Agent agent("gpt-test", "system prompt");
+    requestSync(agent, client, "hi");
+
+    ASSERT_GE(agent.messages().size(), 3);
+    EXPECT_TRUE(agent.messages().at(2).raw_content == toolCall.choices[0].message.raw_content);
+}
+
 TEST_F(AgentTest, Request_BuildsSystemUserAssistantMessageSequence)
 {
     MockClient client;

@@ -19,6 +19,7 @@ static const char* kJsonToolsKey = "tools";
 static const char* kJsonReasoningEffortKey = "reasoning_effort";
 static const char* kJsonReasoningKey = "reasoning";
 static const char* kJsonEffortKey = "effort";
+}
 
 QString classifyError(int httpStatus, const QByteArray& body)
 {
@@ -48,7 +49,6 @@ QString classifyError(int httpStatus, const QByteArray& body)
     if (httpStatus == 0)
         return QStringLiteral("network_error");
     return QStringLiteral("unknown_error");
-}
 }
 
 Client::Client()

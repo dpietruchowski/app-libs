@@ -8,6 +8,8 @@
 class QNetworkReply;
 class QNetworkAccessManager;
 
+QString classifyError(int httpStatus, const QByteArray& body);
+
 class Client
 {
 public:
@@ -37,7 +39,7 @@ private:
                                  const ToolsMap& toolsMap) const;
     Completion parseReply(QNetworkReply* reply) const;
 
-private:
+protected:
     QNetworkAccessManager* manager;
     QString m_url = "https://api.openai.com/v1/chat/completions";
     QString m_apiKey;
