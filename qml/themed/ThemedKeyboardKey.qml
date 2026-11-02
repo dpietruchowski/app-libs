@@ -10,6 +10,7 @@ Item {
     property string value: label
     property url iconSource: ""
     property bool round: false
+    property bool pill: false
     property Component face: null
     readonly property bool hasFace: face !== null
     property bool special: false
@@ -29,6 +30,9 @@ Item {
     readonly property var ringCharacters: swipeRing.held ? alternates : swipes
     readonly property real swipeStep: arcStep(swipes.length)
     readonly property real ringStep: arcStep(ringCharacters.length)
+    readonly property bool ringShown: swipeRing.visible
+    readonly property real circleRadius: Math.min(width, height) / 2
+    readonly property real shapeRadius: round ? circleRadius : Math.hypot(width, height) / 2
 
     property real popupCellWidth: width * Theme.keyboard.previewScale
     property real popupHeight: height * Theme.keyboard.previewScale
@@ -94,6 +98,8 @@ Item {
     }
 
     function isOutside(x, y) {
+        if (root.round)
+            return Math.hypot(x - root.width / 2, y - root.height / 2) > root.circleRadius
         return x < 0 || y < 0 || x > root.width || y > root.height
     }
 
@@ -103,9 +109,9 @@ Item {
 
     Rectangle {
         anchors.centerIn: parent
-        width: root.round ? Math.min(root.width, root.height) : root.width
+        width: root.round ? 2 * root.circleRadius : root.width
         height: root.round ? width : root.height
-        radius: root.round ? width / 2 : Theme.keyboard.keyRadius
+        radius: root.round || root.pill ? root.circleRadius : Theme.keyboard.keyRadius
         color: root.active ? Theme.keyboard.activeKeyBackground
              : area.pressed ? Theme.keyboard.keyPressedBackground
              : root.special ? Theme.keyboard.specialKeyBackground
@@ -242,7 +248,7 @@ Item {
         id: swipeRing
         objectName: root.objectName === "" ? "" : root.objectName + "SwipeRing"
 
-        readonly property real innerRadius: Math.hypot(root.width, root.height) / 2 + Theme.keyboard.keySpacing
+        readonly property real innerRadius: root.shapeRadius + Theme.keyboard.keySpacing
         readonly property real outerRadius: innerRadius + root.popupCellWidth
         readonly property real middleRadius: (innerRadius + outerRadius) / 2
 
@@ -252,35 +258,8 @@ Item {
             return (root.swipeArcStart + index * root.ringStep) * Math.PI / 180
         }
 
-        function windowOffset() {
-            var first = root.swipeArcStart - root.ringStep / 2
-            var last = root.swipeArcStart + (root.ringCharacters.length - 0.5) * root.ringStep
-            var angles = [first, last]
-            for (var axis = Math.ceil(first / 90); axis <= Math.floor(last / 90); ++axis)
-                angles.push(axis * 90)
-            var left = Infinity
-            var right = -Infinity
-            var top = Infinity
-            var bottom = -Infinity
-            for (var index = 0; index < angles.length; ++index) {
-                var angle = angles[index] * Math.PI / 180
-                for (var radius of [innerRadius, outerRadius]) {
-                    left = Math.min(left, radius * Math.cos(angle))
-                    right = Math.max(right, radius * Math.cos(angle))
-                    top = Math.min(top, radius * Math.sin(angle))
-                    bottom = Math.max(bottom, radius * Math.sin(angle))
-                }
-            }
-            var center = root.mapToItem(null, root.width / 2, root.height / 2)
-            return Qt.point(root.windowShift(center.x + left, right - left, root.Window.width),
-                            root.windowShift(center.y + top, bottom - top, root.Window.height))
-        }
-
-        readonly property point offset: visible ? windowOffset() : Qt.point(0, 0)
-
         visible: held || (root.showsSwipeRing && swipePreview.highlighted >= 0)
-        x: (root.width - width) / 2 + offset.x
-        y: (root.height - height) / 2 + offset.y
+        anchors.centerIn: parent
         width: 2 * outerRadius
         height: 2 * outerRadius
 
@@ -461,7 +440,7 @@ Item {
         }
 
         onPressAndHold: (mouse) => {
-            if (flicking)
+            if (flicking || swipePreview.highlighted >= 0)
                 return
             if (root.alternates.length > 0) {
                 crossTimer.stop()

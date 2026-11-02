@@ -11,6 +11,7 @@ Rectangle {
     }
 
     property int style: ThemedT9Keyboard.Style.Round
+    readonly property bool roundStyle: style === ThemedT9Keyboard.Style.Round
     property KeyboardBuffer buffer
     property string language: ""
     readonly property var languageLayout: layouts.layoutFor(language)
@@ -24,6 +25,8 @@ Rectangle {
     property int candidateLimit: 8
     property string joiners: "'-"
 
+    readonly property var declaredAlternates: Object.values(languageLayout.alternates)
+        .reduce((all, alternates) => all.concat(alternates), [])
     readonly property var groups: symbolsActive ? symbolGroups : letterGroups
     readonly property var digitKeys: [root.punctuation].concat(root.groups).map((group, index) => {
         var digit = String(index + 1)
@@ -35,7 +38,7 @@ Rectangle {
             letters: group,
             value: group + digit,
             characters: Array.from(group + digit),
-            swipes: root.baseCharacters(index > 0 ? group : layouts.t9PunctuationSwipes).concat(digit),
+            swipes: root.swipeCharacters(index > 0 ? group : layouts.t9PunctuationSwipes).concat(digit),
             flicks: flicks,
             extras: Array.from(group).filter(character => !flicks.includes(character)).concat(digit),
             predictive: index > 0
@@ -64,6 +67,10 @@ Rectangle {
 
     function baseCharacters(group) {
         return Array.from(group).filter(character => character.normalize("NFD").length === 1)
+    }
+
+    function swipeCharacters(group) {
+        return root.baseCharacters(group).filter(character => !root.declaredAlternates.includes(character))
     }
 
     function compose(characters) {
@@ -356,6 +363,7 @@ Rectangle {
             objectName: "t9KeyPredictive"
             width: root.sideWidth
             height: Theme.keyboard.candidateBarHeight
+            pill: root.roundStyle
             special: true
             active: root.predictiveEnabled
             label: "T9"
@@ -386,8 +394,6 @@ Rectangle {
 
                     required property var modelData
 
-                    readonly property bool roundStyle: root.style === ThemedT9Keyboard.Style.Round
-
                     objectName: "t9Key_" + modelData.name
                     width: root.unit
                     height: root.keyHeight
@@ -398,13 +404,12 @@ Rectangle {
                     popupCellWidth: root.popupUnit * Theme.keyboard.previewScale
                     popupHeight: Theme.keyboard.keyHeight * Theme.keyboard.previewScale
                     upperCase: root.upperCase
-                    round: digitKey.roundStyle
-                    face: digitKey.roundStyle ? roundFace : flickFace
-                    alternatesInRing: digitKey.roundStyle
-                    alternates: digitKey.roundStyle ? modelData.characters : modelData.extras
-                    swipes: digitKey.roundStyle ? modelData.swipes : []
-                    swipeArcSpan: digitKey.roundStyle ? 360 : 180
-                    flicks: digitKey.roundStyle ? [] : modelData.flicks
+                    round: root.roundStyle
+                    face: root.roundStyle ? roundFace : flickFace
+                    alternatesInRing: root.roundStyle
+                    alternates: root.roundStyle ? modelData.characters : modelData.extras
+                    swipes: root.roundStyle ? modelData.swipes : []
+                    flicks: root.roundStyle ? [] : modelData.flicks
                     showsSwipeRing: true
                     onTouched: root.keyTapped()
                     onActivated: (value) => root.activateGroupKey(modelData, value)
@@ -435,6 +440,7 @@ Rectangle {
                 objectName: "t9KeyShift"
                 width: root.unit
                 height: root.keyHeight
+                pill: root.roundStyle
                 special: true
                 enabled: !root.symbolsActive
                 opacity: root.symbolsActive ? 0 : 1
@@ -451,6 +457,7 @@ Rectangle {
                 objectName: "t9KeySpace"
                 width: root.unit
                 height: root.keyHeight
+                pill: root.roundStyle
                 label: "0"
                 hint: "␣"
                 value: " "
@@ -464,6 +471,7 @@ Rectangle {
                 objectName: "t9KeyLayer"
                 width: root.unit
                 height: root.keyHeight
+                pill: root.roundStyle
                 special: true
                 label: root.symbolsActive ? root.languageLayout.layerLabel : "?123"
                 onTouched: root.keyTapped()
@@ -478,6 +486,7 @@ Rectangle {
                 objectName: "t9KeyBackspace"
                 width: root.sideWidth
                 height: root.tallKeyHeight
+                pill: root.roundStyle
                 special: true
                 repeats: true
                 iconSource: Theme.keyboard.backspaceIcon
@@ -489,6 +498,7 @@ Rectangle {
                 objectName: "t9KeyEnter"
                 width: root.sideWidth
                 height: root.tallKeyHeight
+                pill: root.roundStyle
                 special: true
                 active: true
                 label: root.enterLabel
