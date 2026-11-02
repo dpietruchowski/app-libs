@@ -2,6 +2,7 @@
 
 #include <functional>
 
+#include <QByteArray>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QString>
@@ -12,6 +13,13 @@
 
 using ToolDone = std::function<void(QVariant)>;
 using Tool = std::function<void(QVariantMap, ToolDone)>;
+
+struct ToolImage
+{
+    QString text;
+    QString mimeType;
+    QByteArray data;
+};
 
 struct ModelConfig
 {
@@ -47,6 +55,7 @@ struct Message
     QString content;
     QString tool_call_id;
     QVector<ToolCall> tool_calls;
+    QVector<ToolImage> images;
 
     QJsonObject toJsonObject() const;
     static Message fromJsonObject(const QJsonObject& json);

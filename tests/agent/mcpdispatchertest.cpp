@@ -289,6 +289,23 @@ TEST(McpDispatcherTest, WrapsTheTextOfAToolResultInAContentBlock)
                             { "isError", false } } } }));
 }
 
+TEST(McpDispatcherTest, AddsTheImagesOfAToolResultAfterItsText)
+{
+    const QByteArray bytes("\x89PNG\r\n\x1a\n-pixels-");
+    const ToolImage image { QStringLiteral("caption"), QStringLiteral("image/png"), bytes };
+
+    const QJsonObject reply
+        = McpDispatcher::toolResponse(2, QStringLiteral("shown"), false, { image });
+
+    const QJsonArray content = reply.value("result").toObject().value("content").toArray();
+    ASSERT_EQ(content.size(), 2);
+    EXPECT_EQ(content[0].toObject(), (QJsonObject { { "type", "text" }, { "text", "shown" } }));
+    EXPECT_EQ(content[1].toObject(),
+              (QJsonObject { { "type", "image" },
+                             { "data", QString::fromLatin1(bytes.toBase64()) },
+                             { "mimeType", "image/png" } }));
+}
+
 TEST(McpDispatcherTest, FlagsAToolResultAsAnError)
 {
     const QJsonObject reply = McpDispatcher::toolResponse("abc", "boom", true);

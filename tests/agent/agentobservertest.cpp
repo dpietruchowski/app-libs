@@ -154,6 +154,41 @@ TEST_F(AgentObserverTest, ToolRound_ReportsToolStartToolFinishAndAnswerInOrder)
     EXPECT_EQ(events, expected);
 }
 
+TEST_F(AgentObserverTest, ToolRound_ImageResultKeepsPixelsOutOfTheTextAndOnTheMessage)
+{
+    const QByteArray pixels("\x89PNG-pixels");
+    agent.addTool(kEchoDocstring,
+                  [pixels](QVariantMap, ToolDone done)
+                  {
+                      done(QVariant::fromValue(ToolImage { QStringLiteral("a screen"),
+                                                           QStringLiteral("image/png"), pixels }));
+                  });
+    request();
+
+    completeToolCall();
+
+    const QStringList expected { "started echo reads", "finished echo a screen" };
+    EXPECT_EQ(events, expected);
+
+    const Messages& messages = agent.messages();
+    const Message& toolMessage = messages.last();
+    ASSERT_EQ(toolMessage.role, "tool");
+    EXPECT_EQ(toolMessage.content, QStringLiteral("{\"value\":\"a screen\"}"));
+    ASSERT_EQ(toolMessage.images.size(), 1);
+    EXPECT_EQ(toolMessage.images.first().mimeType, "image/png");
+    EXPECT_EQ(toolMessage.images.first().data, pixels);
+}
+
+TEST_F(AgentObserverTest, ToolRound_TextResultCarriesNoImages)
+{
+    agent.addTool(kEchoDocstring, echoTool());
+    request();
+
+    completeToolCall();
+
+    EXPECT_TRUE(agent.messages().last().images.isEmpty());
+}
+
 TEST_F(AgentObserverTest, ToolRound_KeepsTheResponseCallbackExactlyAsItWas)
 {
     agent.addTool(kEchoDocstring, echoTool());

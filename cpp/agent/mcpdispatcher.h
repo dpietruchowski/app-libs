@@ -30,7 +30,8 @@ public:
     McpAction handle(const QString& requestId, const QJsonValue& message) const;
 
     static QJsonObject toolResponse(const QJsonValue& rpcId, const QString& text,
-                                    bool isError = false);
+                                    bool isError = false,
+                                    const QVector<ToolImage>& images = QVector<ToolImage>());
 
 private:
     McpAction replyToToolCall(const QString& requestId, const QJsonObject& message) const;

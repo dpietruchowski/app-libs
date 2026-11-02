@@ -449,11 +449,11 @@ void ClaudeStdioClient::Run::connectProcess(QProcess* process)
 
 void ClaudeStdioClient::Run::answerTools(const Messages& messages)
 {
-    QHash<QString, QString> results;
+    QHash<QString, Message> results;
     for (const Message& message : messages)
     {
         if (message.role == kToolRole)
-            results.insert(message.tool_call_id, message.content);
+            results.insert(message.tool_call_id, message);
     }
 
     for (const ToolRequest& request : m_awaiting)
@@ -467,9 +467,10 @@ void ClaudeStdioClient::Run::answerTools(const Messages& messages)
 
     for (const ToolRequest& request : m_awaiting)
     {
+        const Message result = results.value(request.call.id);
         write(StreamJsonWriter::mcpResponse(
             request.call.id,
-            McpDispatcher::toolResponse(request.rpcId, results.value(request.call.id))));
+            McpDispatcher::toolResponse(request.rpcId, result.content, false, result.images)));
     }
 
     m_awaiting.clear();
