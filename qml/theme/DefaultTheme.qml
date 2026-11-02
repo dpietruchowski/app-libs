@@ -528,6 +528,8 @@ QtObject {
         readonly property real previewScale: 1.3
         readonly property int repeatDelay: 400
         readonly property int repeatInterval: 60
+        readonly property int flickThreshold: theme.scaled(16)
+        readonly property int flickCrossDelay: 100
         readonly property int doubleTapInterval: 300
         readonly property int multiTapTimeout: 900
         readonly property int t9KeyHeight: theme.scaled(52)

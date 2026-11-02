@@ -268,6 +268,14 @@ class UiDriver:
         return self.rpc(cmd="drag", points=[[x, y] for x, y in points], steps=steps,
                         release=release)
 
+    def mouse(self, action, x, y):
+        """Send one mouse event: action is press, move or release.
+
+        Unlike `drag`, each call returns before the next event, so the app's
+        event loop runs in between: a held press fires pressAndHold timers.
+        """
+        return self.rpc(cmd="mouse", action=action, x=x, y=y)
+
     def native_click(self, name):
         """Android only: tap the item's center with a real MotionEvent.
 
@@ -396,6 +404,7 @@ def run_shell(driver):
     print("Connected. Commands: dump | find <s> | click <name> | get <name> <prop> |")
     print("  set <name> <prop> <value> | invoke <name> <method> [args...] |")
     print("  tap <x> <y> | drag <x1> <y1> <x2> <y2> [<x3> <y3> ...] |")
+    print("  press <x> <y> | move <x> <y> | release <x> <y> |")
     print("  key <sequence> [text] | scroll <name> <dy> [dx] |")
     print("  scrollto <name> | screenshot <path> |")
     print("  get_time | set_time <iso> | advance_time <days> | reset_time | quit")
@@ -442,6 +451,9 @@ def dispatch(driver, cmd, args):
     elif cmd == "drag":
         values = [coerce(a) for a in args]
         driver.drag(list(zip(values[0::2], values[1::2])))
+        print("ok")
+    elif cmd in ("press", "move", "release"):
+        driver.mouse(cmd, coerce(args[0]), coerce(args[1]))
         print("ok")
     elif cmd == "nativeclick":
         driver.native_click(args[0])
