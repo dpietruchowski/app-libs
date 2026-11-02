@@ -725,6 +725,37 @@ QJsonObject UiAutomationServer::handleCommand(const QJsonObject& request)
         return makeOk();
     }
 
+    if (cmd == "mouse")
+    {
+        if (m_engine->rootObjects().isEmpty())
+            return makeError("no root object");
+        auto* window = qobject_cast<QQuickWindow*>(m_engine->rootObjects().first());
+        if (!window)
+            return makeError("root is not a window");
+        const QString action = request["action"].toString();
+        const QPointF scene(request["x"].toDouble(), request["y"].toDouble());
+        const QPointF global = QPointF(window->mapToGlobal(scene.toPoint()));
+        QEvent::Type type = QEvent::MouseMove;
+        Qt::MouseButton button = Qt::NoButton;
+        Qt::MouseButtons buttons = Qt::LeftButton;
+        if (action == "press")
+        {
+            type = QEvent::MouseButtonPress;
+            button = Qt::LeftButton;
+        }
+        else if (action == "release")
+        {
+            type = QEvent::MouseButtonRelease;
+            button = Qt::LeftButton;
+            buttons = Qt::NoButton;
+        }
+        else if (action != "move")
+            return makeError("mouse action must be press, move or release: " + action);
+        QMouseEvent event(type, scene, scene, global, button, buttons, Qt::NoModifier);
+        QGuiApplication::sendEvent(window, &event);
+        return makeOk();
+    }
+
     if (cmd == "key")
     {
         if (m_engine->rootObjects().isEmpty())
