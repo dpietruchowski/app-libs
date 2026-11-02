@@ -200,7 +200,7 @@ Item {
     }
 
     onActionsChanged: internal.adopt()
-    onContentChanged: internal.scheduleFit()
+    onContentChanged: internal.fit()
     onWidthChanged: internal.scheduleFit()
     onMaxLinesChanged: internal.scheduleFit()
     onFontChanged: internal.scheduleFit()
