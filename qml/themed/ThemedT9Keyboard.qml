@@ -5,6 +5,12 @@ import Themed.Components
 Rectangle {
     id: root
 
+    enum Style {
+        Round,
+        Flick
+    }
+
+    property int style: ThemedT9Keyboard.Style.Round
     property KeyboardBuffer buffer
     property string language: ""
     readonly property var languageLayout: layouts.layoutFor(language)
@@ -19,17 +25,23 @@ Rectangle {
     property string joiners: "'-"
 
     readonly property var groups: symbolsActive ? symbolGroups : letterGroups
-    readonly property var digitKeys: [root.punctuation].concat(root.groups).map((group, index) => ({
-        name: String(index + 1),
-        code: String(index + 1),
-        letters: group,
-        value: group + String(index + 1),
-        characters: Array.from(group + String(index + 1)),
-        swipes: Array.from(index > 0 ? group : layouts.t9PunctuationSwipes)
-                     .filter(character => character.normalize("NFD").length === 1)
-                     .concat(String(index + 1)),
-        predictive: index > 0
-    }))
+    readonly property var digitKeys: [root.punctuation].concat(root.groups).map((group, index) => {
+        var digit = String(index + 1)
+        var base = root.baseCharacters(group)
+        var flicks = [0, 1, 2, 3].map(position => base[position] ?? "")
+        return {
+            name: digit,
+            code: digit,
+            letters: group,
+            value: group + digit,
+            characters: Array.from(group + digit),
+            base: base,
+            swipes: root.baseCharacters(index > 0 ? group : layouts.t9PunctuationSwipes).concat(digit),
+            flicks: flicks,
+            extras: Array.from(group).filter(character => !flicks.includes(character)).concat(digit),
+            predictive: index > 0
+        }
+    })
     readonly property var keyMap: root.digitKeys
         .reduce((map, key) => Object.assign(map, {
             [key.code]: key.predictive ? key.letters : root.joiners
@@ -50,6 +62,10 @@ Rectangle {
                                               : 0
 
     signal keyTapped()
+
+    function baseCharacters(group) {
+        return Array.from(group).filter(character => character.normalize("NFD").length === 1)
+    }
 
     function compose(characters) {
         if (!root.buffer)
@@ -367,7 +383,11 @@ Rectangle {
                 model: root.digitKeys
 
                 ThemedKeyboardKey {
+                    id: digitKey
+
                     required property var modelData
+
+                    readonly property bool roundStyle: root.style === ThemedT9Keyboard.Style.Round
 
                     objectName: "t9Key_" + modelData.name
                     width: root.unit
@@ -379,11 +399,36 @@ Rectangle {
                     popupCellWidth: root.popupUnit * Theme.keyboard.previewScale
                     popupHeight: Theme.keyboard.keyHeight * Theme.keyboard.previewScale
                     upperCase: root.upperCase
-                    alternates: modelData.characters
-                    swipes: modelData.swipes
+                    round: digitKey.roundStyle
+                    face: digitKey.roundStyle ? roundFace : flickFace
+                    alternatesInRing: digitKey.roundStyle
+                    alternates: digitKey.roundStyle ? modelData.characters : modelData.extras
+                    swipes: digitKey.roundStyle ? modelData.swipes : []
+                    flicks: digitKey.roundStyle ? [] : modelData.flicks
                     showsSwipeRing: true
                     onTouched: root.keyTapped()
                     onActivated: (value) => root.activateGroupKey(modelData, value)
+
+                    Component {
+                        id: roundFace
+
+                        ThemedT9RoundFace {
+                            key: digitKey
+                            digit: digitKey.modelData.code
+                            letters: digitKey.modelData.base
+                        }
+                    }
+
+                    Component {
+                        id: flickFace
+
+                        ThemedT9FlickFace {
+                            key: digitKey
+                            digit: digitKey.modelData.code
+                            flicks: digitKey.modelData.flicks
+                            extras: digitKey.modelData.extras
+                        }
+                    }
                 }
             }
 
