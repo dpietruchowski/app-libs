@@ -83,11 +83,29 @@ QJsonArray assistantBlocks(const Message& message)
     return blocks;
 }
 
+QJsonObject imageBlock(const ToolImage& image)
+{
+    const QJsonObject source { { "type", "base64" },
+                               { "media_type", image.mimeType },
+                               { "data", QString::fromLatin1(image.data.toBase64()) } };
+    return QJsonObject { { "type", "image" }, { "source", source } };
+}
+
 QJsonObject toolResultBlock(const Message& message)
 {
+    QJsonValue content = message.content;
+    if (!message.images.isEmpty())
+    {
+        QJsonArray blocks { textBlock(message.content) };
+        for (const ToolImage& image : message.images)
+        {
+            blocks.append(imageBlock(image));
+        }
+        content = blocks;
+    }
     return QJsonObject { { "type", "tool_result" },
                          { "tool_use_id", message.tool_call_id },
-                         { "content", message.content } };
+                         { "content", content } };
 }
 
 QJsonObject turn(const QString& role, const QJsonArray& content)
@@ -156,15 +174,13 @@ QString errorToken(const QString& errorType)
 
 QString finishReasonFor(const QString& stopReason)
 {
-    if (stopReason == QLatin1String("tool_use"))
-    {
-        return QStringLiteral("tool_calls");
-    }
-    if (stopReason == QLatin1String("max_tokens"))
-    {
-        return QStringLiteral("length");
-    }
-    return QStringLiteral("stop");
+    static const QHash<QString, QString> kFinishReasons {
+        { "tool_use", "tool_calls" },
+        { "end_turn", "stop" },
+        { "stop_sequence", "stop" },
+        { "max_tokens", "length" },
+    };
+    return kFinishReasons.value(stopReason);
 }
 
 Usage usageFrom(const QJsonObject& usage)
@@ -242,6 +258,12 @@ Completion completionFrom(const QJsonObject& response)
         completion.error = QStringLiteral("refusal");
         return completion;
     }
+    const QString finishReason = finishReasonFor(stopReason);
+    if (finishReason.isEmpty())
+    {
+        completion.error = QStringLiteral("unknown_error");
+        return completion;
+    }
 
     Message message;
     message.role = QStringLiteral("assistant");
@@ -266,7 +288,7 @@ Completion completionFrom(const QJsonObject& response)
 
     Choice choice;
     choice.message = message;
-    choice.finish_reason = finishReasonFor(stopReason);
+    choice.finish_reason = finishReason;
     choice.index = 0;
     completion.choices.append(choice);
     return completion;
@@ -346,15 +368,10 @@ Completion AnthropicClient::parse(QNetworkReply* reply) const
     delete reply;
 
     const QJsonObject json = QJsonDocument::fromJson(body).object();
-    Completion completion = anthropic::completionFrom(json);
-    if (!failed && json.isEmpty())
-    {
-        completion = Completion { .error = QStringLiteral("unknown_error") };
-    }
-    else if (failed && completion.error.isEmpty())
-    {
-        completion = Completion { .error = classifyError(httpStatus, body) };
-    }
+    const bool typedError = json.value("type").toString() == QLatin1String("error");
+    const Completion completion = failed && !typedError
+        ? Completion { .error = classifyError(httpStatus, body) }
+        : anthropic::completionFrom(json);
 
     if (json.contains("usage"))
     {
