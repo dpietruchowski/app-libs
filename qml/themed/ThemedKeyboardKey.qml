@@ -9,6 +9,9 @@ Item {
     property string hint: ""
     property string value: label
     property url iconSource: ""
+    property bool round: false
+    property Component face: null
+    readonly property bool hasFace: face !== null
     property bool special: false
     property bool active: false
     property bool accented: false
@@ -24,8 +27,8 @@ Item {
     property var flicks: []
     readonly property bool flickable: flicks.length > 0
     readonly property var ringCharacters: swipeRing.held ? alternates : swipes
-    readonly property real swipeStep: swipeArcSpan / (swipeArcSpan >= 360 ? ringCharacters.length
-                                                                          : Math.max(1, ringCharacters.length - 1))
+    readonly property real swipeStep: arcStep(swipes.length)
+    readonly property real ringStep: arcStep(ringCharacters.length)
 
     property real popupCellWidth: width * Theme.keyboard.previewScale
     property real popupHeight: height * Theme.keyboard.previewScale
@@ -34,12 +37,17 @@ Item {
     readonly property color contentColor: active ? Theme.keyboard.activeKeyText
                                         : accented ? Theme.keyboard.accentedKeyText
                                         : Theme.keyboard.keyText
+    readonly property color hintColor: active ? contentColor : Theme.keyboard.hintText
 
     signal activated(string value)
     signal touched()
 
     function displayed(text) {
         return root.upperCase ? text.toUpperCase() : text
+    }
+
+    function arcStep(count) {
+        return swipeArcSpan / (swipeArcSpan >= 360 ? count : Math.max(1, count - 1))
     }
 
     function windowShift(start, size, windowSize) {
@@ -75,7 +83,7 @@ Item {
         var nearest = 0
         var nearestDistance = 360
         for (var index = 0; index < count; ++index) {
-            var center = root.swipeArcStart + index * root.swipeStep
+            var center = root.swipeArcStart + index * root.ringStep
             var distance = Math.abs((((angle - center) % 360) + 540) % 360 - 180)
             if (distance < nearestDistance) {
                 nearest = index
@@ -94,8 +102,10 @@ Item {
     z: area.pressed ? 1 : 0
 
     Rectangle {
-        anchors.fill: parent
-        radius: Theme.keyboard.keyRadius
+        anchors.centerIn: parent
+        width: root.round ? Math.min(root.width, root.height) : root.width
+        height: root.round ? width : root.height
+        radius: root.round ? width / 2 : Theme.keyboard.keyRadius
         color: root.active ? Theme.keyboard.activeKeyBackground
              : area.pressed ? Theme.keyboard.keyPressedBackground
              : root.special ? Theme.keyboard.specialKeyBackground
@@ -106,7 +116,7 @@ Item {
         id: labelText
         anchors.centerIn: parent
         anchors.verticalCenterOffset: root.hint === "" ? 0 : -hintText.height / 2
-        visible: root.iconSource.toString() === ""
+        visible: !root.hasFace && root.iconSource.toString() === ""
         text: root.displayed(root.label)
         font.pixelSize: root.special ? Theme.keyboard.specialFontSize : Theme.keyboard.fontSize
         color: root.contentColor
@@ -116,19 +126,24 @@ Item {
         id: hintText
         anchors.top: labelText.bottom
         anchors.horizontalCenter: parent.horizontalCenter
-        visible: root.hint !== ""
+        visible: !root.hasFace && root.hint !== ""
         text: root.displayed(root.hint)
         font.pixelSize: Theme.keyboard.hintFontSize
-        color: root.active ? root.contentColor : Theme.keyboard.hintText
+        color: root.hintColor
     }
 
     ThemedIcon {
         anchors.centerIn: parent
-        visible: root.iconSource.toString() !== ""
+        visible: !root.hasFace && root.iconSource.toString() !== ""
         svgSource: root.iconSource
         color: root.contentColor
         width: Theme.keyboard.iconSize
         height: Theme.keyboard.iconSize
+    }
+
+    Loader {
+        anchors.fill: parent
+        sourceComponent: root.face
     }
 
     Rectangle {
@@ -234,12 +249,12 @@ Item {
         property bool held: false
 
         function sectorAngle(index) {
-            return (root.swipeArcStart + index * root.swipeStep) * Math.PI / 180
+            return (root.swipeArcStart + index * root.ringStep) * Math.PI / 180
         }
 
         function windowOffset() {
-            var first = root.swipeArcStart - root.swipeStep / 2
-            var last = root.swipeArcStart + (root.ringCharacters.length - 0.5) * root.swipeStep
+            var first = root.swipeArcStart - root.ringStep / 2
+            var last = root.swipeArcStart + (root.ringCharacters.length - 0.5) * root.ringStep
             var angles = [first, last]
             for (var axis = Math.ceil(first / 90); axis <= Math.floor(last / 90); ++axis)
                 angles.push(axis * 90)
@@ -288,7 +303,7 @@ Item {
                 var context = getContext("2d")
                 context.reset()
                 var center = width / 2
-                var halfStep = root.swipeStep * Math.PI / 360
+                var halfStep = root.ringStep * Math.PI / 360
                 context.lineWidth = Theme.border.thin
                 context.strokeStyle = Theme.keyboard.previewBorder
                 for (var index = 0; index < root.ringCharacters.length; ++index) {
