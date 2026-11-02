@@ -89,6 +89,43 @@ TEST(AnthropicEdgeCaseTest, AToolResultWithTwoImages_KeepsThemInOrderAfterTheTex
               "image/jpeg");
 }
 
+TEST(AnthropicEdgeCaseTest, AToolResultWithAnImageAndNoText_CarriesOnlyTheImageBlock)
+{
+    Message message = screenshotResult();
+    message.content.clear();
+
+    const QJsonArray content = toolResultContent({ message });
+
+    ASSERT_EQ(content.size(), 1);
+    EXPECT_EQ(content[0].toObject().value("type").toString(), "image");
+}
+
+TEST(AnthropicEdgeCaseTest, AnEmptySystemMessage_IsNotSentAsATextBlock)
+{
+    const QJsonObject body = anthropic::requestBody(ModelConfig { .model = "claude-test" },
+                                                    { Message { .role = "system", .content = "" },
+                                                      Message { .role = "user", .content = "hi" } },
+                                                    ToolsMap {});
+
+    EXPECT_FALSE(body.contains("system"));
+}
+
+TEST(AnthropicEdgeCaseTest,
+     AnEmptySystemMessageBesideAFilledOne_KeepsTheCacheBreakpointOnTheFilledOne)
+{
+    const QJsonObject body
+        = anthropic::requestBody(ModelConfig { .model = "claude-test" },
+                                 { Message { .role = "system", .content = "rules" },
+                                   Message { .role = "system", .content = "" },
+                                   Message { .role = "user", .content = "hi" } },
+                                 ToolsMap {});
+
+    const QJsonArray system = body.value("system").toArray();
+    ASSERT_EQ(system.size(), 1);
+    EXPECT_EQ(system[0].toObject().value("text").toString(), "rules");
+    EXPECT_TRUE(system[0].toObject().contains("cache_control"));
+}
+
 TEST(AnthropicEdgeCaseTest, APauseTurn_FailsWithTheUnknownToken)
 {
     const Completion completion = anthropic::completionFrom(messageResponse("pause_turn"));

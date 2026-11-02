@@ -34,7 +34,7 @@ QJsonArray systemBlocks(const Messages& messages)
     QJsonArray blocks;
     for (const Message& message : messages)
     {
-        if (message.role == QLatin1String("system"))
+        if (message.role == QLatin1String("system") && !message.content.isEmpty())
         {
             blocks.append(textBlock(message.content));
         }
@@ -96,7 +96,11 @@ QJsonObject toolResultBlock(const Message& message)
     QJsonValue content = message.content;
     if (!message.images.isEmpty())
     {
-        QJsonArray blocks { textBlock(message.content) };
+        QJsonArray blocks;
+        if (!message.content.isEmpty())
+        {
+            blocks.append(textBlock(message.content));
+        }
         for (const ToolImage& image : message.images)
         {
             blocks.append(imageBlock(image));
