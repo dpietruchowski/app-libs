@@ -7,7 +7,6 @@ Item {
 
     property Item key
     property string digit: ""
-    property var letters: []
 
     readonly property real letterRadius: Math.min(width, height) / 3
 
@@ -19,14 +18,15 @@ Item {
     }
 
     Repeater {
-        model: root.letters
+        model: root.key.swipes
 
         Text {
             required property string modelData
             required property int index
 
-            readonly property real angle: (index / root.letters.length * 360 - 90) * Math.PI / 180
+            readonly property real angle: (root.key.swipeArcStart + index * root.key.swipeStep) * Math.PI / 180
 
+            visible: modelData !== root.digit
             x: (root.width - width) / 2 + root.letterRadius * Math.cos(angle)
             y: (root.height - height) / 2 + root.letterRadius * Math.sin(angle)
             text: root.key.displayed(modelData)

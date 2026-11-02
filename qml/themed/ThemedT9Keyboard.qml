@@ -35,7 +35,6 @@ Rectangle {
             letters: group,
             value: group + digit,
             characters: Array.from(group + digit),
-            base: base,
             swipes: root.baseCharacters(index > 0 ? group : layouts.t9PunctuationSwipes).concat(digit),
             flicks: flicks,
             extras: Array.from(group).filter(character => !flicks.includes(character)).concat(digit),
@@ -404,6 +403,7 @@ Rectangle {
                     alternatesInRing: digitKey.roundStyle
                     alternates: digitKey.roundStyle ? modelData.characters : modelData.extras
                     swipes: digitKey.roundStyle ? modelData.swipes : []
+                    swipeArcSpan: digitKey.roundStyle ? 360 : 180
                     flicks: digitKey.roundStyle ? [] : modelData.flicks
                     showsSwipeRing: true
                     onTouched: root.keyTapped()
@@ -415,7 +415,6 @@ Rectangle {
                         ThemedT9RoundFace {
                             key: digitKey
                             digit: digitKey.modelData.code
-                            letters: digitKey.modelData.base
                         }
                     }
 
