@@ -9,6 +9,9 @@ Item {
     property string hint: ""
     property string value: label
     property url iconSource: ""
+    property bool round: false
+    property Component face: null
+    readonly property bool hasFace: face !== null
     property bool special: false
     property bool active: false
     property bool accented: false
@@ -20,6 +23,8 @@ Item {
     property real swipeArcStart: -90
     property real swipeArcSpan: 180
     property bool showsSwipeRing: false
+    property bool alternatesInRing: false
+    property var flicks: []
     readonly property real swipeStep: swipeArcSpan / (swipeArcSpan >= 360 ? swipes.length
                                                                           : Math.max(1, swipes.length - 1))
 
@@ -30,6 +35,7 @@ Item {
     readonly property color contentColor: active ? Theme.keyboard.activeKeyText
                                         : accented ? Theme.keyboard.accentedKeyText
                                         : Theme.keyboard.keyText
+    readonly property color hintColor: active ? contentColor : Theme.keyboard.hintText
 
     signal activated(string value)
     signal touched()
@@ -72,8 +78,10 @@ Item {
     z: area.pressed ? 1 : 0
 
     Rectangle {
-        anchors.fill: parent
-        radius: Theme.keyboard.keyRadius
+        anchors.centerIn: parent
+        width: root.round ? Math.min(root.width, root.height) : root.width
+        height: root.round ? width : root.height
+        radius: root.round ? width / 2 : Theme.keyboard.keyRadius
         color: root.active ? Theme.keyboard.activeKeyBackground
              : area.pressed ? Theme.keyboard.keyPressedBackground
              : root.special ? Theme.keyboard.specialKeyBackground
@@ -84,7 +92,7 @@ Item {
         id: labelText
         anchors.centerIn: parent
         anchors.verticalCenterOffset: root.hint === "" ? 0 : -hintText.height / 2
-        visible: root.iconSource.toString() === ""
+        visible: !root.hasFace && root.iconSource.toString() === ""
         text: root.displayed(root.label)
         font.pixelSize: root.special ? Theme.keyboard.specialFontSize : Theme.keyboard.fontSize
         color: root.contentColor
@@ -94,19 +102,24 @@ Item {
         id: hintText
         anchors.top: labelText.bottom
         anchors.horizontalCenter: parent.horizontalCenter
-        visible: root.hint !== ""
+        visible: !root.hasFace && root.hint !== ""
         text: root.displayed(root.hint)
         font.pixelSize: Theme.keyboard.hintFontSize
-        color: root.active ? root.contentColor : Theme.keyboard.hintText
+        color: root.hintColor
     }
 
     ThemedIcon {
         anchors.centerIn: parent
-        visible: root.iconSource.toString() !== ""
+        visible: !root.hasFace && root.iconSource.toString() !== ""
         svgSource: root.iconSource
         color: root.contentColor
         width: Theme.keyboard.iconSize
         height: Theme.keyboard.iconSize
+    }
+
+    Loader {
+        anchors.fill: parent
+        sourceComponent: root.face
     }
 
     Rectangle {
