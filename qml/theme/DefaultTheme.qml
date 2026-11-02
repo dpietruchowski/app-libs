@@ -233,8 +233,23 @@ QtObject {
         readonly property int barSpacing: theme.spacing.xSmall
         readonly property int barHeight: theme.scaled(12)
         readonly property int valueSpacing: theme.spacing.small
+        readonly property int groupBarHeight: theme.scaled(8)
+        readonly property int swatchSize: theme.scaled(10)
+        readonly property int legendSpacing: theme.spacing.medium
         readonly property var label: theme.text.label
         readonly property var value: theme.text.bodyMuted
+        readonly property var legend: theme.text.caption
+    }
+
+    property QtObject timePicker: QtObject {
+        readonly property int fieldWidth: theme.scaled(120)
+        readonly property int fieldHeight: theme.scaled(44)
+        readonly property int iconSize: theme.scaled(20)
+        readonly property int columns: 6
+        readonly property int cellSize: theme.scaled(40)
+        readonly property int valueSize: theme.scaled(36)
+        readonly property color selectedBackground: theme.colors.primary
+        readonly property color selectedText: theme.colors.textInverse
     }
 
     property QtObject datePicker: QtObject {
