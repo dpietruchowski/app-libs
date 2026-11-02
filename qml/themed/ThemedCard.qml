@@ -20,13 +20,13 @@ Control {
     }
 
     implicitWidth: {
-        var baseWidth = Math.max(contentArea.implicitWidth, Theme.card.sizeSmall);
+        var baseWidth = Math.max(contentArea.implicitWidth + 2 * margins, Theme.card.sizeSmall);
         if (maxImplicitWidth > 0) {
             return Math.min(baseWidth, maxImplicitWidth);
         }
         return baseWidth;
     }
-    implicitHeight: Math.max(contentArea.implicitHeight, Theme.card.sizeSmall)
+    implicitHeight: Math.max(contentArea.implicitHeight + 2 * margins, Theme.card.sizeSmall)
 
     background: Item {
         Repeater {
