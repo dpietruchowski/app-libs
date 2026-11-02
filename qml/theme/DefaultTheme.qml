@@ -228,6 +228,29 @@ QtObject {
         }
     }
 
+    property QtObject chart: QtObject {
+        readonly property int rowSpacing: theme.spacing.medium
+        readonly property int barSpacing: theme.spacing.xSmall
+        readonly property int barHeight: theme.scaled(12)
+        readonly property int valueSpacing: theme.spacing.small
+        readonly property var label: theme.text.label
+        readonly property var value: theme.text.bodyMuted
+    }
+
+    property QtObject datePicker: QtObject {
+        readonly property int fieldWidth: theme.scaled(180)
+        readonly property int fieldHeight: theme.scaled(44)
+        readonly property int iconSize: theme.scaled(20)
+        readonly property int cellSize: theme.scaled(40)
+        readonly property int daySize: theme.scaled(36)
+        readonly property color selectedBackground: theme.colors.primary
+        readonly property color selectedText: theme.colors.textInverse
+        readonly property color todayBorder: theme.colors.primary
+        readonly property color outsideText: theme.colors.textDisabled
+        readonly property var title: theme.text.label
+        readonly property var weekday: theme.text.caption
+    }
+
     property QtObject segmented: QtObject {
         readonly property int height: theme.scaled(40)
         readonly property int padding: theme.scaled(3)

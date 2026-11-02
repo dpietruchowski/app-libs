@@ -15,6 +15,7 @@ SpinBox {
     font.pixelSize: Theme.fontSize.medium
     editable: true
     implicitHeight: 44
+    textFromValue: function(value) { return String(value) }
 
     background: Rectangle {
         color: Theme.colors.surface
@@ -24,7 +25,7 @@ SpinBox {
     }
 
     contentItem: TextInput {
-        text: control.textFromValue(control.value, control.locale)
+        text: control.textFromValue(control.value)
         color: Theme.colors.textPrimary
         font: control.font
         horizontalAlignment: Qt.AlignHCenter
