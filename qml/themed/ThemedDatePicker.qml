@@ -109,13 +109,22 @@ Control {
     Popup {
         id: popup
 
+        readonly property Item overlayItem: control.Overlay.overlay
+        property bool above: false
+
         objectName: control.objectName ? control.objectName + "_popup" : ""
-        y: control.height + Theme.spacing.xSmall
+        y: popup.above ? -popup.implicitHeight - Theme.spacing.xSmall : control.height + Theme.spacing.xSmall
         width: 7 * Theme.datePicker.cellSize + leftPadding + rightPadding
         margins: Theme.spacing.medium
         padding: Theme.padding.small
+        focus: true
 
-        onAboutToShow: control.showMonthOf(control.value)
+        onAboutToShow: {
+            control.showMonthOf(control.value)
+            const bottom = control.mapToItem(popup.overlayItem, 0, control.height).y
+                           + Theme.spacing.xSmall + popup.implicitHeight + popup.margins
+            popup.above = bottom > popup.overlayItem.height
+        }
 
         background: Rectangle {
             color: Theme.colors.surface
