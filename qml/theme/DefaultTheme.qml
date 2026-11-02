@@ -520,7 +520,7 @@ QtObject {
         readonly property int keySpacing: theme.scaled(5)
         readonly property int rowSpacing: theme.scaled(8)
         readonly property int padding: theme.padding.xSmall
-        readonly property int keyRadius: theme.radius.medium
+        readonly property int keyRadius: theme.button.radius
         readonly property int fontSize: theme.fontSize.large
         readonly property int specialFontSize: theme.fontSize.normal
         readonly property int iconSize: theme.scaled(20)
@@ -528,13 +528,11 @@ QtObject {
         readonly property real previewScale: 1.3
         readonly property int repeatDelay: 400
         readonly property int repeatInterval: 60
-        readonly property int flickThreshold: theme.scaled(16)
-        readonly property int flickCrossDelay: 100
         readonly property int doubleTapInterval: 300
         readonly property int multiTapTimeout: 900
         readonly property int t9KeyHeight: theme.scaled(52)
-        readonly property int t9RoundKeyHeight: theme.scaled(60)
         readonly property real t9SideKeyUnits: 0.75
+        readonly property real t9SwitchKeyUnits: 0.55
         readonly property int hintFontSize: theme.fontSize.small
         readonly property color hintText: theme.colors.textSecondary
         readonly property color composingUnderline: theme.colors.primary
@@ -557,8 +555,6 @@ QtObject {
         readonly property string shiftIcon: theme.icons.chevronUp
         readonly property string backspaceIcon: theme.icons.back
         readonly property string enterIcon: theme.icons.check
-        readonly property string roundLayoutIcon: theme.icons.roundLayout
-        readonly property string flickLayoutIcon: theme.icons.flickLayout
     }
 
     property QtObject icon: QtObject {
@@ -579,8 +575,6 @@ QtObject {
         readonly property string keyboard: "qrc:/Themed/Icons/keyboard.svg"
         readonly property string circularTiles: "qrc:/Themed/Icons/circular-tiles.svg"
         readonly property string keypad: "qrc:/Themed/Icons/keypad.svg"
-        readonly property string roundLayout: "qrc:/Themed/Icons/round-layout.svg"
-        readonly property string flickLayout: "qrc:/Themed/Icons/flick-layout.svg"
         readonly property string home: "qrc:/Themed/Icons/home.svg"
         readonly property string list: "qrc:/Themed/Icons/list.svg"
         readonly property string deck: "qrc:/Themed/Icons/deck.svg"

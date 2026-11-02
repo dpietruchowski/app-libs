@@ -5,13 +5,6 @@ import Themed.Components
 Rectangle {
     id: root
 
-    enum Style {
-        Round,
-        Flick
-    }
-
-    property int style: ThemedT9Keyboard.Style.Round
-    readonly property bool roundStyle: style === ThemedT9Keyboard.Style.Round
     property KeyboardBuffer buffer
     property string language: ""
     readonly property var languageLayout: layouts.layoutFor(language)
@@ -29,19 +22,19 @@ Rectangle {
     readonly property var declaredAlternates: Object.values(languageLayout.alternates)
         .reduce((all, alternates) => all.concat(alternates), [])
     readonly property var groups: symbolsActive ? symbolGroups : letterGroups
-    readonly property var digitKeys: [root.punctuation].concat(root.groups).map((group, index) => {
+    readonly property var digitKeys: [root.punctuation].concat(root.groups).map((baseGroup, index) => {
         var digit = String(index + 1)
-        var flickable = root.swipeCharacters(group)
-        var flicks = [0, 1, 2, 3].map(position => flickable[position] ?? "")
+        var group = (root.symbolsActive ? digit : "") + baseGroup
+        var directional = root.flickCharacters(group)
+        var flicks = [0, 1, 2, 3].map(position => directional[position] ?? "")
         return {
             name: digit,
             code: digit,
             letters: group,
-            value: group + digit,
-            characters: Array.from(group + digit),
-            swipes: root.swipeCharacters(index > 0 ? group : layouts.t9PunctuationSwipes).concat(digit),
+            value: group,
+            characters: Array.from(group),
             flicks: flicks,
-            extras: Array.from(group).filter(character => !flicks.includes(character)).concat(digit),
+            extras: Array.from(group).filter(character => !flicks.includes(character)),
             predictive: index > 0
         }
     })
@@ -50,19 +43,17 @@ Rectangle {
             [key.code]: key.predictive ? key.letters : root.joiners
         }), {})
     readonly property real innerWidth: width - 2 * Theme.keyboard.padding
-    readonly property real unit: (innerWidth - 3 * Theme.keyboard.keySpacing)
-                                 / (3 + Theme.keyboard.t9SideKeyUnits)
-    readonly property real halfUnit: (unit - Theme.keyboard.keySpacing) / 2
+    readonly property bool hasSwitchColumn: switchKeys.length > 0
+    readonly property real unit: (innerWidth - (hasSwitchColumn ? 4 : 3) * Theme.keyboard.keySpacing)
+                                 / (3 + Theme.keyboard.t9SideKeyUnits
+                                    + (hasSwitchColumn ? Theme.keyboard.t9SwitchKeyUnits : 0))
     readonly property real popupUnit: (innerWidth - 9 * Theme.keyboard.keySpacing) / 10
     readonly property real sideWidth: unit * Theme.keyboard.t9SideKeyUnits
-    readonly property real sideHalfWidth: (sideWidth - Theme.keyboard.keySpacing) / 2
-    readonly property real rowsHeight: 4 * Theme.keyboard.t9KeyHeight + 3 * Theme.keyboard.rowSpacing
-    readonly property real keyHeight: roundStyle ? Theme.keyboard.t9RoundKeyHeight
-                                                 : Theme.keyboard.t9KeyHeight
-    readonly property real rowGap: roundStyle ? Theme.keyboard.keySpacing : Theme.keyboard.rowSpacing
-    readonly property real bottomRowHeight: rowsHeight - 3 * (keyHeight + rowGap)
-    readonly property real backspaceHeight: 2 * keyHeight + rowGap
-    readonly property real enterHeight: keyHeight + rowGap + bottomRowHeight
+    readonly property real switchWidth: unit * Theme.keyboard.t9SwitchKeyUnits
+    readonly property real keyHeight: Theme.keyboard.t9KeyHeight
+    readonly property real rowGap: Theme.keyboard.keySpacing
+    readonly property real rowsHeight: 4 * keyHeight + 3 * rowGap
+    readonly property real doubleRowHeight: 2 * keyHeight + rowGap
     readonly property bool upperCase: buffer !== null && buffer.upperCase && !symbolsActive
     readonly property bool predictionAvailable: predictor !== null
     readonly property bool predicting: predictionAvailable && predictiveEnabled && !symbolsActive
@@ -72,14 +63,13 @@ Rectangle {
                                               : 0
 
     signal keyTapped()
-    signal layoutSwitchRequested()
     signal switchRequested(string name)
 
     function baseCharacters(group) {
         return Array.from(group).filter(character => character.normalize("NFD").length === 1)
     }
 
-    function swipeCharacters(group) {
+    function flickCharacters(group) {
         return root.baseCharacters(group).filter(character => !root.declaredAlternates.includes(character))
     }
 
@@ -218,14 +208,15 @@ Rectangle {
     }
 
     function activateGroupKey(key, value) {
-        if (value === key.value && root.predicting && key.predictive) {
+        var tapped = value === key.value
+        if (tapped && root.predicting && key.predictive) {
             root.typeCode(key.code)
             return
         }
-        if (value === key.value && root.predicting && word.codes !== "" && root.typeJoiner(key.code))
+        if (tapped && root.predicting && word.codes !== "" && root.typeJoiner(key.code))
             return
         root.acceptWord()
-        if (value === key.value)
+        if (tapped && key.characters.length > 1)
             root.compose(key.characters)
         else
             root.typeKey(value)
@@ -264,11 +255,6 @@ Rectangle {
         if (root.buffer)
             root.buffer.commitComposition()
         root.symbolsActive = !root.symbolsActive
-    }
-
-    function requestLayoutSwitch() {
-        root.acceptWord()
-        root.layoutSwitchRequested()
     }
 
     function requestSwitch(name) {
@@ -379,9 +365,8 @@ Rectangle {
 
         ThemedKeyboardKey {
             objectName: "t9KeyPredictive"
-            width: root.sideHalfWidth
+            width: root.sideWidth
             height: Theme.keyboard.candidateBarHeight
-            pill: root.roundStyle
             special: true
             active: root.predictiveEnabled
             label: "T9"
@@ -391,23 +376,34 @@ Rectangle {
                 root.predictiveEnabled = !root.predictiveEnabled
             }
         }
-
-        ThemedKeyboardKey {
-            objectName: "t9KeyLayout"
-            width: root.sideHalfWidth
-            height: Theme.keyboard.candidateBarHeight
-            pill: root.roundStyle
-            special: true
-            iconSource: root.roundStyle ? Theme.keyboard.flickLayoutIcon : Theme.keyboard.roundLayoutIcon
-            onTouched: root.keyTapped()
-            onActivated: root.requestLayoutSwitch()
-        }
     }
 
     Row {
         x: Theme.keyboard.padding
         y: Theme.keyboard.padding + root.candidateBarSpace
         spacing: Theme.keyboard.keySpacing
+
+        Column {
+            visible: root.hasSwitchColumn
+            spacing: root.rowGap
+
+            Repeater {
+                model: root.switchKeys
+
+                ThemedKeyboardKey {
+                    required property var modelData
+
+                    objectName: "t9KeySwitch_" + modelData.name
+                    width: root.switchWidth
+                    height: (root.rowsHeight - (root.switchKeys.length - 1) * root.rowGap)
+                            / root.switchKeys.length
+                    special: true
+                    iconSource: modelData.icon
+                    onTouched: root.keyTapped()
+                    onActivated: root.requestSwitch(modelData.name)
+                }
+            }
+        }
 
         Grid {
             z: 1
@@ -427,109 +423,65 @@ Rectangle {
                     width: root.unit
                     height: root.keyHeight
                     label: modelData.code
-                    hint: modelData.letters
                     value: modelData.value
                     showsPreview: false
                     popupCellWidth: root.popupUnit * Theme.keyboard.previewScale
                     popupHeight: Theme.keyboard.keyHeight * Theme.keyboard.previewScale
                     upperCase: root.upperCase
-                    round: root.roundStyle
-                    face: root.roundStyle ? roundFace : flickFace
-                    alternatesInRing: root.roundStyle
-                    alternates: root.roundStyle ? modelData.characters : modelData.extras
-                    swipes: root.roundStyle ? modelData.swipes : []
-                    flicks: root.roundStyle ? [] : modelData.flicks
-                    showsSwipeRing: true
+                    face: keyFace
+                    alternates: modelData.extras
+                    flicks: modelData.flicks
                     onTouched: root.keyTapped()
                     onActivated: (value) => root.activateGroupKey(modelData, value)
 
                     Component {
-                        id: roundFace
+                        id: keyFace
 
-                        ThemedT9RoundFace {
+                        ThemedT9Face {
                             key: digitKey
-                            digit: digitKey.modelData.code
-                        }
-                    }
-
-                    Component {
-                        id: flickFace
-
-                        ThemedT9FlickFace {
-                            key: digitKey
-                            digit: digitKey.modelData.code
                             flicks: digitKey.modelData.flicks
                         }
                     }
                 }
             }
 
-            Row {
-                spacing: Theme.keyboard.keySpacing
-
-                ThemedKeyboardKey {
-                    objectName: "t9KeyLayer"
-                    width: root.halfUnit
-                    height: root.bottomRowHeight
-                    pill: root.roundStyle
-                    special: true
-                    label: root.symbolsActive ? root.languageLayout.layerLabel : "?123"
-                    onTouched: root.keyTapped()
-                    onActivated: root.toggleSymbols()
-                }
-
-                ThemedKeyboardKey {
-                    objectName: "t9KeyShift"
-                    width: root.halfUnit
-                    height: root.bottomRowHeight
-                    pill: root.roundStyle
-                    special: true
-                    enabled: !root.symbolsActive
-                    opacity: root.symbolsActive ? 0 : 1
-                    iconSource: Theme.keyboard.shiftIcon
-                    active: root.buffer !== null
-                            && root.buffer.shiftState === KeyboardBuffer.ShiftState.Locked
-                    accented: root.buffer !== null
-                              && root.buffer.shiftState === KeyboardBuffer.ShiftState.Once
-                    onTouched: root.keyTapped()
-                    onActivated: root.pressShift()
-                }
+            ThemedKeyboardKey {
+                objectName: "t9KeyLayer"
+                width: root.unit
+                height: root.keyHeight
+                special: true
+                label: root.symbolsActive ? root.languageLayout.layerLabel : "?123"
+                onTouched: root.keyTapped()
+                onActivated: root.toggleSymbols()
             }
 
             ThemedKeyboardKey {
                 objectName: "t9KeySpace"
                 width: root.unit
-                height: root.bottomRowHeight
-                pill: root.roundStyle
-                label: "0"
-                hint: "␣"
-                value: " "
+                height: root.keyHeight
+                label: root.symbolsActive ? "0" : "␣"
+                hint: root.symbolsActive ? "␣" : ""
+                value: root.symbolsActive ? "0" : " "
                 showsPreview: false
-                alternates: ["0"]
+                alternates: root.symbolsActive ? [" "] : []
                 onTouched: root.keyTapped()
-                onActivated: (value) => root.typeSpace(value)
+                onActivated: (value) => value === " " ? root.typeSpace(value) : root.typeKey(value)
             }
 
-            Row {
-                spacing: Theme.keyboard.keySpacing
-
-                Repeater {
-                    model: root.switchKeys
-
-                    ThemedKeyboardKey {
-                        required property var modelData
-
-                        objectName: "t9KeySwitch_" + modelData.name
-                        width: (root.unit - (root.switchKeys.length - 1) * Theme.keyboard.keySpacing)
-                               / root.switchKeys.length
-                        height: root.bottomRowHeight
-                        pill: root.roundStyle
-                        special: true
-                        iconSource: modelData.icon
-                        onTouched: root.keyTapped()
-                        onActivated: root.requestSwitch(modelData.name)
-                    }
-                }
+            ThemedKeyboardKey {
+                objectName: "t9KeyShift"
+                width: root.unit
+                height: root.keyHeight
+                special: true
+                enabled: !root.symbolsActive
+                opacity: root.symbolsActive ? 0 : 1
+                iconSource: Theme.keyboard.shiftIcon
+                active: root.buffer !== null
+                        && root.buffer.shiftState === KeyboardBuffer.ShiftState.Locked
+                accented: root.buffer !== null
+                          && root.buffer.shiftState === KeyboardBuffer.ShiftState.Once
+                onTouched: root.keyTapped()
+                onActivated: root.pressShift()
             }
         }
 
@@ -539,8 +491,7 @@ Rectangle {
             ThemedKeyboardKey {
                 objectName: "t9KeyBackspace"
                 width: root.sideWidth
-                height: root.backspaceHeight
-                pill: root.roundStyle
+                height: root.doubleRowHeight
                 special: true
                 repeats: true
                 iconSource: Theme.keyboard.backspaceIcon
@@ -551,8 +502,7 @@ Rectangle {
             ThemedKeyboardKey {
                 objectName: "t9KeyEnter"
                 width: root.sideWidth
-                height: root.enterHeight
-                pill: root.roundStyle
+                height: root.doubleRowHeight
                 special: true
                 active: true
                 label: root.enterLabel
