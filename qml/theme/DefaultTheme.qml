@@ -556,6 +556,8 @@ QtObject {
         readonly property string shiftIcon: theme.icons.chevronUp
         readonly property string backspaceIcon: theme.icons.back
         readonly property string enterIcon: theme.icons.check
+        readonly property string roundLayoutIcon: theme.icons.roundLayout
+        readonly property string flickLayoutIcon: theme.icons.flickLayout
     }
 
     property QtObject icon: QtObject {
@@ -575,6 +577,9 @@ QtObject {
         readonly property string edit: "qrc:/Themed/Icons/edit.svg"
         readonly property string keyboard: "qrc:/Themed/Icons/keyboard.svg"
         readonly property string circularTiles: "qrc:/Themed/Icons/circular-tiles.svg"
+        readonly property string keypad: "qrc:/Themed/Icons/keypad.svg"
+        readonly property string roundLayout: "qrc:/Themed/Icons/round-layout.svg"
+        readonly property string flickLayout: "qrc:/Themed/Icons/flick-layout.svg"
         readonly property string home: "qrc:/Themed/Icons/home.svg"
         readonly property string list: "qrc:/Themed/Icons/list.svg"
         readonly property string deck: "qrc:/Themed/Icons/deck.svg"
