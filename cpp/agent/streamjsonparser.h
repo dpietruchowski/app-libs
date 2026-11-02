@@ -6,6 +6,8 @@
 #include <QString>
 #include <vector>
 
+#include "structures.h"
+
 struct StreamEvent final
 {
     enum class Kind
@@ -24,6 +26,7 @@ struct StreamEvent final
     QString requestId;
     QString serverName;
     QJsonValue message;
+    Usage usage {};
 };
 
 class StreamJsonParser final

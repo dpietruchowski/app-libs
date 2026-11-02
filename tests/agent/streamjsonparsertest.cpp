@@ -182,6 +182,28 @@ TEST_F(StreamJsonParserTest, KeepsTheRequestIdServerNameAndMessageOfAnMcpRequest
     EXPECT_TRUE(call.value("params").toObject().value("arguments").toObject().isEmpty());
 }
 
+TEST_F(StreamJsonParserTest, CountsEveryKindOfInputTokenOfTheRunInThePromptTokensOfTheAnswer)
+{
+    const std::vector<StreamEvent> events = parseFixture("stdio-tool-run.jsonl");
+
+    ASSERT_FALSE(events.empty());
+    ASSERT_EQ(events.back().kind, StreamEvent::Kind::Answer);
+    EXPECT_EQ(events.back().usage.prompt_tokens, 4 + 1114 + 1033);
+    EXPECT_EQ(events.back().usage.completion_tokens, 62);
+    EXPECT_EQ(events.back().usage.total_tokens, 4 + 1114 + 1033 + 62);
+}
+
+TEST_F(StreamJsonParserTest, ReportsNoTokensForAnAnswerWithoutUsage)
+{
+    const std::vector<StreamEvent> events
+        = parseStream(line(resultEvent("success", false, "fine")));
+
+    ASSERT_EQ(events.size(), 1u);
+    EXPECT_EQ(events[0].usage.prompt_tokens, 0);
+    EXPECT_EQ(events[0].usage.completion_tokens, 0);
+    EXPECT_EQ(events[0].usage.total_tokens, 0);
+}
+
 TEST_F(StreamJsonParserTest, GivesTheSameEventsWhateverTheChunking)
 {
     for (const char* fixture :
