@@ -48,8 +48,9 @@ ThemedCard {
             ThemedText {
                 Layout.fillWidth: true
                 text: control.title
+                wrapMode: Text.Wrap
                 elide: Text.ElideRight
-                maximumLineCount: 1
+                maximumLineCount: 2
                 textStyle: Theme.text.body
                 color: control.done ? Theme.list.done.color : textStyle.color
                 font.strikeout: control.done && Theme.list.done.strikeout
@@ -59,8 +60,9 @@ ThemedCard {
                 Layout.fillWidth: true
                 visible: control.subtitle !== ""
                 text: control.subtitle
+                wrapMode: Text.Wrap
                 elide: Text.ElideRight
-                maximumLineCount: 1
+                maximumLineCount: 2
                 textStyle: Theme.text.caption
                 color: control.done ? Theme.list.done.color : textStyle.color
             }
