@@ -71,16 +71,6 @@ Item {
         return (Math.round(Math.atan2(dy, dx) / (Math.PI / 2)) + 5) % 4
     }
 
-    function showCross() {
-        var left = (root.width - cross.width) / 2
-        var top = (root.height - cross.height) / 2
-        cross.x = left + root.windowShift(root.mapToItem(null, left, 0).x, cross.width,
-                                          root.Window.width)
-        cross.y = top + root.windowShift(root.mapToItem(null, 0, top).y, cross.height,
-                                         root.Window.height)
-        cross.visible = true
-    }
-
     function swipeIndexAt(x, y) {
         var angle = Math.atan2(y - root.height / 2, x - root.width / 2) * 180 / Math.PI
         var count = root.ringCharacters.length
@@ -325,33 +315,26 @@ Item {
         id: cross
         objectName: root.objectName === "" ? "" : root.objectName + "Cross"
 
-        readonly property real tileWidth: root.popupCellWidth
         readonly property real tileHeight: root.popupHeight
         readonly property real gap: Theme.keyboard.keySpacing
+        readonly property real centerWidth: root.popupCellWidth
+        readonly property real sideWidth: (root.width - gap) / 2
+        readonly property real centerX: (root.width - centerWidth) / 2
+        readonly property real middleY: tileHeight + gap
         readonly property var arms: [
-            { name: "up", column: 1, row: 0 },
-            { name: "right", column: 2, row: 1 },
-            { name: "down", column: 1, row: 2 },
-            { name: "left", column: 0, row: 1 }
+            { name: "up", x: centerX, y: 0, width: centerWidth },
+            { name: "right", x: root.width - sideWidth, y: middleY, width: sideWidth },
+            { name: "down", x: centerX, y: 2 * middleY, width: centerWidth },
+            { name: "left", x: 0, y: middleY, width: sideWidth }
         ]
         readonly property string character: direction >= 0 ? root.flicks[direction] ?? "" : ""
 
         property int direction: -1
 
         visible: false
-        width: 3 * tileWidth + 2 * gap
+        anchors.centerIn: parent
+        width: root.width
         height: 3 * tileHeight + 2 * gap
-
-        Rectangle {
-            x: cross.tileWidth + cross.gap
-            y: cross.tileHeight + cross.gap
-            width: cross.tileWidth
-            height: cross.tileHeight
-            radius: Theme.keyboard.keyRadius
-            color: Theme.keyboard.keyPressedBackground
-            border.width: Theme.border.thin
-            border.color: Theme.keyboard.previewBorder
-        }
 
         Repeater {
             model: root.flickable ? cross.arms : []
@@ -364,9 +347,9 @@ Item {
                 readonly property bool highlighted: character !== "" && index === cross.direction
 
                 objectName: cross.objectName === "" ? "" : cross.objectName + "_" + modelData.name
-                x: modelData.column * (cross.tileWidth + cross.gap)
-                y: modelData.row * (cross.tileHeight + cross.gap)
-                width: cross.tileWidth
+                x: modelData.x
+                y: modelData.y
+                width: modelData.width
                 height: cross.tileHeight
                 radius: Theme.keyboard.keyRadius
                 color: highlighted ? Theme.keyboard.activeKeyBackground
@@ -388,7 +371,7 @@ Item {
     Timer {
         id: crossTimer
         interval: Theme.keyboard.flickCrossDelay
-        onTriggered: root.showCross()
+        onTriggered: cross.visible = true
     }
 
     Timer {
@@ -491,7 +474,7 @@ Item {
                     return
                 flicking = true
                 consumed = true
-                root.showCross()
+                cross.visible = true
             }
             var direction = beyond ? root.flickDirectionAt(dx, dy) : -1
             if (direction === cross.direction)
