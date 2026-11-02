@@ -8,7 +8,6 @@ Item {
     property Item key
     property string digit: ""
     property var flicks: []
-    property var extras: []
 
     readonly property real inset: Theme.keyboard.keySpacing / 2
     readonly property var places: [Qt.point(0.5, 0), Qt.point(1, 0.5), Qt.point(0.5, 1), Qt.point(0, 0.5)]
@@ -31,15 +30,6 @@ Item {
     Text {
         anchors.centerIn: parent
         text: root.digit
-        font.pixelSize: Theme.keyboard.hintFontSize
-        color: root.key.hintColor
-    }
-
-    Text {
-        anchors.left: parent.left
-        anchors.bottom: parent.bottom
-        anchors.margins: root.inset
-        text: root.key.displayed(root.extras.filter(character => character !== root.digit).join(""))
         font.pixelSize: Theme.keyboard.hintFontSize
         color: root.key.hintColor
     }

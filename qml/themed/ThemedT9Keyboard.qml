@@ -24,14 +24,15 @@ Rectangle {
     property bool predictiveEnabled: true
     property int candidateLimit: 8
     property string joiners: "'-"
+    property var switchKeys: []
 
     readonly property var declaredAlternates: Object.values(languageLayout.alternates)
         .reduce((all, alternates) => all.concat(alternates), [])
     readonly property var groups: symbolsActive ? symbolGroups : letterGroups
     readonly property var digitKeys: [root.punctuation].concat(root.groups).map((group, index) => {
         var digit = String(index + 1)
-        var base = root.baseCharacters(group)
-        var flicks = [0, 1, 2, 3].map(position => base[position] ?? "")
+        var flickable = root.swipeCharacters(group)
+        var flicks = [0, 1, 2, 3].map(position => flickable[position] ?? "")
         return {
             name: digit,
             code: digit,
@@ -51,8 +52,10 @@ Rectangle {
     readonly property real innerWidth: width - 2 * Theme.keyboard.padding
     readonly property real unit: (innerWidth - 3 * Theme.keyboard.keySpacing)
                                  / (3 + Theme.keyboard.t9SideKeyUnits)
+    readonly property real halfUnit: (unit - Theme.keyboard.keySpacing) / 2
     readonly property real popupUnit: (innerWidth - 9 * Theme.keyboard.keySpacing) / 10
     readonly property real sideWidth: unit * Theme.keyboard.t9SideKeyUnits
+    readonly property real sideHalfWidth: (sideWidth - Theme.keyboard.keySpacing) / 2
     readonly property real keyHeight: Theme.keyboard.t9KeyHeight
     readonly property real tallKeyHeight: 2 * keyHeight + Theme.keyboard.rowSpacing
     readonly property bool upperCase: buffer !== null && buffer.upperCase && !symbolsActive
@@ -64,6 +67,8 @@ Rectangle {
                                               : 0
 
     signal keyTapped()
+    signal layoutSwitchRequested()
+    signal switchRequested(string name)
 
     function baseCharacters(group) {
         return Array.from(group).filter(character => character.normalize("NFD").length === 1)
@@ -256,6 +261,16 @@ Rectangle {
         root.symbolsActive = !root.symbolsActive
     }
 
+    function requestLayoutSwitch() {
+        root.acceptWord()
+        root.layoutSwitchRequested()
+    }
+
+    function requestSwitch(name) {
+        root.acceptWord()
+        root.switchRequested(name)
+    }
+
     objectName: "t9Keyboard"
     implicitWidth: Theme.applicationWidth
     implicitHeight: candidateBarSpace + 4 * keyHeight
@@ -361,7 +376,7 @@ Rectangle {
 
         ThemedKeyboardKey {
             objectName: "t9KeyPredictive"
-            width: root.sideWidth
+            width: root.sideHalfWidth
             height: Theme.keyboard.candidateBarHeight
             pill: root.roundStyle
             special: true
@@ -372,6 +387,17 @@ Rectangle {
                 root.acceptWord()
                 root.predictiveEnabled = !root.predictiveEnabled
             }
+        }
+
+        ThemedKeyboardKey {
+            objectName: "t9KeyLayout"
+            width: root.sideHalfWidth
+            height: Theme.keyboard.candidateBarHeight
+            pill: root.roundStyle
+            special: true
+            iconSource: root.roundStyle ? Theme.keyboard.flickLayoutIcon : Theme.keyboard.roundLayoutIcon
+            onTouched: root.keyTapped()
+            onActivated: root.requestLayoutSwitch()
         }
     }
 
@@ -430,27 +456,41 @@ Rectangle {
                             key: digitKey
                             digit: digitKey.modelData.code
                             flicks: digitKey.modelData.flicks
-                            extras: digitKey.modelData.extras
                         }
                     }
                 }
             }
 
-            ThemedKeyboardKey {
-                objectName: "t9KeyShift"
-                width: root.unit
-                height: root.keyHeight
-                pill: root.roundStyle
-                special: true
-                enabled: !root.symbolsActive
-                opacity: root.symbolsActive ? 0 : 1
-                iconSource: Theme.keyboard.shiftIcon
-                active: root.buffer !== null
-                        && root.buffer.shiftState === KeyboardBuffer.ShiftState.Locked
-                accented: root.buffer !== null
-                          && root.buffer.shiftState === KeyboardBuffer.ShiftState.Once
-                onTouched: root.keyTapped()
-                onActivated: root.pressShift()
+            Row {
+                spacing: Theme.keyboard.keySpacing
+
+                ThemedKeyboardKey {
+                    objectName: "t9KeyLayer"
+                    width: root.halfUnit
+                    height: root.keyHeight
+                    pill: root.roundStyle
+                    special: true
+                    label: root.symbolsActive ? root.languageLayout.layerLabel : "?123"
+                    onTouched: root.keyTapped()
+                    onActivated: root.toggleSymbols()
+                }
+
+                ThemedKeyboardKey {
+                    objectName: "t9KeyShift"
+                    width: root.halfUnit
+                    height: root.keyHeight
+                    pill: root.roundStyle
+                    special: true
+                    enabled: !root.symbolsActive
+                    opacity: root.symbolsActive ? 0 : 1
+                    iconSource: Theme.keyboard.shiftIcon
+                    active: root.buffer !== null
+                            && root.buffer.shiftState === KeyboardBuffer.ShiftState.Locked
+                    accented: root.buffer !== null
+                              && root.buffer.shiftState === KeyboardBuffer.ShiftState.Once
+                    onTouched: root.keyTapped()
+                    onActivated: root.pressShift()
+                }
             }
 
             ThemedKeyboardKey {
@@ -467,15 +507,26 @@ Rectangle {
                 onActivated: (value) => root.typeSpace(value)
             }
 
-            ThemedKeyboardKey {
-                objectName: "t9KeyLayer"
-                width: root.unit
-                height: root.keyHeight
-                pill: root.roundStyle
-                special: true
-                label: root.symbolsActive ? root.languageLayout.layerLabel : "?123"
-                onTouched: root.keyTapped()
-                onActivated: root.toggleSymbols()
+            Row {
+                spacing: Theme.keyboard.keySpacing
+
+                Repeater {
+                    model: root.switchKeys
+
+                    ThemedKeyboardKey {
+                        required property var modelData
+
+                        objectName: "t9KeySwitch_" + modelData.name
+                        width: (root.unit - (root.switchKeys.length - 1) * Theme.keyboard.keySpacing)
+                               / root.switchKeys.length
+                        height: root.keyHeight
+                        pill: root.roundStyle
+                        special: true
+                        iconSource: modelData.icon
+                        onTouched: root.keyTapped()
+                        onActivated: root.requestSwitch(modelData.name)
+                    }
+                }
             }
         }
 
