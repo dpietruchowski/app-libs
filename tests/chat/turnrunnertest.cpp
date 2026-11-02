@@ -666,6 +666,32 @@ TEST_F(TurnRunnerTest, Remove_AConversationWithoutASession_ForgetsNothing)
     EXPECT_TRUE(m_backend.forgotten.isEmpty());
 }
 
+TEST_F(TurnRunnerTest, Remove_TellsTheBackendToForgetTheConversationOnceItIsDeleted)
+{
+    const Conversation conversation = newConversation();
+    QSignalSpy removed(m_runner.get(), &TurnRunner::conversationRemoved);
+
+    m_runner->remove(conversation.id());
+
+    ASSERT_TRUE(waitUntil([&] { return removed.count() == 1; }));
+    EXPECT_EQ(m_backend.forgottenConversations, std::vector<QUuid> { conversation.id() });
+}
+
+TEST_F(TurnRunnerTest, Remove_WhileATurnRuns_TellsTheBackendToForgetTheConversationAfterTheTurnEnds)
+{
+    const Conversation conversation = newConversation();
+    FakeTurn* turn = startTurn(conversation.id());
+    ASSERT_NE(turn, nullptr);
+    QSignalSpy removed(m_runner.get(), &TurnRunner::conversationRemoved);
+
+    m_runner->remove(conversation.id());
+
+    EXPECT_TRUE(m_backend.forgottenConversations.empty());
+    turn->fail(turn_error::kCancelled);
+    ASSERT_TRUE(waitUntil([&] { return removed.count() == 1; }));
+    EXPECT_EQ(m_backend.forgottenConversations, std::vector<QUuid> { conversation.id() });
+}
+
 TEST_F(TurnRunnerTest, Remove_WhileATurnRuns_CancelsItBeforeTheRowIsDeleted)
 {
     const Conversation conversation

@@ -71,6 +71,35 @@ QString statusName(StepStatus status)
     return QString();
 }
 
+const QString kCompactionRequest = QStringLiteral("Write your summary now.");
+const QString kSummary
+    = QStringLiteral("App: Courses (courses)\nDone:\n1. listed them\nProblems:\n- none");
+const QString kSummaryMessage = QStringLiteral("Summary:\n") + kSummary;
+constexpr int kMaxInputTokens = 100000;
+constexpr std::chrono::minutes kMaxAge { 55 };
+
+chat::ContextPolicy keepPolicy()
+{
+    return chat::ContextPolicy {
+        .maxInputTokens = kMaxInputTokens,
+        .maxAge = kMaxAge,
+        .compactionRequest = kCompactionRequest,
+        .compactedContext =
+            [](const QString& reply)
+        {
+            return reply.startsWith(QStringLiteral("App:")) ? QStringLiteral("Summary:\n") + reply
+                                                            : QString();
+        },
+    };
+}
+
+Completion usingTokens(int inputTokens, const QString& text = kReport)
+{
+    Completion completion = contentCompletion(text);
+    completion.usage.context_tokens = inputTokens;
+    return completion;
+}
+
 QString describe(const Step& step)
 {
     QString text = (step.kind == StepKind::Delegation ? QStringLiteral("Delegation")
@@ -92,7 +121,8 @@ protected:
     {
         m_backend = std::make_unique<ChatAgent>(
             [this](const ClaudeSession& session) { return makeClient(session); },
-            [this] { return m_available; }, [this](const QString& id) { m_forgotten.append(id); });
+            [this] { return m_available; }, [this](const QString& id) { m_forgotten.append(id); },
+            [this] { return m_now; });
         m_catalog.add(coursesAgent());
         m_catalog.add(factsAgent());
     }
@@ -160,7 +190,7 @@ protected:
 
     std::unique_ptr<::Client> makeClient(const ClaudeSession& session)
     {
-        const bool isMain = session.keep;
+        const bool isMain = m_startingMain;
         if ((isMain ? m_refuseMain : m_refuseDelegates) || m_clients.size() >= m_clientLimit)
         {
             return nullptr;
@@ -175,14 +205,29 @@ protected:
         else
         {
             state->immediate = m_delegateImmediate;
+            if (session.keep)
+            {
+                state->session = session.resume.isEmpty()
+                    ? QStringLiteral("delegate-session-%1").arg(++m_delegateSessions)
+                    : session.resume;
+            }
         }
         m_clients.push_back(state);
         return std::make_unique<ScriptedClient>(state);
     }
 
+    std::unique_ptr<chat::AgentTurn> startTurn(const TurnRequest& turnRequest)
+    {
+        m_startingMain = true;
+        auto turn = m_backend->start(turnRequest, m_catalog);
+        m_startingMain = false;
+        return turn;
+    }
+
     TurnRequest request(std::vector<chat::Message> transcript = {})
     {
         TurnRequest turnRequest;
+        turnRequest.conversationId = m_conversation;
         turnRequest.mainInstructions = kMainInstructions;
         turnRequest.model = QStringLiteral("test-model");
         turnRequest.reasoningEffort = QStringLiteral("low");
@@ -194,7 +239,7 @@ protected:
 
     void begin(const TurnRequest& turnRequest)
     {
-        m_turn = m_backend->start(turnRequest, m_catalog);
+        m_turn = startTurn(turnRequest);
         ASSERT_NE(m_turn, nullptr);
         record(*m_turn);
     }
@@ -253,8 +298,69 @@ protected:
         return turnRequest;
     }
 
+    void keepCoursesContext(chat::ContextPolicy policy = keepPolicy(),
+                            int maxDelegations = AppAgent::kDefaultMaxDelegations)
+    {
+        AppAgent entry = coursesAgent();
+        entry.keepContext = std::move(policy);
+        entry.maxDelegations = maxDelegations;
+        m_catalog = AgentCatalog();
+        m_catalog.add(std::move(entry));
+        m_catalog.add(factsAgent());
+    }
+
+    size_t beginTurn(const TurnRequest& turnRequest)
+    {
+        m_turn.reset();
+        const size_t mainIndex = m_clients.size();
+        begin(turnRequest);
+        settle();
+        return mainIndex;
+    }
+
+    size_t beginTurn() { return beginTurn(request()); }
+
+    void delegateTo(size_t mainIndex, const QString& task = kTask)
+    {
+        m_clients.at(mainIndex)->completeNext(
+            toolCallCompletion(QStringLiteral("call-courses"), QStringLiteral("courses"),
+                               { { QStringLiteral("task"), task } }));
+    }
+
+    void report(const Completion& completion) { m_clients.back()->completeNext(completion); }
+
+    void runDelegation(size_t mainIndex, const QString& task, const Completion& completion)
+    {
+        delegateTo(mainIndex, task);
+        report(completion);
+    }
+
+    void answer(size_t mainIndex)
+    {
+        m_clients.at(mainIndex)->completeNext(contentCompletion(kAnswer));
+    }
+
+    const ::Messages& sentTo(size_t clientIndex) const
+    {
+        return m_clients.at(clientIndex)->held.front().messages;
+    }
+
+    QStringList sentContents(size_t clientIndex) const
+    {
+        QStringList contents;
+        for (const ::Message& message : sentTo(clientIndex))
+        {
+            contents.append(message.content);
+        }
+        return contents;
+    }
+
     QStringList m_followUps;
     int m_followUpCalls { 0 };
+    QUuid m_conversation { QUuid::createUuid() };
+    QDateTime m_now { QDate(2026, 11, 2), QTime(12, 0), Qt::UTC };
+    int m_delegateSessions { 0 };
+    bool m_startingMain { false };
     size_t m_clientLimit { std::numeric_limits<size_t>::max() };
     QStringList m_forgotten;
     QStringList m_events;
@@ -294,7 +400,7 @@ TEST_F(ChatAgentTest, Start_WhenUnavailable_ReturnsNoTurnAndCreatesNoClient)
 {
     m_available = false;
 
-    EXPECT_EQ(m_backend->start(request(), m_catalog), nullptr);
+    EXPECT_EQ(startTurn(request()), nullptr);
 
     EXPECT_TRUE(m_clients.empty());
 }
@@ -303,7 +409,7 @@ TEST_F(ChatAgentTest, Start_WhenTheFactoryGivesNoClient_ReturnsNoTurn)
 {
     m_refuseMain = true;
 
-    EXPECT_EQ(m_backend->start(request(), m_catalog), nullptr);
+    EXPECT_EQ(startTurn(request()), nullptr);
 }
 
 TEST_F(ChatAgentTest, Start_WithoutAnyMessage_ReturnsNoTurn)
@@ -311,7 +417,7 @@ TEST_F(ChatAgentTest, Start_WithoutAnyMessage_ReturnsNoTurn)
     TurnRequest empty = request();
     empty.transcript.clear();
 
-    EXPECT_EQ(m_backend->start(empty, m_catalog), nullptr);
+    EXPECT_EQ(startTurn(empty), nullptr);
 }
 
 TEST_F(ChatAgentTest, Start_AsksTheFactoryForAKeptClientThatResumesTheBackendSession)
@@ -1165,4 +1271,543 @@ TEST_F(ChatAgentTest, FollowUp_KeepsTheOwnModelAndReasoningEffortOfTheDelegate)
     const ModelConfig& config = delegateClient(1).held.front().config;
     EXPECT_EQ(config.model, QStringLiteral("own-model"));
     EXPECT_EQ(config.reasoningEffort, QStringLiteral("max"));
+}
+
+namespace
+{
+const QString kSecondTask = QStringLiteral("change the title");
+const QString kThirdTask = QStringLiteral("add a button");
+const QString kFirstReport = QStringLiteral("Built it.");
+const QString kSecondReport = QStringLiteral("Changed it.");
+const QString kFirstSession = QStringLiteral("delegate-session-1");
+const QString kSecondSession = QStringLiteral("delegate-session-2");
+constexpr int kOverTheLimit = kMaxInputTokens + 1;
+}
+
+TEST_F(ChatAgentTest, KeptContext_TheFirstDelegation_AsksForAKeptSessionAndStartsFromTheTask)
+{
+    keepCoursesContext();
+    const size_t mainIndex = beginTurn();
+
+    delegateTo(mainIndex);
+
+    ASSERT_EQ(m_clients.size(), 2u);
+    EXPECT_TRUE(m_clients.at(1)->requested.keep);
+    EXPECT_TRUE(m_clients.at(1)->requested.resume.isEmpty());
+    EXPECT_EQ(sentContents(1), (QStringList { kCoursesPrompt, kTask }));
+}
+
+TEST_F(ChatAgentTest, KeptContext_ASecondDelegationOfTheSameTurn_ContinuesTheFirstOne)
+{
+    keepCoursesContext();
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, usingTokens(1000, kFirstReport));
+
+    delegateTo(mainIndex, kSecondTask);
+
+    ASSERT_EQ(m_clients.size(), 3u);
+    EXPECT_EQ(m_clients.at(2)->requested.resume, kFirstSession);
+    EXPECT_TRUE(m_clients.at(2)->requested.keep);
+    EXPECT_EQ(sentContents(2), (QStringList { kCoursesPrompt, kTask, kFirstReport, kSecondTask }));
+    EXPECT_TRUE(m_forgotten.isEmpty());
+}
+
+TEST_F(ChatAgentTest, KeptContext_ADelegationOfTheNextTurn_ContinuesTheEarlierOne)
+{
+    keepCoursesContext();
+    const size_t firstTurn = beginTurn();
+    runDelegation(firstTurn, kTask, usingTokens(1000, kFirstReport));
+    answer(firstTurn);
+
+    const size_t secondTurn = beginTurn();
+    delegateTo(secondTurn, kSecondTask);
+
+    ASSERT_EQ(m_clients.size(), 4u);
+    EXPECT_EQ(m_clients.at(3)->requested.resume, kFirstSession);
+    EXPECT_EQ(sentContents(3), (QStringList { kCoursesPrompt, kTask, kFirstReport, kSecondTask }));
+}
+
+TEST_F(ChatAgentTest, KeptContext_TheDelegateKeepsGrowingAcrossThreeDelegations)
+{
+    keepCoursesContext();
+    const size_t firstTurn = beginTurn();
+    runDelegation(firstTurn, kTask, usingTokens(1000, kFirstReport));
+    runDelegation(firstTurn, kSecondTask, usingTokens(2000, kSecondReport));
+
+    delegateTo(firstTurn, kThirdTask);
+
+    EXPECT_EQ(sentContents(3),
+              (QStringList { kCoursesPrompt, kTask, kFirstReport, kSecondTask, kSecondReport,
+                             kThirdTask }));
+}
+
+TEST_F(ChatAgentTest, KeptContext_TheCurrentModelIsUsedOnTheContinuedDelegation)
+{
+    keepCoursesContext();
+    const size_t firstTurn = beginTurn();
+    runDelegation(firstTurn, kTask, usingTokens(1000, kFirstReport));
+    answer(firstTurn);
+    TurnRequest chosen = request();
+    chosen.agentModels.insert(QStringLiteral("courses"), QStringLiteral("picked-model"));
+
+    const size_t secondTurn = beginTurn(chosen);
+    delegateTo(secondTurn, kSecondTask);
+
+    ASSERT_EQ(m_clients.at(3)->held.size(), 1u);
+    EXPECT_EQ(m_clients.at(3)->held.front().config.model, QStringLiteral("picked-model"));
+}
+
+TEST_F(ChatAgentTest, KeptContext_AnAgentWithoutThePolicy_StartsFreshEveryTime)
+{
+    keepCoursesContext();
+    const size_t mainIndex = beginTurn();
+    m_clients.at(mainIndex)->completeNext(
+        toolCallCompletion(QStringLiteral("call-facts"), QStringLiteral("facts"),
+                           { { QStringLiteral("task"), kTask } }));
+    report(usingTokens(kOverTheLimit, kFirstReport));
+
+    m_clients.at(mainIndex)->completeNext(
+        toolCallCompletion(QStringLiteral("call-facts-2"), QStringLiteral("facts"),
+                           { { QStringLiteral("task"), kSecondTask } }));
+
+    ASSERT_EQ(m_clients.size(), 3u);
+    EXPECT_FALSE(m_clients.at(2)->requested.keep);
+    EXPECT_TRUE(m_clients.at(2)->requested.resume.isEmpty());
+    EXPECT_EQ(sentContents(2), (QStringList { kFactsPrompt, kSecondTask }));
+    EXPECT_TRUE(m_forgotten.isEmpty());
+}
+
+TEST_F(ChatAgentTest, KeptContext_AnotherConversation_DoesNotShareIt)
+{
+    keepCoursesContext();
+    const size_t firstTurn = beginTurn();
+    runDelegation(firstTurn, kTask, usingTokens(1000, kFirstReport));
+    answer(firstTurn);
+    m_conversation = QUuid::createUuid();
+
+    const size_t otherTurn = beginTurn();
+    delegateTo(otherTurn, kSecondTask);
+
+    EXPECT_TRUE(m_clients.at(3)->requested.resume.isEmpty());
+    EXPECT_EQ(sentContents(3), (QStringList { kCoursesPrompt, kSecondTask }));
+    EXPECT_TRUE(m_forgotten.isEmpty());
+}
+
+TEST_F(ChatAgentTest, KeptContext_AtExactlyTheMaximumAge_StillContinues)
+{
+    keepCoursesContext();
+    const QDateTime start = m_now;
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, usingTokens(kOverTheLimit, kFirstReport));
+    m_now = start.addSecs(55 * 60);
+
+    delegateTo(mainIndex, kSecondTask);
+
+    EXPECT_EQ(m_clients.at(2)->requested.resume, kFirstSession);
+    EXPECT_EQ(sentContents(2).constLast(), kCompactionRequest);
+}
+
+TEST_F(ChatAgentTest, KeptContext_OneMillisecondPastTheMaximumAge_ClearsWithoutCompacting)
+{
+    keepCoursesContext();
+    const QDateTime start = m_now;
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, usingTokens(kOverTheLimit, kFirstReport));
+    m_now = start.addSecs(55 * 60).addMSecs(1);
+
+    delegateTo(mainIndex, kSecondTask);
+
+    ASSERT_EQ(m_clients.size(), 3u);
+    EXPECT_TRUE(m_clients.at(2)->requested.resume.isEmpty());
+    EXPECT_TRUE(m_clients.at(2)->requested.keep);
+    EXPECT_EQ(sentContents(2), (QStringList { kCoursesPrompt, kSecondTask }));
+    EXPECT_EQ(m_forgotten, QStringList { kFirstSession });
+}
+
+TEST_F(ChatAgentTest, KeptContext_TheAgeCountsFromTheStartOfTheLastRequest)
+{
+    keepCoursesContext();
+    const QDateTime start = m_now;
+    const size_t mainIndex = beginTurn();
+    delegateTo(mainIndex);
+    m_now = start.addSecs(40 * 60);
+    report(usingTokens(1000, kFirstReport));
+    m_now = start.addSecs(56 * 60);
+
+    delegateTo(mainIndex, kSecondTask);
+
+    EXPECT_TRUE(m_clients.at(2)->requested.resume.isEmpty());
+    EXPECT_EQ(sentContents(2), (QStringList { kCoursesPrompt, kSecondTask }));
+    EXPECT_EQ(m_forgotten, QStringList { kFirstSession });
+}
+
+TEST_F(ChatAgentTest, KeptContext_AFollowUpRequestRenewsTheStartOfTheLastRequest)
+{
+    keepCoursesContext();
+    m_followUps = { QStringLiteral("check again") };
+    const QDateTime start = m_now;
+    const size_t mainIndex = beginTurn();
+    delegateTo(mainIndex);
+    m_now = start.addSecs(10 * 60);
+    report(contentCompletion(QStringLiteral("first report")));
+    report(usingTokens(1000, kFirstReport));
+    m_now = start.addSecs(65 * 60);
+
+    delegateTo(mainIndex, kSecondTask);
+
+    EXPECT_EQ(m_clients.at(3)->requested.resume, kFirstSession);
+    EXPECT_EQ(sentContents(3),
+              (QStringList { kCoursesPrompt, kTask, QStringLiteral("first report"),
+                             QStringLiteral("check again"), kFirstReport, kSecondTask }));
+}
+
+TEST_F(ChatAgentTest, KeptContext_AFollowUp_ResumesTheSessionOfTheDelegation)
+{
+    keepCoursesContext();
+    m_followUps = { QStringLiteral("check again") };
+    const size_t mainIndex = beginTurn();
+    delegateTo(mainIndex);
+
+    report(contentCompletion(QStringLiteral("first report")));
+
+    ASSERT_EQ(m_clients.size(), 3u);
+    EXPECT_EQ(m_clients.at(2)->requested.resume, kFirstSession);
+    EXPECT_TRUE(m_clients.at(2)->requested.keep);
+}
+
+TEST_F(ChatAgentTest, KeptContext_TheInputTokensOfTheLastRequestDecide_NotTheEarlierOnes)
+{
+    keepCoursesContext();
+    m_followUps = { QStringLiteral("check again") };
+    const size_t mainIndex = beginTurn();
+    delegateTo(mainIndex);
+    report(usingTokens(kOverTheLimit, QStringLiteral("first report")));
+    report(usingTokens(1000, kFirstReport));
+
+    delegateTo(mainIndex, kSecondTask);
+
+    EXPECT_EQ(sentContents(3).constLast(), kSecondTask);
+}
+
+TEST_F(ChatAgentTest, KeptContext_ExactlyTheMaximumInputTokens_StillContinues)
+{
+    keepCoursesContext();
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, usingTokens(kMaxInputTokens, kFirstReport));
+
+    delegateTo(mainIndex, kSecondTask);
+
+    EXPECT_EQ(sentContents(2), (QStringList { kCoursesPrompt, kTask, kFirstReport, kSecondTask }));
+}
+
+TEST_F(ChatAgentTest, KeptContext_OneTokenOverTheMaximum_SendsTheCompactionRequestFirst)
+{
+    keepCoursesContext();
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, usingTokens(kOverTheLimit, kFirstReport));
+
+    delegateTo(mainIndex, kSecondTask);
+
+    ASSERT_EQ(m_clients.size(), 3u);
+    EXPECT_EQ(m_clients.at(2)->requested.resume, kFirstSession);
+    EXPECT_TRUE(m_clients.at(2)->requested.keep);
+    EXPECT_EQ(sentContents(2),
+              (QStringList { kCoursesPrompt, kTask, kFirstReport, kCompactionRequest }));
+    EXPECT_EQ(sentTo(2).constLast().role, QStringLiteral("user"));
+    EXPECT_TRUE(m_forgotten.isEmpty());
+}
+
+TEST_F(ChatAgentTest, KeptContext_TheCompactionRequestKeepsTheToolsOfTheDelegate)
+{
+    keepCoursesContext();
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, usingTokens(kOverTheLimit, kFirstReport));
+
+    delegateTo(mainIndex, kSecondTask);
+
+    EXPECT_TRUE(m_clients.at(2)->held.front().tools.contains(QStringLiteral("list_courses")));
+}
+
+TEST_F(ChatAgentTest, KeptContext_AfterTheSummary_TheTaskGoesToAFreshContextHoldingOnlyIt)
+{
+    keepCoursesContext();
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, usingTokens(kOverTheLimit, kFirstReport));
+    delegateTo(mainIndex, kSecondTask);
+
+    report(contentCompletion(kSummary));
+
+    ASSERT_EQ(m_clients.size(), 4u);
+    EXPECT_TRUE(m_clients.at(3)->requested.resume.isEmpty());
+    EXPECT_TRUE(m_clients.at(3)->requested.keep);
+    EXPECT_EQ(sentContents(3), (QStringList { kCoursesPrompt, kSummaryMessage, kSecondTask }));
+    EXPECT_EQ(sentTo(3).at(1).role, QStringLiteral("user"));
+    EXPECT_EQ(m_forgotten, QStringList { kFirstSession });
+}
+
+TEST_F(ChatAgentTest, KeptContext_TheCompactedDelegation_ReportsToTheMainAgentAsOneDelegation)
+{
+    keepCoursesContext();
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, usingTokens(kOverTheLimit, kFirstReport));
+    delegateTo(mainIndex, kSecondTask);
+    report(contentCompletion(kSummary));
+
+    report(usingTokens(5000, kSecondReport));
+
+    EXPECT_TRUE(lastMessageOf(*m_clients.at(mainIndex)).contains(kSecondReport));
+    EXPECT_EQ(m_events.count("start:Delegation courses"), 2);
+    EXPECT_EQ(m_events.count("end:Delegation courses Ok"), 2);
+    EXPECT_EQ(m_events.count("end:Delegation courses Failed"), 0);
+}
+
+TEST_F(ChatAgentTest, KeptContext_AfterACompaction_TheNextDelegationContinuesTheNewContext)
+{
+    keepCoursesContext();
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, usingTokens(kOverTheLimit, kFirstReport));
+    delegateTo(mainIndex, kSecondTask);
+    report(contentCompletion(kSummary));
+    report(usingTokens(5000, kSecondReport));
+
+    delegateTo(mainIndex, kThirdTask);
+
+    ASSERT_EQ(m_clients.size(), 5u);
+    EXPECT_EQ(m_clients.at(4)->requested.resume, kSecondSession);
+    EXPECT_EQ(
+        sentContents(4),
+        (QStringList { kCoursesPrompt, kSummaryMessage, kSecondTask, kSecondReport, kThirdTask }));
+}
+
+TEST_F(ChatAgentTest, KeptContext_ACompactionDoesNotUseUpTheDelegationCeiling)
+{
+    keepCoursesContext(keepPolicy(), 2);
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, usingTokens(kOverTheLimit, kFirstReport));
+    delegateTo(mainIndex, kSecondTask);
+    report(contentCompletion(kSummary));
+    report(usingTokens(5000, kSecondReport));
+    EXPECT_EQ(m_events.count("end:Delegation courses Ok"), 2);
+
+    delegateTo(mainIndex, kThirdTask);
+
+    EXPECT_TRUE(lastMessageOf(*m_clients.at(mainIndex))
+                    .contains(QStringLiteral("The Courses agent failed (too_many_delegations).")));
+}
+
+TEST_F(ChatAgentTest, KeptContext_AFailedCompaction_FallsBackToAClearedContext)
+{
+    keepCoursesContext();
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, usingTokens(kOverTheLimit, kFirstReport));
+    delegateTo(mainIndex, kSecondTask);
+
+    report(failedCompletion(QStringLiteral("server_error")));
+
+    ASSERT_EQ(m_clients.size(), 4u);
+    EXPECT_TRUE(m_clients.at(3)->requested.resume.isEmpty());
+    EXPECT_EQ(sentContents(3), (QStringList { kCoursesPrompt, kSecondTask }));
+    EXPECT_EQ(m_forgotten, QStringList { kFirstSession });
+    report(usingTokens(5000, kSecondReport));
+    EXPECT_EQ(m_events.count("end:Delegation courses Ok"), 2);
+    EXPECT_FALSE(m_events.contains(QStringLiteral("failed:server_error")));
+}
+
+TEST_F(ChatAgentTest, KeptContext_ASummaryTheValidatorRejects_FallsBackToAClearedContext)
+{
+    keepCoursesContext();
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, usingTokens(kOverTheLimit, kFirstReport));
+    delegateTo(mainIndex, kSecondTask);
+
+    report(contentCompletion(QStringLiteral("I would rather not.")));
+
+    ASSERT_EQ(m_clients.size(), 4u);
+    EXPECT_EQ(sentContents(3), (QStringList { kCoursesPrompt, kSecondTask }));
+    EXPECT_EQ(m_forgotten, QStringList { kFirstSession });
+}
+
+TEST_F(ChatAgentTest, KeptContext_AnEmptySummary_FallsBackToAClearedContext)
+{
+    keepCoursesContext();
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, usingTokens(kOverTheLimit, kFirstReport));
+    delegateTo(mainIndex, kSecondTask);
+
+    report(contentCompletion(QString()));
+
+    ASSERT_EQ(m_clients.size(), 4u);
+    EXPECT_EQ(sentContents(3), (QStringList { kCoursesPrompt, kSecondTask }));
+}
+
+TEST_F(ChatAgentTest,
+       KeptContext_WhenNoClientCanBeCreatedAfterTheSummary_TheDelegationIsUnavailable)
+{
+    keepCoursesContext();
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, usingTokens(kOverTheLimit, kFirstReport));
+    delegateTo(mainIndex, kSecondTask);
+    m_clientLimit = m_clients.size();
+
+    report(contentCompletion(kSummary));
+
+    EXPECT_TRUE(lastMessageOf(*m_clients.at(mainIndex))
+                    .contains(QStringLiteral("The Courses agent failed (unavailable).")));
+    EXPECT_EQ(m_events.last(), "end:Delegation courses Failed");
+}
+
+TEST_F(ChatAgentTest, KeptContext_APolicyWithoutACompactionRequest_ClearsWhenOverTheLimit)
+{
+    chat::ContextPolicy policy = keepPolicy();
+    policy.compactionRequest.clear();
+    keepCoursesContext(policy);
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, usingTokens(kOverTheLimit, kFirstReport));
+
+    delegateTo(mainIndex, kSecondTask);
+
+    ASSERT_EQ(m_clients.size(), 3u);
+    EXPECT_TRUE(m_clients.at(2)->requested.resume.isEmpty());
+    EXPECT_EQ(sentContents(2), (QStringList { kCoursesPrompt, kSecondTask }));
+    EXPECT_EQ(m_forgotten, QStringList { kFirstSession });
+}
+
+TEST_F(ChatAgentTest, KeptContext_ADelegateThatReportsNoTokens_IsOnlyClearedByAge)
+{
+    keepCoursesContext();
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, contentCompletion(kFirstReport));
+
+    delegateTo(mainIndex, kSecondTask);
+
+    EXPECT_EQ(sentContents(2), (QStringList { kCoursesPrompt, kTask, kFirstReport, kSecondTask }));
+}
+
+TEST_F(ChatAgentTest, KeptContext_ADelegationThatFails_DropsTheKeptContextAndItsSession)
+{
+    keepCoursesContext();
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, usingTokens(1000, kFirstReport));
+    runDelegation(mainIndex, kSecondTask, failedCompletion(QStringLiteral("server_error")));
+    EXPECT_EQ(m_forgotten, QStringList { kFirstSession });
+
+    delegateTo(mainIndex, kThirdTask);
+
+    EXPECT_TRUE(m_clients.at(3)->requested.resume.isEmpty());
+    EXPECT_EQ(sentContents(3), (QStringList { kCoursesPrompt, kThirdTask }));
+}
+
+TEST_F(ChatAgentTest, KeptContext_ACancelledDelegation_DropsTheKeptContextAndItsSession)
+{
+    keepCoursesContext();
+    const size_t firstTurn = beginTurn();
+    runDelegation(firstTurn, kTask, usingTokens(1000, kFirstReport));
+    answer(firstTurn);
+    const size_t secondTurn = beginTurn();
+    delegateTo(secondTurn, kSecondTask);
+
+    m_turn->cancel();
+
+    EXPECT_EQ(m_forgotten, QStringList { kFirstSession });
+    const size_t thirdTurn = beginTurn();
+    delegateTo(thirdTurn, kThirdTask);
+    EXPECT_TRUE(m_clients.back()->requested.resume.isEmpty());
+    EXPECT_EQ(sentContents(m_clients.size() - 1), (QStringList { kCoursesPrompt, kThirdTask }));
+}
+
+TEST_F(ChatAgentTest, KeptContext_ACancelledFirstDelegation_ForgetsItsSession)
+{
+    keepCoursesContext();
+    const size_t mainIndex = beginTurn();
+    delegateTo(mainIndex);
+
+    m_turn->cancel();
+
+    EXPECT_EQ(m_forgotten, QStringList { kFirstSession });
+}
+
+TEST_F(ChatAgentTest, KeptContext_ACancelDuringTheCompaction_DropsTheKeptContextAndItsSession)
+{
+    keepCoursesContext();
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, usingTokens(kOverTheLimit, kFirstReport));
+    delegateTo(mainIndex, kSecondTask);
+
+    m_turn->cancel();
+
+    EXPECT_EQ(m_forgotten, QStringList { kFirstSession });
+    const size_t nextTurn = beginTurn();
+    delegateTo(nextTurn, kThirdTask);
+    EXPECT_EQ(sentContents(m_clients.size() - 1), (QStringList { kCoursesPrompt, kThirdTask }));
+}
+
+TEST_F(ChatAgentTest, KeptContext_WhenNoClientCanBeCreated_TheKeptContextSurvives)
+{
+    keepCoursesContext();
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, usingTokens(1000, kFirstReport));
+    m_refuseDelegates = true;
+    delegateTo(mainIndex, kSecondTask);
+    EXPECT_TRUE(lastMessageOf(*m_clients.at(mainIndex))
+                    .contains(QStringLiteral("The Courses agent failed (unavailable).")));
+    m_refuseDelegates = false;
+
+    delegateTo(mainIndex, kThirdTask);
+
+    EXPECT_EQ(m_clients.back()->requested.resume, kFirstSession);
+    EXPECT_EQ(sentContents(m_clients.size() - 1),
+              (QStringList { kCoursesPrompt, kTask, kFirstReport, kThirdTask }));
+    EXPECT_TRUE(m_forgotten.isEmpty());
+}
+
+TEST_F(ChatAgentTest, KeptContext_ForgettingTheConversation_DropsTheContextAndItsSession)
+{
+    keepCoursesContext();
+    const size_t firstTurn = beginTurn();
+    runDelegation(firstTurn, kTask, usingTokens(1000, kFirstReport));
+    answer(firstTurn);
+
+    m_backend->forgetConversation(m_conversation);
+
+    EXPECT_EQ(m_forgotten, QStringList { kFirstSession });
+    const size_t secondTurn = beginTurn();
+    delegateTo(secondTurn, kSecondTask);
+    EXPECT_TRUE(m_clients.back()->requested.resume.isEmpty());
+    EXPECT_EQ(sentContents(m_clients.size() - 1), (QStringList { kCoursesPrompt, kSecondTask }));
+}
+
+TEST_F(ChatAgentTest, KeptContext_ForgettingOneConversation_KeepsTheOthers)
+{
+    keepCoursesContext();
+    const QUuid first = m_conversation;
+    const size_t firstTurn = beginTurn();
+    runDelegation(firstTurn, kTask, usingTokens(1000, kFirstReport));
+    answer(firstTurn);
+    m_conversation = QUuid::createUuid();
+    const size_t otherTurn = beginTurn();
+    runDelegation(otherTurn, kTask, usingTokens(1000, kFirstReport));
+    answer(otherTurn);
+
+    m_backend->forgetConversation(first);
+
+    EXPECT_EQ(m_forgotten, QStringList { kFirstSession });
+    const size_t nextTurn = beginTurn();
+    delegateTo(nextTurn, kSecondTask);
+    EXPECT_EQ(m_clients.back()->requested.resume, kSecondSession);
+    EXPECT_EQ(sentContents(m_clients.size() - 1),
+              (QStringList { kCoursesPrompt, kTask, kFirstReport, kSecondTask }));
+}
+
+TEST_F(ChatAgentTest, KeptContext_DestroyingTheBackend_ForgetsTheKeptSessions)
+{
+    keepCoursesContext();
+    const size_t mainIndex = beginTurn();
+    runDelegation(mainIndex, kTask, usingTokens(1000, kFirstReport));
+    answer(mainIndex);
+    EXPECT_TRUE(m_forgotten.isEmpty());
+
+    m_turn.reset();
+    m_backend.reset();
+
+    EXPECT_EQ(m_forgotten, QStringList { kFirstSession });
 }

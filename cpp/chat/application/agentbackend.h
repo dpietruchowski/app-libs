@@ -37,6 +37,7 @@ public:
                                              const AgentCatalog& catalog)
         = 0;
     virtual void forget(const QString& backendSession) = 0;
+    virtual void forgetConversation(const QUuid& conversationId) = 0;
 };
 
 }

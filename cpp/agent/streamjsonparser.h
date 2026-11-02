@@ -48,6 +48,7 @@ private:
 
     QByteArray m_buffer;
     QString m_messageText;
+    int m_lastRequestInputTokens { 0 };
     bool m_initSeen { false };
     bool m_sessionReported { false };
     bool m_authenticationFailed { false };

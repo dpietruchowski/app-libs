@@ -576,7 +576,8 @@ void ClaudeStdioClient::Run::handle(const StreamEvent& event)
         case StreamEvent::Kind::Answer:
             qCInfo(ClientLogic) << "claude usage: prompt" << event.usage.prompt_tokens
                                 << "completion" << event.usage.completion_tokens << "total"
-                                << event.usage.total_tokens;
+                                << event.usage.total_tokens << "last request"
+                                << event.usage.context_tokens;
             conclude(answerCompletion(event.text, event.usage), Closing::Graceful);
             break;
         case StreamEvent::Kind::Failure:
