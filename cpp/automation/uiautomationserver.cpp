@@ -339,6 +339,14 @@ QJsonObject makeOk()
     return response;
 }
 
+void sendMouse(QQuickWindow* window, QEvent::Type type, const QPointF& scene,
+               Qt::MouseButton button, Qt::MouseButtons buttons)
+{
+    const QPointF global = QPointF(window->mapToGlobal(scene.toPoint()));
+    QMouseEvent event(type, scene, scene, global, button, buttons, Qt::NoModifier);
+    QGuiApplication::sendEvent(window, &event);
+}
+
 MockTimeProvider* ensureMockTime()
 {
     auto* mock = dynamic_cast<MockTimeProvider*>(&TimeProvider::instance());
@@ -704,24 +712,18 @@ QJsonObject UiAutomationServer::handleCommand(const QJsonObject& request)
         if (path.size() < 2)
             return makeError("drag needs at least two points");
         const int steps = qMax(1, request["steps"].toInt(10));
-        auto sendMouse = [&](QEvent::Type type, const QPointF& scene, Qt::MouseButton button,
-                             Qt::MouseButtons buttons)
-        {
-            const QPointF global = QPointF(window->mapToGlobal(scene.toPoint()));
-            QMouseEvent event(type, scene, scene, global, button, buttons, Qt::NoModifier);
-            QGuiApplication::sendEvent(window, &event);
-        };
-        sendMouse(QEvent::MouseButtonPress, path.first(), Qt::LeftButton, Qt::LeftButton);
+        sendMouse(window, QEvent::MouseButtonPress, path.first(), Qt::LeftButton, Qt::LeftButton);
         for (int segment = 1; segment < path.size(); ++segment)
         {
             const QPointF from = path[segment - 1];
             const QPointF to = path[segment];
             for (int step = 1; step <= steps; ++step)
-                sendMouse(QEvent::MouseMove, from + (to - from) * step / steps, Qt::NoButton,
-                    Qt::LeftButton);
+                sendMouse(window, QEvent::MouseMove, from + (to - from) * step / steps,
+                          Qt::NoButton, Qt::LeftButton);
         }
         if (request["release"].toBool(true))
-            sendMouse(QEvent::MouseButtonRelease, path.last(), Qt::LeftButton, Qt::NoButton);
+            sendMouse(window, QEvent::MouseButtonRelease, path.last(), Qt::LeftButton,
+                      Qt::NoButton);
         return makeOk();
     }
 
@@ -734,7 +736,6 @@ QJsonObject UiAutomationServer::handleCommand(const QJsonObject& request)
             return makeError("root is not a window");
         const QString action = request["action"].toString();
         const QPointF scene(request["x"].toDouble(), request["y"].toDouble());
-        const QPointF global = QPointF(window->mapToGlobal(scene.toPoint()));
         QEvent::Type type = QEvent::MouseMove;
         Qt::MouseButton button = Qt::NoButton;
         Qt::MouseButtons buttons = Qt::LeftButton;
@@ -751,8 +752,7 @@ QJsonObject UiAutomationServer::handleCommand(const QJsonObject& request)
         }
         else if (action != "move")
             return makeError("mouse action must be press, move or release: " + action);
-        QMouseEvent event(type, scene, scene, global, button, buttons, Qt::NoModifier);
-        QGuiApplication::sendEvent(window, &event);
+        sendMouse(window, type, scene, button, buttons);
         return makeOk();
     }
 
@@ -831,19 +831,12 @@ QJsonObject UiAutomationServer::handleCommand(const QJsonObject& request)
         {
             return item->mapToScene(QPointF(item->width() / 2.0, item->height() / 2.0));
         };
-        auto sendMouse = [&](QEvent::Type type, const QPointF& scene, Qt::MouseButton button,
-                             Qt::MouseButtons buttons)
-        {
-            const QPointF global = QPointF(window->mapToGlobal(scene.toPoint()));
-            QMouseEvent event(type, scene, scene, global, button, buttons, Qt::NoModifier);
-            QGuiApplication::sendEvent(window, &event);
-        };
 
         if (cmd == "accept")
         {
             const QPointF c = centerOf(tiles[confirmIndex]);
-            sendMouse(QEvent::MouseButtonPress, c, Qt::LeftButton, Qt::LeftButton);
-            sendMouse(QEvent::MouseButtonRelease, c, Qt::LeftButton, Qt::NoButton);
+            sendMouse(window, QEvent::MouseButtonPress, c, Qt::LeftButton, Qt::LeftButton);
+            sendMouse(window, QEvent::MouseButtonRelease, c, Qt::LeftButton, Qt::NoButton);
             return makeOk();
         }
 
@@ -877,10 +870,10 @@ QJsonObject UiAutomationServer::handleCommand(const QJsonObject& request)
         for (int index : sequence)
             path.append(centerOf(tiles[index]));
 
-        sendMouse(QEvent::MouseButtonPress, path.first(), Qt::LeftButton, Qt::LeftButton);
+        sendMouse(window, QEvent::MouseButtonPress, path.first(), Qt::LeftButton, Qt::LeftButton);
         for (int i = 1; i < path.size(); ++i)
-            sendMouse(QEvent::MouseMove, path[i], Qt::NoButton, Qt::LeftButton);
-        sendMouse(QEvent::MouseButtonRelease, path.last(), Qt::LeftButton, Qt::NoButton);
+            sendMouse(window, QEvent::MouseMove, path[i], Qt::NoButton, Qt::LeftButton);
+        sendMouse(window, QEvent::MouseButtonRelease, path.last(), Qt::LeftButton, Qt::NoButton);
         return makeOk();
     }
 
