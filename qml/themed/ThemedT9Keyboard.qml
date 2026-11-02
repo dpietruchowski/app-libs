@@ -31,7 +31,7 @@ Rectangle {
     readonly property var groups: symbolsActive ? symbolGroups : letterGroups
     readonly property var digitKeys: [root.punctuation].concat(root.groups).map((group, index) => {
         var digit = String(index + 1)
-        var flickable = root.swipeCharacters(index > 0 ? group : root.punctuation)
+        var flickable = root.swipeCharacters(group)
         var flicks = [0, 1, 2, 3].map(position => flickable[position] ?? "")
         return {
             name: digit,
