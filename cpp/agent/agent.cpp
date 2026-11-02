@@ -289,7 +289,8 @@ void Agent::onCompletionReceived(const Client& client, const Completion& complet
     }
 
     auto response = choice.message.content;
-    m_messages.append(Message { .role = "assistant", .content = response });
+    m_messages.append(Message {
+        .role = "assistant", .content = response, .raw_content = choice.message.raw_content });
     deliverResponse(response);
 }
 

@@ -56,6 +56,7 @@ struct Message
     QString tool_call_id;
     QVector<ToolCall> tool_calls;
     QVector<ToolImage> images;
+    QJsonArray raw_content;
 
     QJsonObject toJsonObject() const;
     static Message fromJsonObject(const QJsonObject& json);
