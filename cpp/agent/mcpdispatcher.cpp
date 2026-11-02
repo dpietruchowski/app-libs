@@ -115,13 +115,18 @@ McpAction McpDispatcher::replyToToolCall(const QString& requestId, const QJsonOb
     return action;
 }
 
-QJsonObject McpDispatcher::toolResponse(const QJsonValue& rpcId, const QString& text, bool isError)
+QJsonObject McpDispatcher::toolResponse(const QJsonValue& rpcId, const QString& text, bool isError,
+                                        const QVector<ToolImage>& images)
 {
+    QJsonArray content { QJsonObject { { "type", "text" }, { "text", text } } };
+    for (const ToolImage& image : images)
+    {
+        content.append(QJsonObject { { "type", "image" },
+                                     { "data", QString::fromLatin1(image.data.toBase64()) },
+                                     { "mimeType", image.mimeType } });
+    }
+
     QJsonObject reply = envelope(rpcId);
-    reply.insert(
-        "result",
-        QJsonObject {
-            { "content", QJsonArray { QJsonObject { { "type", "text" }, { "text", text } } } },
-            { "isError", isError } });
+    reply.insert("result", QJsonObject { { "content", content }, { "isError", isError } });
     return reply;
 }

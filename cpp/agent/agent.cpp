@@ -337,12 +337,16 @@ void Agent::handleToolCallsAsync(const Client& client, QVector<ToolCall> toolCal
                 return;
             }
 
-            qCInfo(AgentLogic) << "Tool result" << id << ret.toString().left(600);
+            const bool carriesImage = ret.metaType() == QMetaType::fromType<ToolImage>();
+            const ToolImage image = carriesImage ? ret.value<ToolImage>() : ToolImage();
+            const QVariant answer = carriesImage ? QVariant(image.text) : ret;
+
+            qCInfo(AgentLogic) << "Tool result" << id << answer.toString().left(600);
 
             const auto toolFinished = m_observer.toolFinished;
             if (toolFinished)
             {
-                toolFinished(toolCalls.at(index), ret);
+                toolFinished(toolCalls.at(index), answer);
                 if (alive.expired())
                 {
                     return;
@@ -350,12 +354,15 @@ void Agent::handleToolCallsAsync(const Client& client, QVector<ToolCall> toolCal
             }
 
             QVariantMap map;
-            map["value"] = ret;
+            map["value"] = answer;
             QJsonDocument doc = QJsonDocument::fromVariant(map);
 
-            m_messages.append(Message { .role = "tool",
-                                        .content = doc.toJson(QJsonDocument::Compact),
-                                        .tool_call_id = id });
+            Message message { .role = "tool",
+                              .content = doc.toJson(QJsonDocument::Compact),
+                              .tool_call_id = id };
+            if (carriesImage)
+                message.images.append(image);
+            m_messages.append(message);
 
             handleToolCallsAsync(client, toolCalls, index + 1);
         });

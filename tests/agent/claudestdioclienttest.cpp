@@ -417,6 +417,37 @@ TEST(ClaudeStdioClientTest, AnswersEveryToolCallUnderItsOwnRequestId)
     EXPECT_EQ(mcpReplyOf(inputs[3]).value("id").toInt(), 3);
 }
 
+TEST(ClaudeStdioClientTest, AnswersAToolCallWithTheImageItReturned)
+{
+    const FakeClaude claude(startOfRun()
+                            + QStringList { cliSays(toolCallEvent("req-a", 2, "alpha")), ">",
+                                            cliSays(resultEvent("looked")) });
+    const ClaudeStdioClient client(claude.launcher());
+    const ToolsMap tools = toolsMapOf({ "alpha" });
+    const Messages messages = conversationOf("go");
+    const std::shared_ptr<Outcome> first = submit(client, messages, tools);
+    ASSERT_TRUE(waitDone(first));
+
+    const QByteArray pixels("\x89PNG-pixels");
+    Message answer = toolMessage("req-a", "{\"value\":\"a screen\"}");
+    answer.images.append(
+        ToolImage { QStringLiteral("a screen"), QStringLiteral("image/png"), pixels });
+    Messages followUp = messages;
+    followUp.append(answer);
+    ask(client, followUp, tools);
+
+    const QList<QJsonObject> inputs = claude.inputs();
+    ASSERT_EQ(inputs.size(), 3);
+    const QJsonArray content
+        = mcpReplyOf(inputs[2]).value("result").toObject().value("content").toArray();
+    ASSERT_EQ(content.size(), 2);
+    EXPECT_EQ(content[0].toObject().value("type").toString(), "text");
+    EXPECT_EQ(content[1].toObject().value("type").toString(), "image");
+    EXPECT_EQ(content[1].toObject().value("mimeType").toString(), "image/png");
+    EXPECT_EQ(QByteArray::fromBase64(content[1].toObject().value("data").toString().toLatin1()),
+              pixels);
+}
+
 TEST(ClaudeStdioClientTest, QueuesAToolCallThatArrivesWhileTheOthersAreAwaitingAnswers)
 {
     const FakeClaude claude(
