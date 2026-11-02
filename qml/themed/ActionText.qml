@@ -7,10 +7,10 @@ Item {
     property string content: ""
     property list<Item> actions
     property int actionOffset: Theme.spacing.medium
+    property int maxLines: 0
+    property int slotPosition: -1
+    property int slotLength: 0
     property alias styled: label.styled
-    property alias maxLines: label.maxLines
-    property alias slotPosition: label.slotPosition
-    property alias slotLength: label.slotLength
     property alias font: label.font
     property alias textObjectName: label.objectName
     readonly property alias textItem: label
@@ -30,6 +30,13 @@ Item {
         property bool breakBeforeLastWord: false
         property real actionsBottom: 0
         property real actionsTop: 0
+        property string fittedContent: root.content
+        property int keptLength: -1
+
+        readonly property var voidTags: ["br", "img", "hr"]
+        readonly property bool slotKept: keptLength < 0 || root.slotPosition + root.slotLength <= keptLength
+
+        onSuffixChanged: scheduleFit()
 
         readonly property var visibleActions: {
             const result = []
@@ -49,10 +56,10 @@ Item {
 
         readonly property string laidOutContent: {
             if (!breakBeforeLastWord)
-                return root.content
-            const space = lastSpaceOutsideTags(root.content)
-            return space < 0 ? root.content
-                             : root.content.slice(0, space) + "<br>" + root.content.slice(space + 1)
+                return fittedContent
+            const space = lastSpaceOutsideTags(fittedContent)
+            return space < 0 ? fittedContent
+                             : fittedContent.slice(0, space) + "<br>" + fittedContent.slice(space + 1)
         }
 
         function placeholder(width, height) {
@@ -62,18 +69,80 @@ Item {
                     + '" width="' + width + '" height="' + height + '">'
         }
 
-        function lastSpaceOutsideTags(markup) {
+        function spacesOutsideTags(markup) {
+            const spaces = []
             let insideTag = false
-            for (let i = markup.length - 1; i >= 0; i--) {
+            for (let i = 0; i < markup.length; i++) {
                 const c = markup[i]
-                if (c === ">")
+                if (c === "<")
                     insideTag = true
-                else if (c === "<")
+                else if (c === ">")
                     insideTag = false
                 else if (c === " " && !insideTag)
-                    return i
+                    spaces.push(i)
             }
-            return -1
+            return spaces
+        }
+
+        function lastSpaceOutsideTags(markup) {
+            const spaces = spacesOutsideTags(markup)
+            return spaces.length > 0 ? spaces[spaces.length - 1] : -1
+        }
+
+        function closingTags(markup) {
+            const open = []
+            const tag = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)[^>]*?(\/?)>/g
+            let match = tag.exec(markup)
+            while (match !== null) {
+                if (match[1] === "/")
+                    open.pop()
+                else if (match[3] !== "/" && !voidTags.includes(match[2].toLowerCase()))
+                    open.push(match[2])
+                match = tag.exec(markup)
+            }
+            return open.reverse().map(name => "</" + name + ">").join("")
+        }
+
+        function keptHead(spaceIndex) {
+            const head = root.content.slice(0, spaceIndex)
+            return head + closingTags(head)
+        }
+
+        function lineCountOf(markup) {
+            fitter.content = markup + suffix
+            return Math.round(fitter.implicitHeight / metrics.lineSpacing)
+        }
+
+        function fits(markup) {
+            return lineCountOf(markup) <= root.maxLines
+        }
+
+        function fit() {
+            const spaces = spacesOutsideTags(root.content)
+            if (root.maxLines <= 0 || root.width <= 0 || spaces.length === 0 || fits(root.content)) {
+                fittedContent = root.content
+                keptLength = -1
+                return
+            }
+
+            let low = 0
+            let high = spaces.length - 1
+            while (low < high) {
+                const middle = Math.ceil((low + high) / 2)
+                if (fits(keptHead(spaces[middle]) + "…"))
+                    low = middle
+                else
+                    high = middle - 1
+            }
+
+            const kept = keptHead(spaces[low])
+            fittedContent = kept + "…"
+            fitter.content = kept
+            keptLength = fitter.length
+        }
+
+        function scheduleFit() {
+            Qt.callLater(internal.fit)
         }
 
         function lastWordStart(plain) {
@@ -131,7 +200,23 @@ Item {
     }
 
     onActionsChanged: internal.adopt()
-    Component.onCompleted: internal.adopt()
+    onContentChanged: internal.scheduleFit()
+    onWidthChanged: internal.scheduleFit()
+    onMaxLinesChanged: internal.scheduleFit()
+    onFontChanged: internal.scheduleFit()
+    Component.onCompleted: {
+        internal.adopt()
+        internal.scheduleFit()
+    }
+
+    ThemedHtmlText {
+        id: fitter
+
+        visible: false
+        width: root.width
+        styled: label.styled
+        font: label.font
+    }
 
     ThemedHtmlText {
         id: measurement
@@ -140,7 +225,7 @@ Item {
         width: root.width
         styled: label.styled
         font: label.font
-        content: root.content + internal.suffix
+        content: internal.fittedContent + internal.suffix
 
         onTextChanged: internal.measure()
         onWidthChanged: internal.measure()
@@ -154,6 +239,8 @@ Item {
         y: internal.actionsTop
         width: root.width
         content: internal.laidOutContent + internal.suffix
+        slotPosition: internal.slotKept ? root.slotPosition : -1
+        slotLength: root.slotLength
 
         onTextChanged: internal.schedule()
         onWidthChanged: internal.schedule()
