@@ -9,6 +9,7 @@ Item {
     property int learningCount: 0
     property var reviewCounts: [0, 0, 0, 0, 0, 0]
     property int masteredCount: 0
+    property int firstLevel: 0
     property string title: qsTr("Progress by level")
     property string learningLabel: qsTr("Learning")
     property string masteredLabel: qsTr("Mastered")
@@ -147,7 +148,7 @@ Item {
                             width: root.barWidth
                             value: modelData
                             barColor: Theme.phase.review
-                            label: "L" + index
+                            label: "L" + (index + root.firstLevel)
                         }
                     }
                 }
