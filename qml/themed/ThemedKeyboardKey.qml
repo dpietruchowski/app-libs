@@ -268,6 +268,7 @@ Item {
 
         property bool consumed: false
         property int felt: -1
+        property point origin
 
         function highlightAlternateAt(x, y) {
             var point = area.mapToItem(alternatesRow, x, y)
@@ -276,8 +277,8 @@ Item {
         }
 
         function trackFlick(x, y) {
-            var dx = x - root.width / 2
-            var dy = y - root.height / 2
+            var dx = x - origin.x
+            var dy = y - origin.y
             var direction = Math.hypot(dx, dy) > root.circleRadius ? root.flickDirectionAt(dx, dy) : -1
             if (direction === flickPad.direction)
                 return
@@ -295,10 +296,11 @@ Item {
         preventStealing: true
         pressAndHoldInterval: Theme.keyboard.repeatDelay
 
-        onPressed: {
+        onPressed: (mouse) => {
             flickPad.direction = -1
             consumed = false
             felt = -1
+            origin = Qt.point(mouse.x, mouse.y)
             KeyboardHaptics.keyPress()
             root.touched()
         }
