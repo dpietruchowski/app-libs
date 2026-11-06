@@ -133,6 +133,58 @@ TEST(SqlCodecTest, EmptyStringList_RoundTrips)
     EXPECT_TRUE(stringListFromSql(QVariant()).empty());
 }
 
+TEST(SqlCodecTest, JsonObject_RoundTripsAsCompactText)
+{
+    const QJsonObject object { { QStringLiteral("limit"), 3 },
+                               { QStringLiteral("name"), QStringLiteral("a b") } };
+
+    const QVariant stored = jsonObjectToSql(object);
+
+    EXPECT_EQ(stored.toString(), QStringLiteral(R"({"limit":3,"name":"a b"})"));
+    EXPECT_EQ(jsonObjectFromSql(stored), object);
+}
+
+TEST(SqlCodecTest, JsonObject_FromSqlNullOrGarbage_IsEmpty)
+{
+    EXPECT_TRUE(jsonObjectFromSql(QVariant()).isEmpty());
+    EXPECT_TRUE(jsonObjectFromSql(QVariant(QStringLiteral("not json"))).isEmpty());
+}
+
+TEST(SqlCodecTest, JsonValue_RoundTripsEveryKindOfValue)
+{
+    const QJsonArray array { 1, 2 };
+    const QJsonObject object { { QStringLiteral("count"), 2 } };
+    const QList<QJsonValue> values { QJsonValue(array),
+                                     QJsonValue(object),
+                                     QJsonValue(QStringLiteral("text")),
+                                     QJsonValue(QStringLiteral("")),
+                                     QJsonValue(5),
+                                     QJsonValue(true),
+                                     QJsonValue(QJsonValue::Null) };
+
+    for (const QJsonValue& value : values)
+    {
+        EXPECT_EQ(jsonValueFromSql(jsonValueToSql(value)), value);
+    }
+}
+
+TEST(SqlCodecTest, UndefinedJsonValue_IsSqlNullAndComesBackUndefined)
+{
+    const QVariant stored = jsonValueToSql(QJsonValue(QJsonValue::Undefined));
+
+    EXPECT_TRUE(stored.isNull());
+    EXPECT_TRUE(jsonValueFromSql(stored).isUndefined());
+}
+
+TEST(SqlCodecTest, NullJsonValue_IsStoredAndIsNotUndefined)
+{
+    const QVariant stored = jsonValueToSql(QJsonValue(QJsonValue::Null));
+
+    EXPECT_FALSE(stored.isNull());
+    EXPECT_TRUE(jsonValueFromSql(stored).isNull());
+    EXPECT_FALSE(jsonValueFromSql(stored).isUndefined());
+}
+
 TEST(SqlCodecTest, Enum_RoundTripsThroughItsIntegerValue)
 {
     const QVariant stored = toSql(Shape::Triangle);

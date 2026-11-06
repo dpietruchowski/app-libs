@@ -4,6 +4,8 @@
 #include <QDateTime>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonValue>
 #include <QString>
 #include <QUuid>
 #include <QVariant>
@@ -82,6 +84,37 @@ inline std::vector<QString> stringListFromSql(const QVariant& value)
         strings.push_back(item.toString());
     }
     return strings;
+}
+
+inline QVariant jsonObjectToSql(const QJsonObject& object)
+{
+    return QVariant(QString::fromUtf8(QJsonDocument(object).toJson(QJsonDocument::Compact)));
+}
+
+inline QJsonObject jsonObjectFromSql(const QVariant& value)
+{
+    return QJsonDocument::fromJson(value.toString().toUtf8()).object();
+}
+
+inline QVariant jsonValueToSql(const QJsonValue& value)
+{
+    if (value.isUndefined())
+    {
+        return QVariant();
+    }
+    QJsonArray wrapper;
+    wrapper.append(value);
+    return QVariant(QString::fromUtf8(QJsonDocument(wrapper).toJson(QJsonDocument::Compact)));
+}
+
+inline QJsonValue jsonValueFromSql(const QVariant& value)
+{
+    if (value.isNull())
+    {
+        return QJsonValue(QJsonValue::Undefined);
+    }
+    const QJsonArray wrapper = QJsonDocument::fromJson(value.toString().toUtf8()).array();
+    return wrapper.isEmpty() ? QJsonValue(QJsonValue::Undefined) : wrapper.first();
 }
 
 template <typename E>

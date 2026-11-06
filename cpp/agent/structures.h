@@ -2,14 +2,24 @@
 
 #include <functional>
 
+#include <QByteArray>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QString>
 #include <QVariantMap>
 #include <QVector>
 
+#include "tooleffect.h"
+
 using ToolDone = std::function<void(QVariant)>;
 using Tool = std::function<void(QVariantMap, ToolDone)>;
+
+struct ToolImage
+{
+    QString text;
+    QString mimeType;
+    QByteArray data;
+};
 
 struct ModelConfig
 {
@@ -21,6 +31,7 @@ struct ToolData
 {
     Tool tool;
     QJsonObject json;
+    ToolEffect effect { ToolEffect::Reads };
 };
 
 using ToolsMap = QMap<QString, ToolData>;
@@ -44,6 +55,8 @@ struct Message
     QString content;
     QString tool_call_id;
     QVector<ToolCall> tool_calls;
+    QVector<ToolImage> images;
+    QJsonArray raw_content;
 
     QJsonObject toJsonObject() const;
     static Message fromJsonObject(const QJsonObject& json);
@@ -56,9 +69,10 @@ Messages fromJsonArray(const QJsonArray& json);
 
 struct Usage
 {
-    int prompt_tokens;
-    int completion_tokens;
-    int total_tokens;
+    int prompt_tokens { 0 };
+    int completion_tokens { 0 };
+    int total_tokens { 0 };
+    int context_tokens { 0 };
 
     QJsonObject toJsonObject() const;
     static Usage fromJsonObject(const QJsonObject& json);

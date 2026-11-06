@@ -19,6 +19,7 @@ static const char* kJsonToolsKey = "tools";
 static const char* kJsonReasoningEffortKey = "reasoning_effort";
 static const char* kJsonReasoningKey = "reasoning";
 static const char* kJsonEffortKey = "effort";
+}
 
 QString classifyError(int httpStatus, const QByteArray& body)
 {
@@ -48,7 +49,6 @@ QString classifyError(int httpStatus, const QByteArray& body)
     if (httpStatus == 0)
         return QStringLiteral("network_error");
     return QStringLiteral("unknown_error");
-}
 }
 
 Client::Client()
@@ -86,6 +86,14 @@ void Client::createCompletionAsync(const ModelConfig& config, const Messages& me
                          Completion completion = parseReply(reply);
                          callback(completion);
                      });
+}
+
+void Client::createCompletionAsync(const ModelConfig& config, const Messages& messages,
+                                   const ToolsMap& toolsMap,
+                                   const CompletionCreatedCallback& callback,
+                                   const PartialTextCallback&) const
+{
+    createCompletionAsync(config, messages, toolsMap, callback);
 }
 
 Completion Client::createCompletion(const ModelConfig& config, const Messages& messages,
@@ -128,15 +136,16 @@ QNetworkReply* Client::createRequest(const ModelConfig& config, const Messages& 
 
     if (!config.reasoningEffort.isEmpty())
     {
+        const QString effort = config.reasoningEffort.toLower();
         if (m_reasoningNested)
         {
             QJsonObject reasoning;
-            reasoning[kJsonEffortKey] = config.reasoningEffort;
+            reasoning[kJsonEffortKey] = effort;
             json[kJsonReasoningKey] = reasoning;
         }
         else
         {
-            json[kJsonReasoningEffortKey] = config.reasoningEffort;
+            json[kJsonReasoningEffortKey] = effort;
         }
     }
 

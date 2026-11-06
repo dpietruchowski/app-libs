@@ -68,6 +68,15 @@ macro(app_project_setup)
         set(CMAKE_BUILD_TYPE Release)
     endif()
 
+    if(NOT ANDROID)
+        find_program(APP_CCACHE ccache)
+        if(APP_CCACHE)
+            set(APP_CCACHE_LAUNCHER "${APP_CCACHE}" "base_dir=$ENV{HOME}" "hash_dir=false" "sloppiness=file_macro")
+            set(CMAKE_C_COMPILER_LAUNCHER ${APP_CCACHE_LAUNCHER})
+            set(CMAKE_CXX_COMPILER_LAUNCHER ${APP_CCACHE_LAUNCHER})
+        endif()
+    endif()
+
     add_compile_definitions(
         $<$<NOT:$<CONFIG:Debug>>:QT_NO_DEBUG_OUTPUT>
         $<$<NOT:$<CONFIG:Debug>>:QT_NO_INFO_OUTPUT>

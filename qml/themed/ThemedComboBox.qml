@@ -7,6 +7,7 @@ ComboBox {
     id: control
 
     property bool keyNavigable: true
+    property string placeholder: ""
 
     function keyActivate() {
         control.forceActiveFocus()
@@ -18,7 +19,8 @@ ComboBox {
     implicitWidth: Math.max(background.implicitWidth, contentItem.implicitWidth + leftPadding + rightPadding + indicator.width)
 
     Component.onCompleted: {
-        var maxWidth = 0
+        textMetrics.text = placeholder
+        var maxWidth = textMetrics.advanceWidth
         for (var i = 0; i < model.length; i++) {
             textMetrics.text = model[i]
             maxWidth = Math.max(maxWidth, textMetrics.advanceWidth)
@@ -40,8 +42,9 @@ ComboBox {
     }
 
     contentItem: Text {
-        text: control.displayText
-        color: Theme.colors.textPrimary
+        readonly property bool empty: control.currentIndex < 0
+        text: empty ? control.placeholder : control.displayText
+        color: empty ? Theme.colors.textPlaceholder : Theme.colors.textPrimary
         font: control.font
         verticalAlignment: Text.AlignVCenter
         leftPadding: Theme.padding.medium

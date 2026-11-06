@@ -228,6 +228,44 @@ QtObject {
         }
     }
 
+    property QtObject chart: QtObject {
+        readonly property int rowSpacing: theme.spacing.medium
+        readonly property int barSpacing: theme.spacing.xSmall
+        readonly property int barHeight: theme.scaled(12)
+        readonly property int valueSpacing: theme.spacing.small
+        readonly property int groupBarHeight: theme.scaled(8)
+        readonly property int swatchSize: theme.scaled(10)
+        readonly property int legendSpacing: theme.spacing.medium
+        readonly property var label: theme.text.label
+        readonly property var value: theme.text.bodyMuted
+        readonly property var legend: theme.text.caption
+    }
+
+    property QtObject timePicker: QtObject {
+        readonly property int fieldWidth: theme.scaled(120)
+        readonly property int fieldHeight: theme.scaled(44)
+        readonly property int iconSize: theme.scaled(20)
+        readonly property int columns: 6
+        readonly property int cellSize: theme.scaled(40)
+        readonly property int valueSize: theme.scaled(36)
+        readonly property color selectedBackground: theme.colors.primary
+        readonly property color selectedText: theme.colors.textInverse
+    }
+
+    property QtObject datePicker: QtObject {
+        readonly property int fieldWidth: theme.scaled(180)
+        readonly property int fieldHeight: theme.scaled(44)
+        readonly property int iconSize: theme.scaled(20)
+        readonly property int cellSize: theme.scaled(40)
+        readonly property int daySize: theme.scaled(36)
+        readonly property color selectedBackground: theme.colors.primary
+        readonly property color selectedText: theme.colors.textInverse
+        readonly property color todayBorder: theme.colors.primary
+        readonly property color outsideText: theme.colors.textDisabled
+        readonly property var title: theme.text.label
+        readonly property var weekday: theme.text.caption
+    }
+
     property QtObject segmented: QtObject {
         readonly property int height: theme.scaled(40)
         readonly property int padding: theme.scaled(3)
@@ -275,6 +313,10 @@ QtObject {
         readonly property int lineSpacing: theme.spacing.xSmall
         readonly property int iconSize: theme.scaled(24)
         readonly property color iconColor: theme.colors.textSecondary
+        readonly property QtObject done: QtObject {
+            readonly property color color: theme.colors.textDisabled
+            readonly property bool strikeout: true
+        }
     }
 
     property QtObject scroll: QtObject {
@@ -491,6 +533,14 @@ QtObject {
             readonly property color border: Qt.rgba(theme.colors.error.r, theme.colors.error.g, theme.colors.error.b, 0.60)
             readonly property color text: theme.colors.error
         }
+
+        readonly property QtObject disabled: QtObject {
+            readonly property color background: theme.colors.surface
+            readonly property color hovered: theme.colors.surface
+            readonly property color pressed: theme.colors.surface
+            readonly property color border: theme.colors.border
+            readonly property color text: theme.colors.textDisabled
+        }
     }
 
     property QtObject card: QtObject {
@@ -501,6 +551,7 @@ QtObject {
 
     property QtObject navigation: QtObject {
         readonly property int barHeight: theme.scaled(56)
+        readonly property int handleStripHeight: theme.scaled(16)
     }
 
     property QtObject panel: QtObject {
@@ -508,6 +559,8 @@ QtObject {
         readonly property int handleHeight: theme.scaled(4)
         readonly property int titleSize: theme.fontSize.large
         readonly property real maxHeightRatio: 0.75
+        readonly property real sheetHeightRatio: 0.8
+        readonly property real sideWidthRatio: 0.8
     }
 
     property QtObject input: QtObject {
@@ -563,6 +616,60 @@ QtObject {
         readonly property int large: theme.scaled(32)
     }
 
+    property QtObject chat: QtObject {
+        readonly property real bubbleMaxWidthRatio: 0.78
+        readonly property int fontSize: theme.fontSize.normal
+        readonly property int messageSpacing: theme.spacing.large
+        readonly property int composerHeight: theme.scaled(52)
+        readonly property color composerBackground: theme.colors.surface
+        readonly property color composerBorder: theme.colors.border
+        readonly property color composerBorderFocused: theme.colors.borderStrong
+        readonly property int composerRadius: theme.radius.xLarge
+        readonly property int composerFontSize: theme.fontSize.normal
+        readonly property int composerPaddingH: theme.padding.medium
+        readonly property int thinkingSpacing: theme.spacing.small
+        readonly property int thinkingMarkerSize: theme.scaled(8)
+        readonly property int thinkingMarkerRadius: 2
+        readonly property int thinkingFontSize: theme.fontSize.small
+        readonly property string thinkingFontFamily: "monospace"
+        readonly property int thinkingTickInterval: 1000
+        readonly property color thinkingMarker: theme.colors.primary
+        readonly property color thinkingText: theme.colors.textPrimary
+        readonly property color thinkingDetail: theme.colors.primary
+        readonly property int activitySpacing: theme.spacing.xSmall
+        readonly property int activityIndent: theme.padding.medium
+        readonly property int activityIconSize: theme.scaled(16)
+        readonly property int activityFontSize: theme.fontSize.small
+        readonly property color activityText: theme.colors.textSecondary
+        readonly property color activityWrite: theme.colors.warning
+        readonly property color activityFailed: theme.colors.error
+        readonly property int errorSpacing: theme.spacing.small
+        readonly property int errorFontSize: theme.fontSize.small
+        readonly property color errorText: theme.colors.error
+    }
+
+    property QtObject chatBubble: QtObject {
+        readonly property QtObject user: QtObject {
+            readonly property color background: theme.colors.surface
+            readonly property color border: "transparent"
+            readonly property color text: theme.colors.textPrimary
+            readonly property int radius: theme.radius.large
+            readonly property int paddingH: 14
+            readonly property int paddingV: 10
+            readonly property int alignment: Qt.AlignRight
+        }
+
+        readonly property QtObject agent: QtObject {
+            readonly property color background: "transparent"
+            readonly property color border: "transparent"
+            readonly property color text: theme.colors.textPrimary
+            readonly property int radius: 0
+            readonly property int paddingH: 0
+            readonly property int paddingV: 0
+            readonly property int alignment: Qt.AlignLeft
+        }
+    }
+
     property QtObject icons: QtObject {
         readonly property string search: "qrc:/Themed/Icons/search.svg"
         readonly property string close: "qrc:/Themed/Icons/close.svg"
@@ -579,6 +686,7 @@ QtObject {
         readonly property string list: "qrc:/Themed/Icons/list.svg"
         readonly property string deck: "qrc:/Themed/Icons/deck.svg"
         readonly property string send: "qrc:/Themed/Icons/send.svg"
+        readonly property string stop: "qrc:/Themed/Icons/stop.svg"
         readonly property string chat: "qrc:/Themed/Icons/chat.svg"
         readonly property string back: "qrc:/Themed/Icons/previous.svg"
         readonly property string backspace: "qrc:/Themed/Icons/backspace.svg"
@@ -615,6 +723,7 @@ QtObject {
         readonly property string calendar: "qrc:/Themed/Icons/calendar.svg"
         readonly property string chart: "qrc:/Themed/Icons/chart.svg"
         readonly property string timer: "qrc:/Themed/Icons/timer.svg"
+        readonly property string history: "qrc:/Themed/Icons/history.svg"
         readonly property string aiApp: "qrc:/Themed/Icons/ai-app.svg"
         readonly property string fillinLogo: "qrc:/Themed/Icons/fillin-logo.svg"
         readonly property string fillinLogoColor: "qrc:/Themed/Icons/fillin-logo-color.svg"

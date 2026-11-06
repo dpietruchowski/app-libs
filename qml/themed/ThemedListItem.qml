@@ -12,6 +12,9 @@ ThemedCard {
     property bool removable: false
     property bool checkable: false
     property bool checked: false
+    property bool done: false
+    property string badge: ""
+    property var badgeStyle: Theme.badge.neutral
 
     signal removeClicked()
     signal toggled(bool checked)
@@ -45,19 +48,30 @@ ThemedCard {
             ThemedText {
                 Layout.fillWidth: true
                 text: control.title
+                wrapMode: Text.Wrap
                 elide: Text.ElideRight
-                maximumLineCount: 1
+                maximumLineCount: 2
                 textStyle: Theme.text.body
+                color: control.done ? Theme.list.done.color : textStyle.color
+                font.strikeout: control.done && Theme.list.done.strikeout
             }
 
             ThemedText {
                 Layout.fillWidth: true
                 visible: control.subtitle !== ""
                 text: control.subtitle
+                wrapMode: Text.Wrap
                 elide: Text.ElideRight
-                maximumLineCount: 1
+                maximumLineCount: 2
                 textStyle: Theme.text.caption
+                color: control.done ? Theme.list.done.color : textStyle.color
             }
+        }
+
+        ThemedBadge {
+            visible: control.badge !== ""
+            text: control.badge
+            badgeStyle: control.badgeStyle
         }
 
         ThemedButton {

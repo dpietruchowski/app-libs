@@ -1,92 +1,27 @@
 #include <gtest/gtest.h>
 
-#include <QByteArray>
 #include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QEventLoop>
-#include <QHostAddress>
-#include <QTcpServer>
-#include <QTcpSocket>
 
 #include "agent/agent.h"
 #include "agent/client.h"
+#include "loopbackservertest.h"
 
-namespace
-{
-int contentLength(const QByteArray& headers)
-{
-    for (const QByteArray& line : headers.split('\n'))
-    {
-        QByteArray trimmed = line.trimmed();
-        if (trimmed.toLower().startsWith("content-length:"))
-        {
-            return trimmed.mid(trimmed.indexOf(':') + 1).trimmed().toInt();
-        }
-    }
-    return 0;
-}
-}
-
-// Spins up a loopback HTTP server that replies with a canned completion, so the
-// real Client (network request building + reply parsing) can be exercised
-// without touching OpenAI.
-class ClientIntegrationTest : public ::testing::Test
+class ClientIntegrationTest : public LoopbackServerTest
 {
 protected:
-    QTcpServer server;
-    QByteArray responseBody;
-    QByteArray lastRequest;
-
     void SetUp() override
     {
-        responseBody = R"({"id":"cmpl-x","object":"chat.completion","created":1,"model":"mock-model",)"
-                       R"("usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2},)"
-                       R"("choices":[{"index":0,"finish_reason":"stop",)"
-                       R"("message":{"role":"assistant","content":"mock reply"}}]})";
-
-        ASSERT_TRUE(server.listen(QHostAddress::LocalHost, 0));
-
-        QObject::connect(&server, &QTcpServer::newConnection, &server,
-                         [this]
-                         {
-                             QTcpSocket* socket = server.nextPendingConnection();
-                             QObject::connect(socket, &QTcpSocket::readyRead, socket,
-                                              [this, socket] { onReadyRead(socket); });
-                         });
+        LoopbackServerTest::SetUp();
+        responseBody
+            = R"({"id":"cmpl-x","object":"chat.completion","created":1,"model":"mock-model",)"
+              R"("usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2},)"
+              R"("choices":[{"index":0,"finish_reason":"stop",)"
+              R"("message":{"role":"assistant","content":"mock reply"}}]})";
     }
 
-    void onReadyRead(QTcpSocket* socket)
-    {
-        lastRequest += socket->readAll();
-
-        int headerEnd = lastRequest.indexOf("\r\n\r\n");
-        if (headerEnd < 0)
-        {
-            return;
-        }
-        QByteArray headers = lastRequest.left(headerEnd);
-        QByteArray body = lastRequest.mid(headerEnd + 4);
-        if (body.size() < contentLength(headers))
-        {
-            return; // wait for the rest of the body
-        }
-
-        QByteArray response = "HTTP/1.1 200 OK\r\n"
-                              "Content-Type: application/json\r\n"
-                              "Content-Length: "
-                              + QByteArray::number(responseBody.size())
-                              + "\r\n"
-                                "Connection: close\r\n\r\n"
-                              + responseBody;
-        socket->write(response);
-        socket->flush();
-        socket->disconnectFromHost();
-    }
-
-    QString url() const
-    {
-        return QString("http://127.0.0.1:%1/v1/chat/completions").arg(server.serverPort());
-    }
+    QString url() const { return LoopbackServerTest::url("/v1/chat/completions"); }
 };
 
 TEST_F(ClientIntegrationTest, CreateCompletion_ParsesServerReply)
@@ -116,6 +51,42 @@ TEST_F(ClientIntegrationTest, CreateCompletion_SendsModelAndMessagesInRequestBod
     EXPECT_TRUE(lastRequest.contains("gpt-test"));
     EXPECT_TRUE(lastRequest.contains("ping"));
     EXPECT_TRUE(lastRequest.contains("Bearer test-key"));
+}
+
+TEST_F(ClientIntegrationTest, CreateCompletion_SendsReasoningEffortInLowerCase)
+{
+    Client client(url(), "test-key");
+
+    client.createCompletion(ModelConfig { .model = "gpt-test", .reasoningEffort = "Minimal" },
+                            Messages {}, ToolsMap {});
+
+    const QJsonObject body = requestJson();
+    EXPECT_EQ(body.value("reasoning_effort").toString(), "minimal");
+    EXPECT_FALSE(body.contains("reasoning"));
+}
+
+TEST_F(ClientIntegrationTest, CreateCompletion_SendsNestedReasoningEffortInLowerCase)
+{
+    Client client(url(), "test-key");
+    client.setReasoningNested(true);
+
+    client.createCompletion(ModelConfig { .model = "gpt-test", .reasoningEffort = "High" },
+                            Messages {}, ToolsMap {});
+
+    const QJsonObject body = requestJson();
+    EXPECT_EQ(body.value("reasoning").toObject().value("effort").toString(), "high");
+    EXPECT_FALSE(body.contains("reasoning_effort"));
+}
+
+TEST_F(ClientIntegrationTest, CreateCompletion_OmitsReasoningEffortWhenNoneIsSet)
+{
+    Client client(url(), "test-key");
+
+    client.createCompletion(ModelConfig { .model = "gpt-test" }, Messages {}, ToolsMap {});
+
+    const QJsonObject body = requestJson();
+    EXPECT_FALSE(body.contains("reasoning_effort"));
+    EXPECT_FALSE(body.contains("reasoning"));
 }
 
 TEST_F(ClientIntegrationTest, Agent_RequestThroughRealClient_ReturnsContent)

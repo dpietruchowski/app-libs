@@ -1,0 +1,157 @@
+import QtQuick
+import QtQuick.Layouts
+
+import Themed.Components
+
+ThemedPickerField {
+    id: control
+
+    property int viewYear: 0
+    property int viewMonth: 0
+    property string today: ""
+
+    readonly property string title: Qt.locale().monthName(control.viewMonth) + " " + control.viewYear
+    readonly property var days: control.monthDays(control.viewYear, control.viewMonth)
+
+    function isoOf(date) {
+        return String(date.getFullYear()).padStart(4, "0") + "-"
+               + String(date.getMonth() + 1).padStart(2, "0") + "-"
+               + String(date.getDate()).padStart(2, "0")
+    }
+
+    function dateOf(iso) {
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+        if (!match)
+            return null
+        const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+        return control.isoOf(date) === iso ? date : null
+    }
+
+    function monthDays(year, month) {
+        const lead = (new Date(year, month, 1).getDay() - Qt.locale().firstDayOfWeek + 7) % 7
+        const result = []
+        for (let i = 0; i < 42; i++) {
+            const date = new Date(year, month, 1 - lead + i)
+            result.push({ iso: control.isoOf(date), day: date.getDate(), inMonth: date.getMonth() === month })
+        }
+        return result
+    }
+
+    function showMonthOf(iso) {
+        const date = control.dateOf(iso) || new Date()
+        control.viewYear = date.getFullYear()
+        control.viewMonth = date.getMonth()
+        control.today = control.isoOf(new Date())
+    }
+
+    function step(months) {
+        const date = new Date(control.viewYear, control.viewMonth + months, 1)
+        control.viewYear = date.getFullYear()
+        control.viewMonth = date.getMonth()
+    }
+
+    function pick(iso) {
+        control.value = iso
+        control.picked(iso)
+        control.close()
+    }
+
+    implicitWidth: Theme.datePicker.fieldWidth
+    implicitHeight: Theme.datePicker.fieldHeight
+    hasValue: control.dateOf(control.value) !== null
+    iconSource: Theme.icons.calendar
+    iconSize: Theme.datePicker.iconSize
+    popupContentWidth: 7 * Theme.datePicker.cellSize
+
+    Component.onCompleted: control.showMonthOf(control.value)
+    onOpening: control.showMonthOf(control.value)
+
+    RowLayout {
+        Layout.fillWidth: true
+
+        ThemedButton {
+            objectName: control.objectName ? control.objectName + "_previous" : ""
+            buttonSize: Theme.button.square
+            buttonStyle: Theme.button.ghost
+            iconSource: Theme.icons.back
+            onClicked: control.step(-1)
+        }
+
+        ThemedText {
+            Layout.fillWidth: true
+            text: control.title
+            textStyle: Theme.datePicker.title
+            horizontalAlignment: Text.AlignHCenter
+        }
+
+        ThemedButton {
+            objectName: control.objectName ? control.objectName + "_next" : ""
+            buttonSize: Theme.button.square
+            buttonStyle: Theme.button.ghost
+            iconSource: Theme.icons.next
+            onClicked: control.step(1)
+        }
+    }
+
+    RowLayout {
+        spacing: 0
+
+        Repeater {
+            model: 7
+
+            ThemedText {
+                required property int index
+
+                Layout.preferredWidth: Theme.datePicker.cellSize
+                text: Qt.locale().dayName((Qt.locale().firstDayOfWeek + index) % 7, Locale.NarrowFormat)
+                textStyle: Theme.datePicker.weekday
+                horizontalAlignment: Text.AlignHCenter
+            }
+        }
+    }
+
+    GridLayout {
+        columns: 7
+        columnSpacing: 0
+        rowSpacing: 0
+
+        Repeater {
+            model: control.days
+
+            Item {
+                id: cell
+
+                required property var modelData
+
+                readonly property bool selected: cell.modelData.iso === control.value
+
+                objectName: control.objectName ? control.objectName + "_day" + cell.modelData.iso : ""
+                Layout.preferredWidth: Theme.datePicker.cellSize
+                Layout.preferredHeight: Theme.datePicker.cellSize
+
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: Theme.datePicker.daySize
+                    height: Theme.datePicker.daySize
+                    radius: Theme.radius.full
+                    color: cell.selected ? Theme.datePicker.selectedBackground : "transparent"
+                    border.width: cell.modelData.iso === control.today ? Theme.border.thin : 0
+                    border.color: Theme.datePicker.todayBorder
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: cell.modelData.day
+                        font.pixelSize: Theme.fontSize.normal
+                        color: cell.selected ? Theme.datePicker.selectedText
+                               : cell.modelData.inMonth ? Theme.colors.textPrimary
+                               : Theme.datePicker.outsideText
+                    }
+                }
+
+                TapHandler {
+                    onTapped: control.pick(cell.modelData.iso)
+                }
+            }
+        }
+    }
+}

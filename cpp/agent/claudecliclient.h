@@ -7,6 +7,7 @@ class ClaudeCliClient final : public Client
 public:
     ClaudeCliClient();
 
+    using Client::createCompletionAsync;
     void createCompletionAsync(const ModelConfig& config, const Messages& messages,
                                const ToolsMap& toolsMap,
                                const CompletionCreatedCallback& callback) const override;

@@ -27,8 +27,6 @@ static const QRegularExpression descriptionRegex(R"(@details\s+(.+))");
 static const QRegularExpression paramRegex(R"(@param\s+(\w+)\s+\(([^)]+)\)\s+(.+))");
 static const QRegularExpression returnRegex(R"(@return\s+(.+))");
 
-const int kMaxToolCallsCount = 20;
-
 QJsonObject parseDocstring(const QString& docstring)
 {
     QJsonObject result;
@@ -127,7 +125,18 @@ void Agent::setModel(const QString& model) { m_config.model = model; }
 
 void Agent::setReasoningEffort(const QString& effort) { m_config.reasoningEffort = effort; }
 
+void Agent::setMaxToolCalls(int count) { m_maxToolCalls = count; }
+
+int Agent::maxToolCalls() const { return m_maxToolCalls; }
+
 void Agent::setErrorCallback(ErrorReceivedCallback callback) { m_errorCallback = std::move(callback); }
+
+void Agent::setObserver(AgentObserver observer) { m_observer = std::move(observer); }
+
+void Agent::setPartialTextCallback(Client::PartialTextCallback callback)
+{
+    m_partialTextCallback = std::move(callback);
+}
 
 void Agent::addInitialMessage(const QString& message)
 {
@@ -154,6 +163,13 @@ void Agent::requestAsync(const Client& client, const QString& message, const Res
     createCompletionAsync(client);
 }
 
+void Agent::cancel()
+{
+    m_life.expire();
+    m_responseReceivedCallback = {};
+    m_toolCallsCount = 0;
+}
+
 void Agent::clear()
 {
     m_messages.clear();
@@ -163,6 +179,11 @@ void Agent::clear()
 const Messages& Agent::messages() const { return m_messages; }
 
 void Agent::addTool(const QString docstring, const Tool& tool)
+{
+    addTool(docstring, tool, ToolEffect::Reads);
+}
+
+void Agent::addTool(const QString docstring, const Tool& tool, ToolEffect effect)
 {
     auto json = parseDocstring(docstring);
     auto name = getNameFromJson(json);
@@ -183,24 +204,57 @@ void Agent::addTool(const QString docstring, const Tool& tool)
     qCDebug(AgentLogic) << doc.toJson();
 
     qCInfo(AgentLogic) << QStringLiteral("Adding tool %1").arg(name);
-    m_toolsMap.insert(name, ToolData { .tool = tool, .json = json });
+    m_toolsMap.insert(name, ToolData { .tool = tool, .json = json, .effect = effect });
 }
 
 bool Agent::asynRequestInProgress() const { return m_responseReceivedCallback != nullptr; }
 
 void Agent::createCompletionAsync(const Client& client)
 {
-    client.createCompletionAsync(m_config, m_messages, m_toolsMap,
-                                 [this, &client](const Completion& completion)
-                                 { onCompletionReceived(client, completion); });
+    const auto requestStarted = m_observer.requestStarted;
+    if (requestStarted)
+    {
+        requestStarted();
+    }
+    client.createCompletionAsync(
+        m_config, m_messages, m_toolsMap,
+        [this, &client, alive = m_life.watch()](const Completion& completion)
+        {
+            if (!alive.expired())
+            {
+                onCompletionReceived(client, completion);
+            }
+        },
+        [this, alive = m_life.watch()](const QString& textSoFar)
+        {
+            if (!alive.expired() && m_partialTextCallback)
+            {
+                m_partialTextCallback(textSoFar);
+            }
+        });
 }
 
-void Agent::deliverResponse(const QString& response)
+void Agent::deliverResponse(const QString& response, const QString& errorToken)
 {
-    if (m_responseReceivedCallback)
+    if (!m_responseReceivedCallback)
     {
-        m_responseReceivedCallback(response);
-        m_responseReceivedCallback = {};
+        return;
+    }
+
+    m_responseReceivedCallback(response);
+    m_responseReceivedCallback = {};
+
+    const AgentObserver observer = m_observer;
+    if (errorToken.isEmpty())
+    {
+        if (observer.finished)
+        {
+            observer.finished(response);
+        }
+    }
+    else if (observer.failed)
+    {
+        observer.failed(errorToken);
     }
 }
 
@@ -216,8 +270,14 @@ void Agent::onCompletionReceived(const Client& client, const Completion& complet
         {
             m_errorCallback(error);
         }
-        deliverResponse("");
+        deliverResponse("", error);
         return;
+    }
+
+    const auto usageReported = m_observer.usageReported;
+    if (usageReported)
+    {
+        usageReported(completion.usage);
     }
 
     auto& choice = completion.choices.at(0);
@@ -229,24 +289,31 @@ void Agent::onCompletionReceived(const Client& client, const Completion& complet
     }
 
     auto response = choice.message.content;
-    m_messages.append(Message { .role = "assistant", .content = response });
+    m_messages.append(Message {
+        .role = "assistant", .content = response, .raw_content = choice.message.raw_content });
     deliverResponse(response);
 }
 
 void Agent::handleToolCallsAsync(const Client& client, QVector<ToolCall> toolCalls, int index)
 {
-    if (index == 0 && ++m_toolCallsCount > kMaxToolCallsCount)
+    if (index == 0 && ++m_toolCallsCount > m_maxToolCalls && m_maxToolCalls != kUnlimitedToolCalls)
     {
         qCWarning(AgentLogic) << "Too many tool calls count";
-        deliverResponse("");
+        deliverResponse("", QStringLiteral("too_many_tool_calls"));
         return;
     }
 
     if (index >= toolCalls.size())
     {
-        if (m_responseReceivedCallback)
+        const auto alive = m_life.watch();
+        const ResponseReceivedCallback roundCallback = m_responseReceivedCallback;
+        if (roundCallback)
         {
-            m_responseReceivedCallback("");
+            roundCallback("");
+            if (alive.expired())
+            {
+                return;
+            }
         }
         createCompletionAsync(client);
         return;
@@ -262,18 +329,52 @@ void Agent::handleToolCallsAsync(const Client& client, QVector<ToolCall> toolCal
         return;
     }
 
+    const auto alive = m_life.watch();
+    const auto toolStarted = m_observer.toolStarted;
+    if (toolStarted)
+    {
+        toolStarted(toolCall, m_toolsMap[toolCall.name].effect);
+        if (alive.expired())
+        {
+            return;
+        }
+    }
+
     m_toolsMap[toolCall.name].tool(
         toolCall.arguments,
-        [this, &client, toolCalls, index, id = toolCall.id](QVariant ret)
+        [this, &client, toolCalls, index, id = toolCall.id, alive](QVariant ret)
         {
-            qCInfo(AgentLogic) << "Tool result" << id << ret.toString().left(600);
+            if (alive.expired())
+            {
+                return;
+            }
+
+            const bool carriesImage = ret.metaType() == QMetaType::fromType<ToolImage>();
+            const ToolImage image = carriesImage ? ret.value<ToolImage>() : ToolImage();
+            const QVariant answer = carriesImage ? QVariant(image.text) : ret;
+
+            qCInfo(AgentLogic) << "Tool result" << id << answer.toString().left(600);
+
+            const auto toolFinished = m_observer.toolFinished;
+            if (toolFinished)
+            {
+                toolFinished(toolCalls.at(index), answer);
+                if (alive.expired())
+                {
+                    return;
+                }
+            }
+
             QVariantMap map;
-            map["value"] = ret;
+            map["value"] = answer;
             QJsonDocument doc = QJsonDocument::fromVariant(map);
 
-            m_messages.append(Message { .role = "tool",
-                                        .content = doc.toJson(QJsonDocument::Compact),
-                                        .tool_call_id = id });
+            Message message { .role = "tool",
+                              .content = doc.toJson(QJsonDocument::Compact),
+                              .tool_call_id = id };
+            if (carriesImage)
+                message.images.append(image);
+            m_messages.append(message);
 
             handleToolCallsAsync(client, toolCalls, index + 1);
         });
