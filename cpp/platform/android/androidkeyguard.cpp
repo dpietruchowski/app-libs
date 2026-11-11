@@ -92,12 +92,12 @@ KeyguardBackend::~KeyguardBackend()
 
 void KeyguardBackend::requestUnlock()
 {
-    const QJniObject activity(QNativeInterface::QAndroidApplication::context());
-    if (!activity.isValid())
+    const QJniObject context(QNativeInterface::QAndroidApplication::context());
+    if (!context.isValid())
     {
         m_owner.finishUnlock(false);
         return;
     }
     QJniObject::callStaticMethod<void>(lockScreenClass, "requestUnlock",
-                                       "(Landroid/app/Activity;)V", activity.object());
+                                       "(Landroid/content/Context;)V", context.object());
 }

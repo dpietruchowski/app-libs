@@ -31,8 +31,14 @@ public final class LockScreen
         listening = value;
     }
 
-    public static void requestUnlock(final Activity activity)
+    public static void requestUnlock(Context context)
     {
+        if (!(context instanceof Activity))
+        {
+            nativeUnlockFinished(false);
+            return;
+        }
+        final Activity activity = (Activity) context;
         activity.runOnUiThread(() -> dismissKeyguard(activity));
     }
 

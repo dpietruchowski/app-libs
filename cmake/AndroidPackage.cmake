@@ -42,6 +42,15 @@ function(app_android_manifest_entries OUT_VAR)
     get_property(names GLOBAL PROPERTY APP_ANDROID_TILE_NAMES)
 
     set(entries "")
+    string(APPEND entries
+        "        <activity\n"
+        "            android:name=\"app.libs.LockScreenLaunchActivity\"\n"
+        "            android:excludeFromRecents=\"true\"\n"
+        "            android:exported=\"false\"\n"
+        "            android:noHistory=\"true\"\n"
+        "            android:showWhenLocked=\"true\"\n"
+        "            android:taskAffinity=\"\"\n"
+        "            android:theme=\"@android:style/Theme.NoDisplay\"/>\n")
     foreach(name IN LISTS names)
         get_property(label GLOBAL PROPERTY APP_ANDROID_TILE_${name}_LABEL)
         get_property(icon GLOBAL PROPERTY APP_ANDROID_TILE_${name}_ICON)
@@ -63,6 +72,7 @@ endfunction()
 
 function(app_android_install_java PACKAGE_DIR)
     set(java_root "${_APP_LIBS_ANDROID_DIR}/java")
+    file(REMOVE_RECURSE "${PACKAGE_DIR}/src/app/libs")
     file(GLOB_RECURSE java_files RELATIVE "${java_root}" "${java_root}/*.java")
     foreach(java_file IN LISTS java_files)
         configure_file("${java_root}/${java_file}" "${PACKAGE_DIR}/src/${java_file}" COPYONLY)

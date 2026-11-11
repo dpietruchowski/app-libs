@@ -8,7 +8,6 @@ import android.service.quicksettings.TileService;
 
 public abstract class LaunchTileService extends TileService
 {
-    private static final String LAUNCH_ACTION_EXTRA = "launch_action";
     private static final int FIRST_SDK_WITH_PENDING_INTENT_LAUNCH = 34;
 
     protected abstract String launchAction();
@@ -24,17 +23,13 @@ public abstract class LaunchTileService extends TileService
     @Override
     public void onClick()
     {
-        Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
-        if (launch == null)
-        {
-            return;
-        }
-        launch.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        launch.putExtra(LAUNCH_ACTION_EXTRA, launchAction());
-        launch.putExtra(LockScreen.EXTRA_LOCK_SCREEN, isLocked());
+        Intent launch = new Intent(this, LockScreenLaunchActivity.class);
+        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        launch.putExtra(LockScreenLaunchActivity.EXTRA_LAUNCH_ACTION, launchAction());
         startActivityAndCollapseCompat(launch);
     }
 
+    @SuppressWarnings("deprecation")
     private void startActivityAndCollapseCompat(Intent launch)
     {
         if (Build.VERSION.SDK_INT >= FIRST_SDK_WITH_PENDING_INTENT_LAUNCH)
