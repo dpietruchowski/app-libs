@@ -1,0 +1,98 @@
+#include "quickentryconfig.h"
+
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QSet>
+
+namespace
+{
+
+const QString valuePlaceholder = QStringLiteral("%1");
+
+QString variantsError(const QuickEntryMode& mode)
+{
+    QSet<QString> keys;
+    for (const QuickEntryVariant& variant : mode.variants)
+    {
+        if (variant.key.isEmpty() || variant.label.isEmpty())
+            return QStringLiteral("a variant of mode %1 has no key or no label").arg(mode.id);
+        if (keys.contains(variant.key))
+            return QStringLiteral("mode %1 repeats the variant %2").arg(mode.id, variant.key);
+        keys.insert(variant.key);
+    }
+    return {};
+}
+
+QString modeError(const QuickEntryMode& mode)
+{
+    if (mode.id.isEmpty() || mode.label.isEmpty())
+        return QStringLiteral("a mode has no id or no label");
+    if (mode.values.isEmpty())
+        return QStringLiteral("mode %1 has no values").arg(mode.id);
+    if (!mode.valueFormat.contains(valuePlaceholder))
+        return QStringLiteral("the value format of mode %1 has no %2")
+            .arg(mode.id, valuePlaceholder);
+    if (!mode.headerFormat.contains(valuePlaceholder))
+        return QStringLiteral("the header format of mode %1 has no %2")
+            .arg(mode.id, valuePlaceholder);
+    return variantsError(mode);
+}
+
+QJsonObject modeToJson(const QuickEntryMode& mode)
+{
+    QJsonArray values;
+    for (int value : mode.values)
+        values.append(value);
+
+    QJsonArray variants;
+    for (const QuickEntryVariant& variant : mode.variants)
+        variants.append(QJsonObject { { "key", variant.key }, { "label", variant.label } });
+
+    return {
+        { "id", mode.id },
+        { "label", mode.label },
+        { "valueFormat", mode.valueFormat },
+        { "headerFormat", mode.headerFormat },
+        { "initialValue", mode.initialValue },
+        { "values", values },
+        { "variants", variants },
+    };
+}
+
+}  // namespace
+
+QString QuickEntryConfig::validationError() const
+{
+    if (channelId.isEmpty() || channelName.isEmpty())
+        return QStringLiteral("the notification channel has no id or no name");
+    if (modes.isEmpty())
+        return QStringLiteral("there is no mode");
+
+    QSet<QString> ids;
+    for (const QuickEntryMode& mode : modes)
+    {
+        const QString error = modeError(mode);
+        if (!error.isEmpty())
+            return error;
+        if (ids.contains(mode.id))
+            return QStringLiteral("the mode %1 is repeated").arg(mode.id);
+        ids.insert(mode.id);
+    }
+    return {};
+}
+
+QByteArray QuickEntryConfig::toJson() const
+{
+    QJsonArray modeObjects;
+    for (const QuickEntryMode& mode : modes)
+        modeObjects.append(modeToJson(mode));
+
+    return QJsonDocument(QJsonObject {
+                             { "channelId", channelId },
+                             { "channelName", channelName },
+                             { "smallIcon", smallIcon },
+                             { "modes", modeObjects },
+                         })
+        .toJson(QJsonDocument::Compact);
+}

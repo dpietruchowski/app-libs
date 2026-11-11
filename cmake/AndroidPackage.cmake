@@ -50,7 +50,10 @@ function(app_android_manifest_entries OUT_VAR)
         "            android:noHistory=\"true\"\n"
         "            android:showWhenLocked=\"true\"\n"
         "            android:taskAffinity=\"\"\n"
-        "            android:theme=\"@android:style/Theme.NoDisplay\"/>\n")
+        "            android:theme=\"@android:style/Theme.NoDisplay\"/>\n"
+        "        <receiver\n"
+        "            android:name=\"app.libs.QuickEntryReceiver\"\n"
+        "            android:exported=\"false\"/>\n")
     foreach(name IN LISTS names)
         get_property(label GLOBAL PROPERTY APP_ANDROID_TILE_${name}_LABEL)
         get_property(icon GLOBAL PROPERTY APP_ANDROID_TILE_${name}_ICON)
@@ -68,6 +71,18 @@ function(app_android_manifest_entries OUT_VAR)
     endforeach()
 
     set(${OUT_VAR} "${entries}" PARENT_SCOPE)
+endfunction()
+
+function(app_android_install_resources PACKAGE_DIR)
+    set(res_root "${_APP_LIBS_ANDROID_DIR}/res")
+    file(GLOB stale_files "${PACKAGE_DIR}/res/*/libs_*")
+    if(stale_files)
+        file(REMOVE ${stale_files})
+    endif()
+    file(GLOB_RECURSE res_files RELATIVE "${res_root}" "${res_root}/*")
+    foreach(res_file IN LISTS res_files)
+        configure_file("${res_root}/${res_file}" "${PACKAGE_DIR}/res/${res_file}" COPYONLY)
+    endforeach()
 endfunction()
 
 function(app_android_install_java PACKAGE_DIR)
