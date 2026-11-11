@@ -24,6 +24,7 @@ public final class QuickEntryModel
     {
         public final String id;
         public final String label;
+        public final String tone;
         public final String valueFormat;
         public final String headerFormat;
         public final int initialValue;
@@ -31,8 +32,8 @@ public final class QuickEntryModel
         public final List<Integer> values;
         public final List<Variant> variants;
 
-        public Mode(String id, String label, String valueFormat, String headerFormat, int initialValue,
-                    String initialVariant, List<Integer> values, List<Variant> variants)
+        public Mode(String id, String label, String tone, String valueFormat, String headerFormat,
+                    int initialValue, String initialVariant, List<Integer> values, List<Variant> variants)
         {
             if (values.isEmpty())
             {
@@ -40,6 +41,7 @@ public final class QuickEntryModel
             }
             this.id = id;
             this.label = label;
+            this.tone = tone;
             this.valueFormat = valueFormat;
             this.headerFormat = headerFormat;
             this.initialValue = initialValue;

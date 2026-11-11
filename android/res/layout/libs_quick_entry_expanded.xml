@@ -25,10 +25,14 @@
             android:textSize="16sp" />
 
         <TextView
+            android:id="@+id/libs_quick_entry_mode_gap"
+            android:layout_width="6dp"
+            android:layout_height="0dp" />
+
+        <TextView
             android:id="@+id/libs_quick_entry_mode"
             android:layout_width="0dp"
             android:layout_height="48dp"
-            android:layout_marginStart="6dp"
             android:layout_weight="1"
             android:background="@drawable/libs_quick_entry_button"
             android:ellipsize="end"
@@ -36,6 +40,19 @@
             android:maxLines="1"
             android:textAppearance="@android:style/TextAppearance.Material.Notification"
             android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/libs_quick_entry_open_gap"
+            android:layout_width="6dp"
+            android:layout_height="0dp" />
+
+        <ImageView
+            android:id="@+id/libs_quick_entry_open"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/libs_quick_entry_button"
+            android:padding="10dp"
+            android:scaleType="fitCenter" />
     </LinearLayout>
 
     <LinearLayout

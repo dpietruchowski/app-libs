@@ -58,8 +58,8 @@ final class QuickEntryConfig
         try
         {
             return new QuickEntryModel.Mode(json.getString("id"), json.getString("label"),
-                json.getString("valueFormat"), json.getString("headerFormat"), json.getInt("initialValue"),
-                json.optString("initialVariant", ""), values, variants);
+                json.optString("tone", ""), json.getString("valueFormat"), json.getString("headerFormat"),
+                json.getInt("initialValue"), json.optString("initialVariant", ""), values, variants);
         }
         catch (IllegalArgumentException invalid)
         {

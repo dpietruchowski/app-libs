@@ -6,10 +6,10 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.Resources;
 import android.graphics.Typeface;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
 import android.text.style.StyleSpan;
 import android.view.View;
 import android.widget.RemoteViews;
@@ -28,12 +28,14 @@ final class QuickEntryView
     {
         createChannel(context, config);
 
-        QuickEntryViewState state = new QuickEntryViewState(model);
+        PendingIntent open = openApp(context);
+        QuickEntryViewState state
+            = new QuickEntryViewState(model, open != null && context.getApplicationInfo().icon != 0);
         Notification.Builder builder = new Notification.Builder(context, config.channelId)
             .setSmallIcon(smallIcon(context, config.smallIcon))
             .setStyle(new Notification.DecoratedCustomViewStyle())
             .setCustomContentView(bind(context, COLLAPSED_LAYOUT, state))
-            .setCustomBigContentView(bind(context, EXPANDED_LAYOUT, state))
+            .setCustomBigContentView(bindTopRowExtras(context, bind(context, EXPANDED_LAYOUT, state), state, open))
             .setCategory(Notification.CATEGORY_STATUS)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOngoing(true)
@@ -44,7 +46,6 @@ final class QuickEntryView
         {
             builder.setSubText(header);
         }
-        PendingIntent open = openApp(context);
         if (open != null)
         {
             builder.setContentIntent(open);
@@ -65,10 +66,9 @@ final class QuickEntryView
 
     private static RemoteViews bind(Context context, String layout, QuickEntryViewState state)
     {
-        Resources resources = context.getResources();
         String packageName = context.getPackageName();
         RemoteViews views
-            = new RemoteViews(packageName, resources.getIdentifier(layout, "layout", packageName));
+            = new RemoteViews(packageName, context.getResources().getIdentifier(layout, "layout", packageName));
 
         int minus = viewId(context, "libs_quick_entry_minus");
         int value = viewId(context, "libs_quick_entry_value");
@@ -80,21 +80,60 @@ final class QuickEntryView
         views.setOnClickPendingIntent(minus, tap(context, QuickEntry.ACTION_STEP_DOWN));
         views.setOnClickPendingIntent(value, tap(context, QuickEntry.ACTION_COMMIT));
         views.setOnClickPendingIntent(plus, tap(context, QuickEntry.ACTION_STEP_UP));
+        paint(context, views, value, QuickEntryTone.solidButton(state.tone), QuickEntryTone.solidText(state.tone));
+        paint(context, views, minus, QuickEntryTone.softButton(state.tone), QuickEntryTone.text(state.tone));
+        paint(context, views, plus, QuickEntryTone.softButton(state.tone), QuickEntryTone.text(state.tone));
 
-        views.setViewVisibility(variant, state.variantVisible ? View.VISIBLE : View.GONE);
+        views.setViewVisibility(variant, visibility(state.variantVisible));
         if (state.variantVisible)
         {
             views.setTextViewText(variant, state.variantLabel);
             views.setOnClickPendingIntent(variant, tap(context, QuickEntry.ACTION_CYCLE_VARIANT));
+            paint(context, views, variant, QuickEntryTone.softButton(state.tone),
+                QuickEntryTone.text(state.tone));
         }
 
-        views.setViewVisibility(mode, state.modeVisible ? View.VISIBLE : View.GONE);
-        views.setTextViewText(mode, modeLabels(state));
+        views.setViewVisibility(mode, visibility(state.modeVisible));
+        views.setTextViewText(mode, modeLabels(context, state));
         views.setOnClickPendingIntent(mode, tap(context, QuickEntry.ACTION_SWITCH_MODE));
+
         return views;
     }
 
-    private static CharSequence modeLabels(QuickEntryViewState state)
+    private static RemoteViews bindTopRowExtras(Context context, RemoteViews views, QuickEntryViewState state,
+                                                PendingIntent open)
+    {
+        views.setViewVisibility(viewId(context, "libs_quick_entry_mode_gap"), visibility(state.modeGapVisible));
+        views.setViewVisibility(viewId(context, "libs_quick_entry_open_gap"), visibility(state.openGapVisible));
+
+        int button = viewId(context, "libs_quick_entry_open");
+        views.setViewVisibility(button, visibility(state.openVisible));
+        if (state.openVisible)
+        {
+            views.setImageViewResource(button, context.getApplicationInfo().icon);
+            views.setContentDescription(button,
+                context.getApplicationInfo().loadLabel(context.getPackageManager()));
+            views.setOnClickPendingIntent(button, open);
+        }
+        return views;
+    }
+
+    private static void paint(Context context, RemoteViews views, int viewId, String backgroundName,
+                              String textColorName)
+    {
+        int background = resource(context, "drawable", backgroundName);
+        if (background != 0)
+        {
+            views.setInt(viewId, "setBackgroundResource", background);
+        }
+        int textColor = resource(context, "color", textColorName);
+        if (textColor != 0)
+        {
+            views.setTextColor(viewId, color(context, textColor));
+        }
+    }
+
+    private static CharSequence modeLabels(Context context, QuickEntryViewState state)
     {
         SpannableStringBuilder labels = new SpannableStringBuilder();
         for (int i = 0; i < state.modeLabels.size(); i++)
@@ -109,14 +148,35 @@ final class QuickEntryView
             {
                 labels.setSpan(new StyleSpan(Typeface.BOLD), start, labels.length(),
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                int textColor = resource(context, "color", QuickEntryTone.text(state.modeTones.get(i)));
+                if (textColor != 0)
+                {
+                    labels.setSpan(new ForegroundColorSpan(color(context, textColor)), start, labels.length(),
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                }
             }
         }
         return labels;
     }
 
+    private static int visibility(boolean visible)
+    {
+        return visible ? View.VISIBLE : View.GONE;
+    }
+
+    private static int color(Context context, int resource)
+    {
+        return context.getResources().getColor(resource, context.getTheme());
+    }
+
+    private static int resource(Context context, String type, String name)
+    {
+        return name.isEmpty() ? 0 : context.getResources().getIdentifier(name, type, context.getPackageName());
+    }
+
     private static int viewId(Context context, String name)
     {
-        return context.getResources().getIdentifier(name, "id", context.getPackageName());
+        return resource(context, "id", name);
     }
 
     private static int smallIcon(Context context, String name)
