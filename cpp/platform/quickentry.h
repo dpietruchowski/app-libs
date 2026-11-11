@@ -1,14 +1,13 @@
 #pragma once
 
 #include "platform/quickentryaction.h"
+#include "platform/quickentrybackend.h"
 #include "platform/quickentryconfig.h"
 
 #include <QObject>
 #include <QSet>
 
 #include <memory>
-
-class QuickEntryBackend;
 
 class QuickEntry final : public QObject
 {
@@ -18,6 +17,7 @@ class QuickEntry final : public QObject
 
 public:
     explicit QuickEntry(QObject* parent = nullptr);
+    explicit QuickEntry(std::unique_ptr<QuickEntryBackend> backend, QObject* parent = nullptr);
     ~QuickEntry() override;
 
     bool configure(const QuickEntryConfig& config);

@@ -1,26 +1,25 @@
 #pragma once
 
-#include <QByteArray>
-#include <QString>
+#include "platform/quickentrybackend.h"
 
 class QuickEntry;
 
-class QuickEntryBackend final
+class AndroidQuickEntryBackend final : public QuickEntryBackend
 {
 public:
-    explicit QuickEntryBackend(QuickEntry& owner);
-    ~QuickEntryBackend();
+    explicit AndroidQuickEntryBackend(QuickEntry& owner);
+    ~AndroidQuickEntryBackend() override;
 
-    QuickEntryBackend(const QuickEntryBackend&) = delete;
-    QuickEntryBackend& operator=(const QuickEntryBackend&) = delete;
+    AndroidQuickEntryBackend(const AndroidQuickEntryBackend&) = delete;
+    AndroidQuickEntryBackend& operator=(const AndroidQuickEntryBackend&) = delete;
 
-    void configure(const QByteArray& json);
-    bool canShow() const;
-    bool show();
-    void hide();
-    void setHeader(const QString& header);
-    void startDelivery();
-    void acknowledge(const QString& id);
+    void configure(const QByteArray& json) override;
+    bool canShow() const override;
+    bool show() override;
+    void hide() override;
+    void setHeader(const QString& header) override;
+    void startDelivery() override;
+    void acknowledge(const QString& id) override;
 
 private:
     QuickEntry& m_owner;

@@ -2,28 +2,37 @@
 
 #include <QDebug>
 #include <QtGlobal>
+#include <utility>
 
 #if defined(Q_OS_ANDROID)
 #include "android/androidquickentry.h"
+using PlatformQuickEntryBackend = AndroidQuickEntryBackend;
 #else
-class QuickEntryBackend
+class NullQuickEntryBackend final : public QuickEntryBackend
 {
 public:
-    explicit QuickEntryBackend(QuickEntry&) { }
+    explicit NullQuickEntryBackend(QuickEntry&) { }
 
-    void configure(const QByteArray&) { }
-    bool canShow() const { return false; }
-    bool show() { return false; }
-    void hide() { }
-    void setHeader(const QString&) { }
-    void startDelivery() { }
-    void acknowledge(const QString&) { }
+    void configure(const QByteArray&) override { }
+    bool canShow() const override { return false; }
+    bool show() override { return false; }
+    void hide() override { }
+    void setHeader(const QString&) override { }
+    void startDelivery() override { }
+    void acknowledge(const QString&) override { }
 };
+using PlatformQuickEntryBackend = NullQuickEntryBackend;
 #endif
 
 QuickEntry::QuickEntry(QObject* parent)
     : QObject(parent)
-    , m_backend(std::make_unique<QuickEntryBackend>(*this))
+    , m_backend(std::make_unique<PlatformQuickEntryBackend>(*this))
+{
+}
+
+QuickEntry::QuickEntry(std::unique_ptr<QuickEntryBackend> backend, QObject* parent)
+    : QObject(parent)
+    , m_backend(std::move(backend))
 {
 }
 
@@ -70,11 +79,12 @@ void QuickEntry::hide()
 
 void QuickEntry::setHeader(const QString& header)
 {
+    m_backend->setHeader(header);
+
     if (m_header == header)
         return;
 
     m_header = header;
-    m_backend->setHeader(header);
     emit headerChanged();
 }
 

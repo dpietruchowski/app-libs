@@ -27,11 +27,12 @@ public final class QuickEntryModel
         public final String valueFormat;
         public final String headerFormat;
         public final int initialValue;
+        public final String initialVariant;
         public final List<Integer> values;
         public final List<Variant> variants;
 
         public Mode(String id, String label, String valueFormat, String headerFormat, int initialValue,
-                    List<Integer> values, List<Variant> variants)
+                    String initialVariant, List<Integer> values, List<Variant> variants)
         {
             if (values.isEmpty())
             {
@@ -42,6 +43,7 @@ public final class QuickEntryModel
             this.valueFormat = valueFormat;
             this.headerFormat = headerFormat;
             this.initialValue = initialValue;
+            this.initialVariant = initialVariant;
             this.values = Collections.unmodifiableList(new ArrayList<>(values));
             this.variants = Collections.unmodifiableList(new ArrayList<>(variants));
         }
@@ -92,7 +94,8 @@ public final class QuickEntryModel
             Integer savedValue = saved == null ? null : saved.values.get(mode.id);
             valueIndexes[i] = nearestValueIndex(mode, savedValue != null ? savedValue : mode.initialValue);
             String savedVariant = saved == null ? null : saved.variants.get(mode.id);
-            variantIndexes[i] = Math.max(0, indexOfVariant(mode, savedVariant));
+            String startVariant = savedVariant != null ? savedVariant : mode.initialVariant;
+            variantIndexes[i] = Math.max(0, indexOfVariant(mode, startVariant));
             if (saved != null && mode.id.equals(saved.modeId))
             {
                 modeIndex = i;
