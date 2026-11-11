@@ -83,7 +83,7 @@ void callWithContextAndString(const char* method, const QString& text)
 
 }  // namespace
 
-QuickEntryBackend::QuickEntryBackend(QuickEntry& owner)
+AndroidQuickEntryBackend::AndroidQuickEntryBackend(QuickEntry& owner)
     : m_owner(owner)
 {
     registerNatives();
@@ -91,19 +91,19 @@ QuickEntryBackend::QuickEntryBackend(QuickEntry& owner)
     activeOwner = &m_owner;
 }
 
-QuickEntryBackend::~QuickEntryBackend()
+AndroidQuickEntryBackend::~AndroidQuickEntryBackend()
 {
     setListening(false);
     const QMutexLocker locker(&activeOwnerMutex);
     activeOwner = nullptr;
 }
 
-void QuickEntryBackend::configure(const QByteArray& json)
+void AndroidQuickEntryBackend::configure(const QByteArray& json)
 {
     callWithContextAndString("configure", QString::fromUtf8(json));
 }
 
-bool QuickEntryBackend::canShow() const
+bool AndroidQuickEntryBackend::canShow() const
 {
     const QJniObject context = applicationContext();
     return context.isValid()
@@ -111,26 +111,26 @@ bool QuickEntryBackend::canShow() const
                                                   "(Landroid/content/Context;)Z", context.object());
 }
 
-bool QuickEntryBackend::show()
+bool AndroidQuickEntryBackend::show()
 {
     callWithContext("show");
     return true;
 }
 
-void QuickEntryBackend::hide() { callWithContext("hide"); }
+void AndroidQuickEntryBackend::hide() { callWithContext("hide"); }
 
-void QuickEntryBackend::setHeader(const QString& header)
+void AndroidQuickEntryBackend::setHeader(const QString& header)
 {
     callWithContextAndString("setHeader", header);
 }
 
-void QuickEntryBackend::startDelivery()
+void AndroidQuickEntryBackend::startDelivery()
 {
     setListening(true);
     m_owner.deliver(pendingActions());
 }
 
-void QuickEntryBackend::acknowledge(const QString& id)
+void AndroidQuickEntryBackend::acknowledge(const QString& id)
 {
     callWithContextAndString("acknowledge", id);
 }

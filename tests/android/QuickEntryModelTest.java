@@ -26,7 +26,12 @@ public final class QuickEntryModelTest
 
     private static QuickEntryModel.Mode drinkMode()
     {
-        return new QuickEntryModel.Mode("in", "IN", "%1 ml", "last: %1", 200,
+        return drinkModeStartingOn("");
+    }
+
+    private static QuickEntryModel.Mode drinkModeStartingOn(String initialVariant)
+    {
+        return new QuickEntryModel.Mode("in", "IN", "%1 ml", "last: %1", 200, initialVariant,
             Arrays.asList(50, 100, 150, 200, 250, 300),
             Arrays.asList(new QuickEntryModel.Variant("water", "Water"),
                 new QuickEntryModel.Variant("tea", "Tea"), new QuickEntryModel.Variant("coffee", "Coffee")));
@@ -34,7 +39,7 @@ public final class QuickEntryModelTest
 
     private static QuickEntryModel.Mode outMode()
     {
-        return new QuickEntryModel.Mode("out", "OUT", "%1 ml", "last out: %1", 100,
+        return new QuickEntryModel.Mode("out", "OUT", "%1 ml", "last out: %1", 100, "",
             Arrays.asList(50, 100, 150, 200, 300), new ArrayList<QuickEntryModel.Variant>());
     }
 
@@ -54,9 +59,35 @@ public final class QuickEntryModelTest
 
     private static void snapsAnInitialValueThatIsNotListedToTheNearestOne()
     {
-        QuickEntryModel.Mode mode = new QuickEntryModel.Mode("in", "IN", "%1", "%1", 210,
+        QuickEntryModel.Mode mode = new QuickEntryModel.Mode("in", "IN", "%1", "%1", 210, "",
             Arrays.asList(100, 200, 300), new ArrayList<QuickEntryModel.Variant>());
         checkEquals("nearest initial value", 200, new QuickEntryModel(Arrays.asList(mode), null).value());
+    }
+
+    private static void startsOnTheInitialVariantWhenNothingWasSaved()
+    {
+        QuickEntryModel model = new QuickEntryModel(Arrays.asList(drinkModeStartingOn("tea")), null);
+
+        checkEquals("initial variant", "tea", model.variant().key);
+        checkEquals("action variant", "tea", model.commit("a1", 1L).variantKey);
+    }
+
+    private static void startsOnTheFirstVariantWhenTheInitialOneIsUnknown()
+    {
+        QuickEntryModel model = new QuickEntryModel(Arrays.asList(drinkModeStartingOn("juice")), null);
+
+        checkEquals("fallback variant", "water", model.variant().key);
+    }
+
+    private static void aSavedVariantWinsOverTheInitialOne()
+    {
+        QuickEntryModel first = new QuickEntryModel(Arrays.asList(drinkModeStartingOn("tea")), null);
+        first.cycleVariant();
+
+        QuickEntryModel restored
+            = new QuickEntryModel(Arrays.asList(drinkModeStartingOn("water")), first.state());
+
+        checkEquals("saved variant", "coffee", restored.variant().key);
     }
 
     private static void stepsThroughTheValuesAndStopsAtBothEnds()
@@ -160,7 +191,7 @@ public final class QuickEntryModelTest
     {
         QuickEntryModel first = freshModel();
         first.stepUp();
-        QuickEntryModel.Mode shorterList = new QuickEntryModel.Mode("in", "IN", "%1 ml", "last: %1", 200,
+        QuickEntryModel.Mode shorterList = new QuickEntryModel.Mode("in", "IN", "%1 ml", "last: %1", 200, "",
             Arrays.asList(100, 200), new ArrayList<QuickEntryModel.Variant>());
 
         QuickEntryModel restored = new QuickEntryModel(Arrays.asList(shorterList), first.state());
@@ -173,7 +204,7 @@ public final class QuickEntryModelTest
     {
         QuickEntryModel first = freshModel();
         first.cycleVariant();
-        QuickEntryModel.Mode withoutTea = new QuickEntryModel.Mode("in", "IN", "%1 ml", "last: %1", 200,
+        QuickEntryModel.Mode withoutTea = new QuickEntryModel.Mode("in", "IN", "%1 ml", "last: %1", 200, "",
             Arrays.asList(200), Arrays.asList(new QuickEntryModel.Variant("water", "Water")));
 
         QuickEntryModel restored = new QuickEntryModel(Arrays.asList(withoutTea), first.state());
@@ -220,7 +251,7 @@ public final class QuickEntryModelTest
         boolean noValues = false;
         try
         {
-            new QuickEntryModel.Mode("in", "IN", "%1", "%1", 0, new ArrayList<Integer>(),
+            new QuickEntryModel.Mode("in", "IN", "%1", "%1", 0, "", new ArrayList<Integer>(),
                 new ArrayList<QuickEntryModel.Variant>());
         }
         catch (IllegalArgumentException expected)
@@ -234,6 +265,9 @@ public final class QuickEntryModelTest
     {
         startsOnTheFirstModeAtItsInitialValue();
         snapsAnInitialValueThatIsNotListedToTheNearestOne();
+        startsOnTheInitialVariantWhenNothingWasSaved();
+        startsOnTheFirstVariantWhenTheInitialOneIsUnknown();
+        aSavedVariantWinsOverTheInitialOne();
         stepsThroughTheValuesAndStopsAtBothEnds();
         cyclesThroughTheVariantsAndWrapsAround();
         aModeWithoutVariantsHasNoVariantAndIgnoresCycling();

@@ -1,5 +1,7 @@
 #include "platform/quickentry.h"
 
+#include "platform/mockquickentrybackend.h"
+
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -68,6 +70,24 @@ struct QuickEntryRecorder
     QList<QuickEntryAction> actions;
     int visibleChanges = 0;
     int headerChanges = 0;
+};
+
+struct QuickEntryWithMockBackend
+{
+    QuickEntryWithMockBackend()
+        : QuickEntryWithMockBackend(std::make_unique<MockQuickEntryBackend>())
+    {
+    }
+
+    MockQuickEntryBackend& backend;
+    QuickEntry quickEntry;
+
+private:
+    explicit QuickEntryWithMockBackend(std::unique_ptr<MockQuickEntryBackend> mock)
+        : backend(*mock)
+        , quickEntry(std::move(mock))
+    {
+    }
 };
 
 }  // namespace
@@ -153,6 +173,58 @@ TEST(QuickEntryConfigTest, SameVariantKeyInDifferentModes_IsAllowed)
     config.modes[1].variants = { { "water", "Water" } };
 
     EXPECT_TRUE(config.validationError().isEmpty());
+}
+
+TEST(QuickEntryConfigTest, InitialVariantOfTheModeVariants_IsAllowed)
+{
+    QuickEntryConfig config = validConfig();
+    config.modes[0].initialVariant = "tea";
+
+    EXPECT_TRUE(config.validationError().isEmpty());
+}
+
+TEST(QuickEntryConfigTest, InitialVariantOutsideTheModeVariants_IsRejected)
+{
+    QuickEntryConfig unknown = validConfig();
+    unknown.modes[0].initialVariant = "juice";
+    QuickEntryConfig withoutVariants = validConfig();
+    withoutVariants.modes[1].initialVariant = "tea";
+
+    EXPECT_FALSE(unknown.validationError().isEmpty());
+    EXPECT_FALSE(withoutVariants.validationError().isEmpty());
+}
+
+TEST(QuickEntryConfigTest, ConfigsWithTheSameContent_AreEqual)
+{
+    EXPECT_EQ(validConfig(), validConfig());
+}
+
+TEST(QuickEntryConfigTest, ConfigsDifferingInAnyPart_AreNotEqual)
+{
+    QuickEntryConfig otherValue = validConfig();
+    otherValue.modes[0].values[0] = 60;
+    QuickEntryConfig otherInitialVariant = validConfig();
+    otherInitialVariant.modes[0].initialVariant = "tea";
+    QuickEntryConfig otherLabel = validConfig();
+    otherLabel.modes[0].variants[1].label = "Herbata";
+    QuickEntryConfig otherChannel = validConfig();
+    otherChannel.channelName = "Szybki wpis";
+
+    EXPECT_NE(validConfig(), otherValue);
+    EXPECT_NE(validConfig(), otherInitialVariant);
+    EXPECT_NE(validConfig(), otherLabel);
+    EXPECT_NE(validConfig(), otherChannel);
+}
+
+TEST(QuickEntryConfigTest, Json_CarriesTheInitialVariant)
+{
+    QuickEntryConfig config = validConfig();
+    config.modes[0].initialVariant = "tea";
+
+    const QJsonArray modes = parsedConfig(config)["modes"].toArray();
+
+    EXPECT_EQ(modes[0].toObject()["initialVariant"].toString(), "tea");
+    EXPECT_EQ(modes[1].toObject()["initialVariant"].toString(), "");
 }
 
 TEST(QuickEntryConfigTest, Json_CarriesChannelAndEveryMode)
@@ -396,6 +468,96 @@ TEST(QuickEntryTest, AcknowledgingAnUnknownId_IsHarmless)
     quickEntry.deliver({});
 
     EXPECT_EQ(recorder.actions, (QList<QuickEntryAction> { teaAction("a1", 1000) }));
+}
+
+TEST(QuickEntryTest, SettingTheSameHeaderAgain_StillReachesTheBackend)
+{
+    QuickEntryWithMockBackend fixture;
+    QuickEntryRecorder recorder(fixture.quickEntry);
+
+    fixture.quickEntry.setHeader("last: Tea 250 ml, 16:21");
+    fixture.quickEntry.setHeader("last: Tea 250 ml, 16:21");
+
+    EXPECT_EQ(fixture.backend.headers,
+              (QStringList { "last: Tea 250 ml, 16:21", "last: Tea 250 ml, 16:21" }));
+    EXPECT_EQ(recorder.headerChanges, 1);
+}
+
+TEST(QuickEntryTest, ClearingAnEmptyHeader_StillReachesTheBackend)
+{
+    QuickEntryWithMockBackend fixture;
+
+    fixture.quickEntry.setHeader("");
+
+    EXPECT_EQ(fixture.backend.headers, (QStringList { "" }));
+}
+
+TEST(QuickEntryTest, Configure_PassesTheJsonOfAValidConfigToTheBackend)
+{
+    QuickEntryWithMockBackend fixture;
+
+    EXPECT_TRUE(fixture.quickEntry.configure(validConfig()));
+
+    EXPECT_EQ(fixture.backend.configurations, (QList<QByteArray> { validConfig().toJson() }));
+}
+
+TEST(QuickEntryTest, Configure_KeepsAnInvalidConfigAwayFromTheBackend)
+{
+    QuickEntryWithMockBackend fixture;
+
+    EXPECT_FALSE(fixture.quickEntry.configure(QuickEntryConfig {}));
+
+    EXPECT_TRUE(fixture.backend.configurations.isEmpty());
+    EXPECT_FALSE(fixture.quickEntry.canShow());
+}
+
+TEST(QuickEntryTest, ConfiguredWithABackendThatCanShow_ShowsAndHides)
+{
+    QuickEntryWithMockBackend fixture;
+    QuickEntryRecorder recorder(fixture.quickEntry);
+    fixture.quickEntry.configure(validConfig());
+
+    EXPECT_TRUE(fixture.quickEntry.canShow());
+    EXPECT_TRUE(fixture.quickEntry.show());
+    EXPECT_TRUE(fixture.quickEntry.visible());
+    fixture.quickEntry.hide();
+
+    EXPECT_FALSE(fixture.quickEntry.visible());
+    EXPECT_EQ(fixture.backend.showCalls, 1);
+    EXPECT_EQ(fixture.backend.hideCalls, 1);
+    EXPECT_EQ(recorder.visibleChanges, 2);
+}
+
+TEST(QuickEntryTest, ABackendThatCannotShow_KeepsItHidden)
+{
+    QuickEntryWithMockBackend fixture;
+    fixture.backend.canShowResult = false;
+    fixture.quickEntry.configure(validConfig());
+
+    EXPECT_FALSE(fixture.quickEntry.canShow());
+    EXPECT_FALSE(fixture.quickEntry.show());
+    EXPECT_FALSE(fixture.quickEntry.visible());
+    EXPECT_EQ(fixture.backend.showCalls, 0);
+}
+
+TEST(QuickEntryTest, StartingDelivery_ReachesTheBackendEachTime)
+{
+    QuickEntryWithMockBackend fixture;
+
+    fixture.quickEntry.startDelivery();
+    fixture.quickEntry.startDelivery();
+
+    EXPECT_EQ(fixture.backend.deliveryStarts, 2);
+}
+
+TEST(QuickEntryTest, Acknowledging_ReachesTheBackendWithTheId)
+{
+    QuickEntryWithMockBackend fixture;
+
+    fixture.quickEntry.acknowledge("a1");
+    fixture.quickEntry.acknowledge("a2");
+
+    EXPECT_EQ(fixture.backend.acknowledged, (QStringList { "a1", "a2" }));
 }
 
 TEST(QuickEntryTest, StartingDeliveryWithoutBackend_DeliversNothing)

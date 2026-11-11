@@ -21,6 +21,9 @@ QString variantsError(const QuickEntryMode& mode)
             return QStringLiteral("mode %1 repeats the variant %2").arg(mode.id, variant.key);
         keys.insert(variant.key);
     }
+    if (!mode.initialVariant.isEmpty() && !keys.contains(mode.initialVariant))
+        return QStringLiteral("mode %1 starts on the unknown variant %2")
+            .arg(mode.id, mode.initialVariant);
     return {};
 }
 
@@ -55,6 +58,7 @@ QJsonObject modeToJson(const QuickEntryMode& mode)
         { "valueFormat", mode.valueFormat },
         { "headerFormat", mode.headerFormat },
         { "initialValue", mode.initialValue },
+        { "initialVariant", mode.initialVariant },
         { "values", values },
         { "variants", variants },
     };
