@@ -1,6 +1,8 @@
 add_subdirectory(jni)
 
 target_sources(app_platform PRIVATE
+    androidkeyguard.h
+    androidkeyguard.cpp
     androidlaunchaction.h
     androidlaunchaction.cpp
     androidnotification.h
