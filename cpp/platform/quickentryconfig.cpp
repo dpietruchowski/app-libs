@@ -3,12 +3,19 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QSet>
 
 namespace
 {
 
 const QString valuePlaceholder = QStringLiteral("%1");
+
+bool isResourceName(const QString& tone)
+{
+    static const QRegularExpression pattern(QStringLiteral("^[a-z][a-z0-9_]*$"));
+    return pattern.match(tone).hasMatch();
+}
 
 QString variantsError(const QuickEntryMode& mode)
 {
@@ -31,6 +38,9 @@ QString modeError(const QuickEntryMode& mode)
 {
     if (mode.id.isEmpty() || mode.label.isEmpty())
         return QStringLiteral("a mode has no id or no label");
+    if (!mode.tone.isEmpty() && !isResourceName(mode.tone))
+        return QStringLiteral("the tone %1 of mode %2 is not a resource name")
+            .arg(mode.tone, mode.id);
     if (mode.values.isEmpty())
         return QStringLiteral("mode %1 has no values").arg(mode.id);
     if (!mode.valueFormat.contains(valuePlaceholder))
@@ -55,6 +65,7 @@ QJsonObject modeToJson(const QuickEntryMode& mode)
     return {
         { "id", mode.id },
         { "label", mode.label },
+        { "tone", mode.tone },
         { "valueFormat", mode.valueFormat },
         { "headerFormat", mode.headerFormat },
         { "initialValue", mode.initialValue },

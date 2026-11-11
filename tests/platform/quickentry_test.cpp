@@ -15,6 +15,7 @@ QuickEntryMode drinkMode()
     return {
         .id = "in",
         .label = "IN",
+        .tone = "in",
         .values = { 50, 100, 150, 200, 250 },
         .initialValue = 200,
         .valueFormat = "%1 ml",
@@ -194,6 +195,26 @@ TEST(QuickEntryConfigTest, InitialVariantOutsideTheModeVariants_IsRejected)
     EXPECT_FALSE(withoutVariants.validationError().isEmpty());
 }
 
+TEST(QuickEntryConfigTest, ToneOfAnyResourceName_IsAllowedAndNoToneIsToo)
+{
+    QuickEntryConfig config = validConfig();
+    config.modes[0].tone = "deep_blue2";
+    config.modes[1].tone.clear();
+
+    EXPECT_TRUE(config.validationError().isEmpty());
+}
+
+TEST(QuickEntryConfigTest, ToneThatCannotBePartOfAResourceName_IsRejected)
+{
+    for (const QString& tone : { "In", "2in", "_in", "in-out", "in out", "in/out", "wątek" })
+    {
+        QuickEntryConfig config = validConfig();
+        config.modes[1].tone = tone;
+
+        EXPECT_FALSE(config.validationError().isEmpty()) << tone.toStdString();
+    }
+}
+
 TEST(QuickEntryConfigTest, ConfigsWithTheSameContent_AreEqual)
 {
     EXPECT_EQ(validConfig(), validConfig());
@@ -207,12 +228,15 @@ TEST(QuickEntryConfigTest, ConfigsDifferingInAnyPart_AreNotEqual)
     otherInitialVariant.modes[0].initialVariant = "tea";
     QuickEntryConfig otherLabel = validConfig();
     otherLabel.modes[0].variants[1].label = "Herbata";
+    QuickEntryConfig otherTone = validConfig();
+    otherTone.modes[0].tone = "out";
     QuickEntryConfig otherChannel = validConfig();
     otherChannel.channelName = "Szybki wpis";
 
     EXPECT_NE(validConfig(), otherValue);
     EXPECT_NE(validConfig(), otherInitialVariant);
     EXPECT_NE(validConfig(), otherLabel);
+    EXPECT_NE(validConfig(), otherTone);
     EXPECT_NE(validConfig(), otherChannel);
 }
 
@@ -225,6 +249,15 @@ TEST(QuickEntryConfigTest, Json_CarriesTheInitialVariant)
 
     EXPECT_EQ(modes[0].toObject()["initialVariant"].toString(), "tea");
     EXPECT_EQ(modes[1].toObject()["initialVariant"].toString(), "");
+}
+
+TEST(QuickEntryConfigTest, Json_CarriesTheToneOfEveryMode)
+{
+    const QJsonArray modes = parsedConfig(validConfig())["modes"].toArray();
+
+    EXPECT_EQ(modes[0].toObject()["tone"].toString(), "in");
+    ASSERT_TRUE(modes[1].toObject().contains("tone"));
+    EXPECT_EQ(modes[1].toObject()["tone"].toString(), "");
 }
 
 TEST(QuickEntryConfigTest, Json_CarriesChannelAndEveryMode)

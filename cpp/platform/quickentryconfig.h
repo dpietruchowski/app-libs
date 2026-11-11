@@ -16,6 +16,7 @@ struct QuickEntryMode
 {
     QString id;
     QString label;
+    QString tone;
     QList<int> values;
     int initialValue { 0 };
     QString initialVariant;
