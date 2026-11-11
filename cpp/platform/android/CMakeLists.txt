@@ -9,6 +9,8 @@ target_sources(app_platform PRIVATE
     androidnotification.cpp
     androidnotificationscheduler.h
     androidnotificationscheduler.cpp
+    androidquickentry.h
+    androidquickentry.cpp
     securestorageandroid.h
     securestorageandroid.cpp
     filesaverandroid.h

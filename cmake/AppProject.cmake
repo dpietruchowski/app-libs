@@ -256,6 +256,7 @@ function(app_configure_android TARGET)
     endif()
 
     app_android_install_java("${ARG_PACKAGE_SOURCE_DIR}")
+    app_android_install_resources("${ARG_PACKAGE_SOURCE_DIR}")
 
     set_target_properties(${TARGET} PROPERTIES
         QT_ANDROID_PACKAGE_NAME "${ARG_PACKAGE_NAME}"
