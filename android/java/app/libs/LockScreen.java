@@ -42,6 +42,16 @@ public final class LockScreen
         activity.runOnUiThread(() -> dismissKeyguard(activity));
     }
 
+    public static void returnToLockScreen(Context context)
+    {
+        if (!(context instanceof Activity))
+        {
+            return;
+        }
+        final Activity activity = (Activity) context;
+        activity.runOnUiThread(() -> activity.moveTaskToBack(true));
+    }
+
     static void show(Activity activity, Intent intent)
     {
         boolean overLock = false;
@@ -89,6 +99,7 @@ public final class LockScreen
             @Override
             public void onDismissSucceeded()
             {
+                release(activity);
                 nativeUnlockFinished(true);
             }
 

@@ -74,6 +74,30 @@ TEST(KeyguardTest, WithoutBackend_RequestUnlockSucceedsBecauseNothingIsLocked)
     EXPECT_EQ(recorder.unlockResults, QList<bool> { true });
 }
 
+TEST(KeyguardTest, WithoutBackend_RequestUnlockLeavesNothingLockedOrShownOverLock)
+{
+    Keyguard keyguard;
+    keyguard.update(true, true);
+
+    keyguard.requestUnlock();
+
+    EXPECT_FALSE(keyguard.locked());
+    EXPECT_FALSE(keyguard.shownOverLock());
+}
+
+TEST(KeyguardTest, WithoutBackend_ReturningToTheLockScreenStopsShowingOverIt)
+{
+    Keyguard keyguard;
+    keyguard.update(true, true);
+    KeyguardRecorder recorder(keyguard);
+
+    keyguard.returnToLockScreen();
+
+    EXPECT_TRUE(keyguard.locked());
+    EXPECT_FALSE(keyguard.shownOverLock());
+    EXPECT_EQ(recorder.stateChanges, 1);
+}
+
 TEST(KeyguardTest, FinishedUnlock_ReportsItsOutcomeEachTime)
 {
     Keyguard keyguard;
