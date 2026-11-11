@@ -20,6 +20,7 @@ public:
     void hide();
     void setHeader(const QString& header);
     void startDelivery();
+    void acknowledge(const QString& id);
 
 private:
     QuickEntry& m_owner;

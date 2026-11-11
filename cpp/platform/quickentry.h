@@ -4,6 +4,7 @@
 #include "platform/quickentryconfig.h"
 
 #include <QObject>
+#include <QSet>
 
 #include <memory>
 
@@ -29,7 +30,8 @@ public:
     void setHeader(const QString& header);
 
     void startDelivery();
-    void deliver(const QuickEntryAction& action);
+    void acknowledge(const QString& id);
+    void deliver(const QList<QuickEntryAction>& pending);
 
 signals:
     void visibleChanged();
@@ -40,5 +42,6 @@ private:
     bool m_configured = false;
     bool m_visible = false;
     QString m_header;
+    QSet<QString> m_deliveredIds;
     std::unique_ptr<QuickEntryBackend> m_backend;
 };

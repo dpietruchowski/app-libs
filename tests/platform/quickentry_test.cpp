@@ -45,6 +45,16 @@ QJsonObject parsedConfig(const QuickEntryConfig& config)
     return QJsonDocument::fromJson(config.toJson()).object();
 }
 
+QuickEntryAction teaAction(const QString& id, qint64 timeMillis)
+{
+    return { id, "in", 250, "tea", QDateTime::fromMSecsSinceEpoch(timeMillis) };
+}
+
+QuickEntryAction outAction(const QString& id, qint64 timeMillis)
+{
+    return { id, "out", 100, "", QDateTime::fromMSecsSinceEpoch(timeMillis) };
+}
+
 struct QuickEntryRecorder
 {
     explicit QuickEntryRecorder(QuickEntry& quickEntry)
@@ -190,13 +200,15 @@ TEST(QuickEntryConfigTest, Json_OfAModeWithoutVariantsHasAnEmptyVariantList)
 TEST(QuickEntryActionTest, JsonList_ParsesActionsInTheOrderTheyWereQueued)
 {
     const QByteArray json = R"([
-        {"mode":"in","value":250,"variant":"tea","time":1700000000123},
-        {"mode":"out","value":100,"variant":"","time":1700000060000}
+        {"id":"a1","mode":"in","value":250,"variant":"tea","time":1700000000123},
+        {"id":"a2","mode":"out","value":100,"variant":"","time":1700000060000}
     ])";
 
     const QList<QuickEntryAction> actions = QuickEntryAction::listFromJson(json);
 
     ASSERT_EQ(actions.size(), 2);
+    EXPECT_EQ(actions[0].id, "a1");
+    EXPECT_EQ(actions[1].id, "a2");
     EXPECT_EQ(actions[0].modeId, "in");
     EXPECT_EQ(actions[0].value, 250);
     EXPECT_EQ(actions[0].variantKey, "tea");
@@ -208,12 +220,25 @@ TEST(QuickEntryActionTest, JsonList_ParsesActionsInTheOrderTheyWereQueued)
 
 TEST(QuickEntryActionTest, JsonList_SkipsEntriesWithoutAMode)
 {
-    const QByteArray json = R"([{"value":5,"time":1},{"mode":"in","value":6,"time":2},42])";
+    const QByteArray json
+        = R"([{"id":"a0","value":5,"time":1},{"id":"a1","mode":"in","value":6,"time":2},42])";
 
     const QList<QuickEntryAction> actions = QuickEntryAction::listFromJson(json);
 
     ASSERT_EQ(actions.size(), 1);
     EXPECT_EQ(actions[0].value, 6);
+}
+
+TEST(QuickEntryActionTest, JsonList_SkipsEntriesWithoutAnId)
+{
+    const QByteArray json
+        = R"([{"mode":"in","value":5,"time":1},{"id":"","mode":"in","value":6,"time":2},
+              {"id":"a3","mode":"in","value":7,"time":3}])";
+
+    const QList<QuickEntryAction> actions = QuickEntryAction::listFromJson(json);
+
+    ASSERT_EQ(actions.size(), 1);
+    EXPECT_EQ(actions[0].id, "a3");
 }
 
 TEST(QuickEntryActionTest, JsonList_OfEmptyMalformedOrNonArrayInput_IsEmpty)
@@ -284,19 +309,93 @@ TEST(QuickEntryTest, SettingTheHeader_ExposesItAndAnnouncesOnlyChanges)
     EXPECT_EQ(recorder.headerChanges, 2);
 }
 
-TEST(QuickEntryTest, DeliveredActions_AreAnnouncedEachInTheOrderDelivered)
+TEST(QuickEntryTest, PendingActions_AreAnnouncedEachInTheOrderQueued)
 {
     QuickEntry quickEntry;
     QuickEntryRecorder recorder(quickEntry);
-    const QuickEntryAction first { "in", 250, "tea", QDateTime::fromMSecsSinceEpoch(1000) };
-    const QuickEntryAction second { "in", 250, "tea", QDateTime::fromMSecsSinceEpoch(1000) };
-    const QuickEntryAction third { "out", 100, "", QDateTime::fromMSecsSinceEpoch(2000) };
 
-    quickEntry.deliver(first);
-    quickEntry.deliver(second);
-    quickEntry.deliver(third);
+    quickEntry.deliver({ teaAction("a1", 1000), teaAction("a2", 1000), outAction("a3", 2000) });
 
-    EXPECT_EQ(recorder.actions, (QList<QuickEntryAction> { first, second, third }));
+    EXPECT_EQ(recorder.actions,
+              (QList<QuickEntryAction> { teaAction("a1", 1000), teaAction("a2", 1000),
+                                         outAction("a3", 2000) }));
+}
+
+TEST(QuickEntryTest, TwoIdenticalTapsWithDifferentIds_AreTwoActions)
+{
+    QuickEntry quickEntry;
+    QuickEntryRecorder recorder(quickEntry);
+
+    quickEntry.deliver({ teaAction("a1", 1000), teaAction("a2", 1000) });
+
+    EXPECT_EQ(recorder.actions.size(), 2);
+}
+
+TEST(QuickEntryTest, NoPendingActions_AnnounceNothing)
+{
+    QuickEntry quickEntry;
+    QuickEntryRecorder recorder(quickEntry);
+
+    quickEntry.deliver({});
+
+    EXPECT_TRUE(recorder.actions.isEmpty());
+}
+
+TEST(QuickEntryTest, UnacknowledgedActionsStillPending_AreNotAnnouncedAgainWhileDelivering)
+{
+    QuickEntry quickEntry;
+    QuickEntryRecorder recorder(quickEntry);
+
+    quickEntry.deliver({ teaAction("a1", 1000) });
+    quickEntry.deliver({ teaAction("a1", 1000), outAction("a2", 2000) });
+    quickEntry.deliver({ teaAction("a1", 1000), outAction("a2", 2000) });
+
+    EXPECT_EQ(recorder.actions,
+              (QList<QuickEntryAction> { teaAction("a1", 1000), outAction("a2", 2000) }));
+}
+
+TEST(QuickEntryTest, StartingDeliveryAgain_AnnouncesTheUnacknowledgedActionsAgainInOrder)
+{
+    QuickEntry quickEntry;
+    QuickEntryRecorder recorder(quickEntry);
+    quickEntry.deliver({ teaAction("a1", 1000), outAction("a2", 2000) });
+
+    quickEntry.startDelivery();
+    quickEntry.deliver({ teaAction("a1", 1000), outAction("a2", 2000) });
+
+    EXPECT_EQ(recorder.actions,
+              (QList<QuickEntryAction> { teaAction("a1", 1000), outAction("a2", 2000),
+                                         teaAction("a1", 1000), outAction("a2", 2000) }));
+}
+
+TEST(QuickEntryTest, AcknowledgedAction_IsNotAnnouncedAgainAfterARestartOfDelivery)
+{
+    QuickEntry quickEntry;
+    QuickEntryRecorder recorder(quickEntry);
+    quickEntry.deliver({ teaAction("a1", 1000), outAction("a2", 2000) });
+    quickEntry.acknowledge("a1");
+
+    quickEntry.startDelivery();
+    quickEntry.deliver({ outAction("a2", 2000) });
+
+    EXPECT_EQ(recorder.actions,
+              (QList<QuickEntryAction> { teaAction("a1", 1000), outAction("a2", 2000),
+                                         outAction("a2", 2000) }));
+}
+
+TEST(QuickEntryTest, AcknowledgingAnUnknownId_IsHarmless)
+{
+    QuickEntry quickEntry;
+    QuickEntryRecorder recorder(quickEntry);
+    quickEntry.deliver({ teaAction("a1", 1000) });
+
+    quickEntry.acknowledge("unknown");
+    quickEntry.acknowledge("");
+    quickEntry.acknowledge("a1");
+    quickEntry.acknowledge("a1");
+    quickEntry.deliver({});
+
+    EXPECT_EQ(recorder.actions, (QList<QuickEntryAction> { teaAction("a1", 1000) }));
 }
 
 TEST(QuickEntryTest, StartingDeliveryWithoutBackend_DeliversNothing)

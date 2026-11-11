@@ -17,6 +17,7 @@ public:
     void hide() { }
     void setHeader(const QString&) { }
     void startDelivery() { }
+    void acknowledge(const QString&) { }
 };
 #endif
 
@@ -77,6 +78,26 @@ void QuickEntry::setHeader(const QString& header)
     emit headerChanged();
 }
 
-void QuickEntry::startDelivery() { m_backend->startDelivery(); }
+void QuickEntry::startDelivery()
+{
+    m_deliveredIds.clear();
+    m_backend->startDelivery();
+}
 
-void QuickEntry::deliver(const QuickEntryAction& action) { emit committed(action); }
+void QuickEntry::acknowledge(const QString& id) { m_backend->acknowledge(id); }
+
+void QuickEntry::deliver(const QList<QuickEntryAction>& pending)
+{
+    QSet<QString> pendingIds;
+    QList<QuickEntryAction> undelivered;
+    for (const QuickEntryAction& action : pending)
+    {
+        pendingIds.insert(action.id);
+        if (!m_deliveredIds.contains(action.id))
+            undelivered.append(action);
+    }
+    m_deliveredIds = pendingIds;
+
+    for (const QuickEntryAction& action : undelivered)
+        emit committed(action);
+}

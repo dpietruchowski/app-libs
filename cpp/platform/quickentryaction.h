@@ -7,6 +7,7 @@
 
 struct QuickEntryAction
 {
+    QString id;
     QString modeId;
     int value { 0 };
     QString variantKey;

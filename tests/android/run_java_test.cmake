@@ -1,9 +1,11 @@
 file(REMOVE_RECURSE "${WORK_DIR}")
 file(MAKE_DIRECTORY "${WORK_DIR}")
 
+string(REPLACE "|" ";" class_sources "${CLASS_SOURCES}")
+
 execute_process(
     COMMAND ${JAVA_EXECUTABLE} -m jdk.compiler/com.sun.tools.javac.Main
-        -d ${WORK_DIR} ${CLASS_SOURCE} ${TEST_SOURCE}
+        -d ${WORK_DIR} ${class_sources} ${TEST_SOURCE}
     RESULT_VARIABLE compile_result
     OUTPUT_VARIABLE compile_output
     ERROR_VARIABLE compile_output)

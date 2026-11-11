@@ -7,7 +7,9 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 final class QuickEntryStore
 {
@@ -90,38 +92,73 @@ final class QuickEntryStore
 
     void enqueue(QuickEntryModel.Action action)
     {
+        QuickEntryQueue queue = queue();
+        queue.add(action);
+        saveQueue(queue);
+    }
+
+    void acknowledge(String id)
+    {
+        QuickEntryQueue queue = queue();
+        if (queue.acknowledge(id))
+        {
+            saveQueue(queue);
+        }
+    }
+
+    String pending()
+    {
+        return queueJson(queue());
+    }
+
+    private QuickEntryQueue queue()
+    {
+        List<QuickEntryModel.Action> actions = new ArrayList<>();
         try
         {
-            JSONArray queue = queue();
-            queue.put(new JSONObject()
-                .put("mode", action.modeId)
-                .put("value", action.value)
-                .put("variant", action.variantKey)
-                .put("time", action.timeMillis));
-            preferences.edit().putString(KEY_QUEUE, queue.toString()).commit();
+            JSONArray stored = new JSONArray(preferences.getString(KEY_QUEUE, "[]"));
+            for (int i = 0; i < stored.length(); i++)
+            {
+                JSONObject entry = stored.optJSONObject(i);
+                if (entry == null || entry.optString("id").isEmpty())
+                {
+                    continue;
+                }
+                actions.add(new QuickEntryModel.Action(entry.optString("id"), entry.optString("mode"),
+                    entry.optInt("value"), entry.optString("variant"), entry.optLong("time")));
+            }
+        }
+        catch (JSONException unreadable)
+        {
+            return new QuickEntryQueue(new ArrayList<QuickEntryModel.Action>());
+        }
+        return new QuickEntryQueue(actions);
+    }
+
+    private void saveQueue(QuickEntryQueue queue)
+    {
+        preferences.edit().putString(KEY_QUEUE, queueJson(queue)).commit();
+    }
+
+    private static String queueJson(QuickEntryQueue queue)
+    {
+        try
+        {
+            JSONArray json = new JSONArray();
+            for (QuickEntryModel.Action action : queue.pending())
+            {
+                json.put(new JSONObject()
+                    .put("id", action.id)
+                    .put("mode", action.modeId)
+                    .put("value", action.value)
+                    .put("variant", action.variantKey)
+                    .put("time", action.timeMillis));
+            }
+            return json.toString();
         }
         catch (JSONException unwritable)
         {
             throw new IllegalStateException(unwritable);
-        }
-    }
-
-    String drain()
-    {
-        String queue = queue().toString();
-        preferences.edit().remove(KEY_QUEUE).commit();
-        return queue;
-    }
-
-    private JSONArray queue()
-    {
-        try
-        {
-            return new JSONArray(preferences.getString(KEY_QUEUE, "[]"));
-        }
-        catch (JSONException unreadable)
-        {
-            return new JSONArray();
         }
     }
 

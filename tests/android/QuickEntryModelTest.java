@@ -91,7 +91,7 @@ public final class QuickEntryModelTest
         check("no variant", !model.hasVariants());
         model.cycleVariant();
         check("variant stays absent", model.variant() == null);
-        checkEquals("commit without variant", "", model.commit(1L).variantKey);
+        checkEquals("commit without variant", "", model.commit("a1", 1L).variantKey);
     }
 
     private static void switchingModesKeepsEachModesOwnValueAndVariant()
@@ -117,8 +117,9 @@ public final class QuickEntryModelTest
         model.stepUp();
         model.cycleVariant();
 
-        QuickEntryModel.Action action = model.commit(1234L);
+        QuickEntryModel.Action action = model.commit("a1", 1234L);
 
+        checkEquals("action id", "a1", action.id);
         checkEquals("action mode", "in", action.modeId);
         checkEquals("action value", 250, action.value);
         checkEquals("action variant", "tea", action.variantKey);
@@ -130,7 +131,7 @@ public final class QuickEntryModelTest
         QuickEntryModel model = freshModel();
         model.stepUp();
 
-        model.commit(1L);
+        model.commit("a1", 1L);
 
         checkEquals("value after commit", 250, model.value());
         checkEquals("mode after commit", "in", model.mode().id);
@@ -196,11 +197,11 @@ public final class QuickEntryModelTest
         model.cycleVariant();
         model.stepUp();
         checkEquals("header with variant", "last: Tea 250 ml, 16:21",
-            model.headerAfter(model.commit(1L), "16:21"));
+            model.headerAfter(model.commit("a1", 1L), "16:21"));
 
         model.switchMode();
         checkEquals("header without variant", "last out: 100 ml, 16:22",
-            model.headerAfter(model.commit(2L), "16:22"));
+            model.headerAfter(model.commit("a2", 2L), "16:22"));
     }
 
     private static void rejectsAConfigurationThatCannotBeRendered()

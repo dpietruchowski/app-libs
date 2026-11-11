@@ -49,13 +49,15 @@ public final class QuickEntryModel
 
     public static final class Action
     {
+        public final String id;
         public final String modeId;
         public final int value;
         public final String variantKey;
         public final long timeMillis;
 
-        public Action(String modeId, int value, String variantKey, long timeMillis)
+        public Action(String id, String modeId, int value, String variantKey, long timeMillis)
         {
+            this.id = id;
             this.modeId = modeId;
             this.value = value;
             this.variantKey = variantKey;
@@ -156,10 +158,10 @@ public final class QuickEntryModel
         modeIndex = (modeIndex + 1) % modes.size();
     }
 
-    public Action commit(long timeMillis)
+    public Action commit(String id, long timeMillis)
     {
         Variant current = variant();
-        return new Action(mode().id, value(), current == null ? "" : current.key, timeMillis);
+        return new Action(id, mode().id, value(), current == null ? "" : current.key, timeMillis);
     }
 
     public State state()

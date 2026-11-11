@@ -22,18 +22,17 @@ QJniObject applicationContext()
     return QJniObject(QNativeInterface::QAndroidApplication::context());
 }
 
-void deliverQueuedActions(QuickEntry& owner)
+QList<QuickEntryAction> pendingActions()
 {
     const QJniObject context = applicationContext();
     if (!context.isValid())
-        return;
+        return {};
 
     const QString json = QJniObject::callStaticObjectMethod(
-                             quickEntryClass, "drain",
+                             quickEntryClass, "pending",
                              "(Landroid/content/Context;)Ljava/lang/String;", context.object())
                              .toString();
-    for (const QuickEntryAction& action : QuickEntryAction::listFromJson(json.toUtf8()))
-        owner.deliver(action);
+    return QuickEntryAction::listFromJson(json.toUtf8());
 }
 
 void onActionsAvailable(JNIEnv*, jclass)
@@ -44,7 +43,7 @@ void onActionsAvailable(JNIEnv*, jclass)
 
     QuickEntry* owner = activeOwner;
     QMetaObject::invokeMethod(
-        owner, [owner] { deliverQueuedActions(*owner); }, Qt::QueuedConnection);
+        owner, [owner] { owner->deliver(pendingActions()); }, Qt::QueuedConnection);
 }
 
 void registerNatives()
@@ -128,5 +127,10 @@ void QuickEntryBackend::setHeader(const QString& header)
 void QuickEntryBackend::startDelivery()
 {
     setListening(true);
-    deliverQueuedActions(m_owner);
+    m_owner.deliver(pendingActions());
+}
+
+void QuickEntryBackend::acknowledge(const QString& id)
+{
+    callWithContextAndString("acknowledge", id);
 }

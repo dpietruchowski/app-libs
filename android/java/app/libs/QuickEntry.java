@@ -8,6 +8,7 @@ import android.util.Log;
 import org.json.JSONException;
 
 import java.util.Date;
+import java.util.UUID;
 
 public final class QuickEntry
 {
@@ -86,9 +87,14 @@ public final class QuickEntry
         listening = value;
     }
 
-    public static synchronized String drain(Context context)
+    public static synchronized String pending(Context context)
     {
-        return new QuickEntryStore(context).drain();
+        return new QuickEntryStore(context).pending();
+    }
+
+    public static synchronized void acknowledge(Context context, String id)
+    {
+        new QuickEntryStore(context).acknowledge(id);
     }
 
     static synchronized void handleTap(Context context, String action)
@@ -126,7 +132,8 @@ public final class QuickEntry
         store.saveState(model.state());
         if (committed)
         {
-            QuickEntryModel.Action entry = model.commit(System.currentTimeMillis());
+            QuickEntryModel.Action entry
+                = model.commit(UUID.randomUUID().toString(), System.currentTimeMillis());
             store.enqueue(entry);
             store.saveHeader(model.headerAfter(entry, timeText(context, entry.timeMillis)));
         }
