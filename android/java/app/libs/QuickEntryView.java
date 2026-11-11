@@ -17,6 +17,8 @@ import android.widget.RemoteViews;
 final class QuickEntryView
 {
     private static final String MODE_SEPARATOR = " ⇄ ";
+    private static final String COLLAPSED_LAYOUT = "libs_quick_entry";
+    private static final String EXPANDED_LAYOUT = "libs_quick_entry_expanded";
 
     private QuickEntryView()
     {
@@ -26,10 +28,12 @@ final class QuickEntryView
     {
         createChannel(context, config);
 
+        QuickEntryViewState state = new QuickEntryViewState(model);
         Notification.Builder builder = new Notification.Builder(context, config.channelId)
             .setSmallIcon(smallIcon(context, config.smallIcon))
             .setStyle(new Notification.DecoratedCustomViewStyle())
-            .setCustomContentView(buttons(context, model))
+            .setCustomContentView(bind(context, COLLAPSED_LAYOUT, state))
+            .setCustomBigContentView(bind(context, EXPANDED_LAYOUT, state))
             .setCategory(Notification.CATEGORY_STATUS)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOngoing(true)
@@ -59,12 +63,12 @@ final class QuickEntryView
         context.getSystemService(NotificationManager.class).createNotificationChannel(channel);
     }
 
-    private static RemoteViews buttons(Context context, QuickEntryModel model)
+    private static RemoteViews bind(Context context, String layout, QuickEntryViewState state)
     {
         Resources resources = context.getResources();
         String packageName = context.getPackageName();
         RemoteViews views
-            = new RemoteViews(packageName, resources.getIdentifier("libs_quick_entry", "layout", packageName));
+            = new RemoteViews(packageName, resources.getIdentifier(layout, "layout", packageName));
 
         int minus = viewId(context, "libs_quick_entry_minus");
         int value = viewId(context, "libs_quick_entry_value");
@@ -72,36 +76,36 @@ final class QuickEntryView
         int variant = viewId(context, "libs_quick_entry_variant");
         int mode = viewId(context, "libs_quick_entry_mode");
 
-        views.setTextViewText(value, model.valueText());
+        views.setTextViewText(value, state.valueText);
         views.setOnClickPendingIntent(minus, tap(context, QuickEntry.ACTION_STEP_DOWN));
         views.setOnClickPendingIntent(value, tap(context, QuickEntry.ACTION_COMMIT));
         views.setOnClickPendingIntent(plus, tap(context, QuickEntry.ACTION_STEP_UP));
 
-        views.setViewVisibility(variant, model.hasVariants() ? View.VISIBLE : View.GONE);
-        if (model.hasVariants())
+        views.setViewVisibility(variant, state.variantVisible ? View.VISIBLE : View.GONE);
+        if (state.variantVisible)
         {
-            views.setTextViewText(variant, model.variant().label);
+            views.setTextViewText(variant, state.variantLabel);
             views.setOnClickPendingIntent(variant, tap(context, QuickEntry.ACTION_CYCLE_VARIANT));
         }
 
-        views.setViewVisibility(mode, model.modes().size() > 1 ? View.VISIBLE : View.GONE);
-        views.setTextViewText(mode, modeLabels(model));
+        views.setViewVisibility(mode, state.modeVisible ? View.VISIBLE : View.GONE);
+        views.setTextViewText(mode, modeLabels(state));
         views.setOnClickPendingIntent(mode, tap(context, QuickEntry.ACTION_SWITCH_MODE));
         return views;
     }
 
-    private static CharSequence modeLabels(QuickEntryModel model)
+    private static CharSequence modeLabels(QuickEntryViewState state)
     {
         SpannableStringBuilder labels = new SpannableStringBuilder();
-        for (int i = 0; i < model.modes().size(); i++)
+        for (int i = 0; i < state.modeLabels.size(); i++)
         {
             if (i > 0)
             {
                 labels.append(MODE_SEPARATOR);
             }
             int start = labels.length();
-            labels.append(model.modes().get(i).label);
-            if (i == model.modeIndex())
+            labels.append(state.modeLabels.get(i));
+            if (i == state.activeModeIndex)
             {
                 labels.setSpan(new StyleSpan(Typeface.BOLD), start, labels.length(),
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
