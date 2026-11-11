@@ -34,8 +34,8 @@ final class QuickEntryView
         Notification.Builder builder = new Notification.Builder(context, config.channelId)
             .setSmallIcon(smallIcon(context, config.smallIcon))
             .setStyle(new Notification.DecoratedCustomViewStyle())
-            .setCustomContentView(bind(context, COLLAPSED_LAYOUT, state, open))
-            .setCustomBigContentView(bind(context, EXPANDED_LAYOUT, state, open))
+            .setCustomContentView(bind(context, COLLAPSED_LAYOUT, state))
+            .setCustomBigContentView(bindTopRowExtras(context, bind(context, EXPANDED_LAYOUT, state), state, open))
             .setCategory(Notification.CATEGORY_STATUS)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOngoing(true)
@@ -64,8 +64,7 @@ final class QuickEntryView
         context.getSystemService(NotificationManager.class).createNotificationChannel(channel);
     }
 
-    private static RemoteViews bind(Context context, String layout, QuickEntryViewState state,
-                                    PendingIntent open)
+    private static RemoteViews bind(Context context, String layout, QuickEntryViewState state)
     {
         String packageName = context.getPackageName();
         RemoteViews views
@@ -98,15 +97,15 @@ final class QuickEntryView
         views.setTextViewText(mode, modeLabels(context, state));
         views.setOnClickPendingIntent(mode, tap(context, QuickEntry.ACTION_SWITCH_MODE));
 
-        views.setViewVisibility(viewId(context, "libs_quick_entry_mode_gap"), visibility(state.modeGapVisible));
-        views.setViewVisibility(viewId(context, "libs_quick_entry_open_gap"), visibility(state.openGapVisible));
-        bindOpen(context, views, state, open);
         return views;
     }
 
-    private static void bindOpen(Context context, RemoteViews views, QuickEntryViewState state,
-                                 PendingIntent open)
+    private static RemoteViews bindTopRowExtras(Context context, RemoteViews views, QuickEntryViewState state,
+                                                PendingIntent open)
     {
+        views.setViewVisibility(viewId(context, "libs_quick_entry_mode_gap"), visibility(state.modeGapVisible));
+        views.setViewVisibility(viewId(context, "libs_quick_entry_open_gap"), visibility(state.openGapVisible));
+
         int button = viewId(context, "libs_quick_entry_open");
         views.setViewVisibility(button, visibility(state.openVisible));
         if (state.openVisible)
@@ -116,6 +115,7 @@ final class QuickEntryView
                 context.getApplicationInfo().loadLabel(context.getPackageManager()));
             views.setOnClickPendingIntent(button, open);
         }
+        return views;
     }
 
     private static void paint(Context context, RemoteViews views, int viewId, String backgroundName,
