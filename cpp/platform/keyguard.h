@@ -20,6 +20,7 @@ public:
     bool shownOverLock() const { return m_shownOverLock; }
 
     Q_INVOKABLE void requestUnlock();
+    Q_INVOKABLE void returnToLockScreen();
 
     void update(bool locked, bool shownOverLock);
     void finishUnlock(bool succeeded);

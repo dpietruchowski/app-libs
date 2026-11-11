@@ -13,7 +13,13 @@ public:
     {
     }
 
-    void requestUnlock() { m_owner.finishUnlock(true); }
+    void requestUnlock()
+    {
+        m_owner.update(false, false);
+        m_owner.finishUnlock(true);
+    }
+
+    void returnToLockScreen() { m_owner.update(m_owner.locked(), false); }
 
 private:
     Keyguard& m_owner;
@@ -29,6 +35,8 @@ Keyguard::Keyguard(QObject* parent)
 Keyguard::~Keyguard() = default;
 
 void Keyguard::requestUnlock() { m_backend->requestUnlock(); }
+
+void Keyguard::returnToLockScreen() { m_backend->returnToLockScreen(); }
 
 void Keyguard::update(bool locked, bool shownOverLock)
 {

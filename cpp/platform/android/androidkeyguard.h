@@ -12,6 +12,7 @@ public:
     KeyguardBackend& operator=(const KeyguardBackend&) = delete;
 
     void requestUnlock();
+    void returnToLockScreen();
 
 private:
     Keyguard& m_owner;
