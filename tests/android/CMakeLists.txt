@@ -22,4 +22,5 @@ if(JAVA_EXECUTABLE)
 
     app_add_java_test(quick_entry_model_java QuickEntryModelTest QuickEntryModel)
     app_add_java_test(quick_entry_queue_java QuickEntryQueueTest QuickEntryModel QuickEntryQueue)
+    app_add_java_test(quick_entry_view_state_java QuickEntryViewStateTest QuickEntryModel QuickEntryViewState)
 endif()
