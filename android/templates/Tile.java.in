@@ -1,0 +1,12 @@
+package app.libs.tile;
+
+import app.libs.LaunchTileService;
+
+public final class @TILE_NAME@ extends LaunchTileService
+{
+    @Override
+    protected String launchAction()
+    {
+        return "@TILE_ACTION@";
+    }
+}

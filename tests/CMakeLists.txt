@@ -1,6 +1,7 @@
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Sql Network Test)
 
 add_subdirectory(async)
+add_subdirectory(cmake)
 add_subdirectory(dbtoolkit)
 if(TARGET app_agent)
     add_subdirectory(agent)
