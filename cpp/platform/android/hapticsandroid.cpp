@@ -23,9 +23,17 @@ std::optional<int> viewFeedbackFor(Haptics::Effect effect)
             return KeyboardTapFeedback;
         case Haptics::Effect::LongPress:
             return LongPressFeedback;
-        default:
+        case Haptics::Effect::Tick:
+        case Haptics::Effect::Click:
+        case Haptics::Effect::DoubleClick:
+        case Haptics::Effect::HeavyClick:
+        case Haptics::Effect::Progress:
+        case Haptics::Effect::LevelUp:
+        case Haptics::Effect::Reward:
+        case Haptics::Effect::Mastery:
             return std::nullopt;
     }
+    return std::nullopt;
 }
 
 void performViewFeedback(int feedbackConstant)
@@ -57,6 +65,8 @@ constexpr qint64 MasteryFallbackDurationMs = 520;
 constexpr qint64 RewardFallbackDurationMs = 400;
 constexpr qint64 LevelUpFallbackDurationMs = 110;
 constexpr int LevelUpFallbackAmplitude = 170;
+constexpr qint64 ProgressDurationMs = 70;
+constexpr int ProgressAmplitude = 110;
 constexpr int MasteryTailAmplitude = 90;
 
 const QList<qint64> MasteryTimings { 0, 45, 45, 55, 45, 70, 45, 200, 45, 110 };
@@ -69,6 +79,9 @@ const QList<int> RewardAmplitudes { 0, 140, 0, 200, 0, MaxAmplitude };
 
 const QList<qint64> LevelUpTimings { 0, 40, 45, 100 };
 const QList<int> LevelUpAmplitudes { 0, 120, 0, 180 };
+
+const QList<qint64> ProgressTimings { 0, ProgressDurationMs };
+const QList<int> ProgressAmplitudes { 0, ProgressAmplitude };
 
 struct Waveform
 {
@@ -87,6 +100,8 @@ Waveform describeWaveform(Haptics::Effect effect)
         case Haptics::Effect::KeyPress:
         case Haptics::Effect::LongPress:
             return { nullptr, nullptr };
+        case Haptics::Effect::Progress:
+            return { &ProgressTimings, &ProgressAmplitudes };
         case Haptics::Effect::LevelUp:
             return { &LevelUpTimings, &LevelUpAmplitudes };
         case Haptics::Effect::Reward:
@@ -111,6 +126,8 @@ EffectDescription describe(Haptics::Effect effect)
             return { 1, 40, DefaultAmplitude };
         case Haptics::Effect::HeavyClick:
             return { 5, 60, DefaultAmplitude };
+        case Haptics::Effect::Progress:
+            return { 5, ProgressDurationMs, ProgressAmplitude };
         case Haptics::Effect::LevelUp:
             return { 5, LevelUpFallbackDurationMs, LevelUpFallbackAmplitude };
         case Haptics::Effect::Reward:
