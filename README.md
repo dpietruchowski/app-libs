@@ -1,29 +1,22 @@
 # app-libs
 
-Shared foundation for Qt6/QML applications: C++ libraries, QML modules, the CMake
-composition helpers, the build and signing scripts, the UI-automation tooling, and
-the Claude skills that are the same in every app.
+The shared foundation for Qt6/QML apps. Everything that would otherwise be copied from one app to the next lives here: C++ libraries, QML components and theming, CMake helpers, Android and AppImage build scripts, UI automation tools, and the Claude Code skills used during development.
 
-An app consumes it as a submodule at `libs/` and keeps only its own domain code.
+An app adds it as a git submodule at `libs/` and keeps only its own domain code. [qanvas](https://github.com/dpietruchowski/qanvas) is built this way.
 
-## Layout
+## What's inside
 
-| Path | Contents |
-|------|----------|
-| `cpp/` | C++ libraries; this directory is the include root, so headers are reached as `async/task.h`, `dbtoolkit/dbtoolkit.h`, … |
-| `qml/` | QML modules: `theme` (URI `Themed.Theme`, the `DefaultTheme` base), `themed` (URI `Themed.Components`), `app` (URI `App.Components`), `icons` |
-| `cmake/` | `AppProject.cmake` — `app_load_env`, `app_project_setup`, `app_add_module`, `app_add_qml_module`, `app_add_test`, `app_configure_android` |
-| `scripts/` | `build-android.sh`, `build-appimage.sh`, `sign-apk.sh`, `sign-aab.sh`, `generate-keystore.sh`, `new-app.sh` — all parametrized by the consuming repo's `app.env` |
-| `doc/` | Notes on parts that need more than a table: [`read-port.md`](doc/read-port.md) — reading a joined shape into a typed row; [`android-splash.md`](doc/android-splash.md) — Android splash stages without a jumping logo; [`android-system-bars.md`](doc/android-system-bars.md) — system bars, safe area and keyboard insets, and what not to try |
-| `docker/` | The Android build image |
-| `tools/` | `ui_driver.py` / `ui_session.py` — drive a running app by `objectName` |
-| `claude/` | Skills and agents an app symlinks into its own `.claude/` |
-| `template/` | The skeleton `new-app.sh` instantiates |
-| `tests/` | Unit tests for the libs |
-
-C++ targets are named `app_<directory>`: `app_async`, `app_platform`, `app_qmlutils`,
-`app_utils`, `app_dbtoolkit`, `app_eventbus`, `app_agent`, `app_automation`,
-`app_crashhandler`, `app_qmllive`.
+- **C++ libraries** (`cpp/`): async, event bus, database toolkit, agent, automation, crash handler, platform and QML utilities. Each directory is a CMake target named `app_<directory>`: `app_async`, `app_platform`, `app_qmlutils`, `app_utils`, `app_dbtoolkit`, `app_eventbus`, `app_agent`, `app_automation`, `app_crashhandler`, `app_qmllive`. `cpp/` is the include root, so headers are included as `async/task.h`, `dbtoolkit/dbtoolkit.h` and so on.
+- **QML modules** (`qml/`): the theme (`Themed.Theme`, with the `DefaultTheme` base), themed components (`Themed.Components`), app components (`App.Components`) and icons.
+- **CMake helpers** (`cmake/AppProject.cmake`): `app_load_env`, `app_project_setup`, `app_add_module`, `app_add_qml_module`, `app_add_test`, `app_configure_android`.
+- **Build scripts** (`scripts/`): `build-android.sh`, `build-appimage.sh`, `sign-apk.sh`, `sign-aab.sh`, `generate-keystore.sh` and `new-app.sh`. All of them read their settings from the app's `app.env`. Android builds run in the Docker image from `docker/`.
+- **UI automation** (`tools/`): `ui_driver.py` and `ui_session.py` drive a running app by `objectName`.
+- **Claude Code skills and agents** (`claude/`), which each app symlinks into its own `.claude/`.
+- **Notes** (`doc/`) on the parts that need more than a line of explanation:
+  - [`read-port.md`](doc/read-port.md): reading a joined shape into a typed row
+  - [`android-splash.md`](doc/android-splash.md): Android splash stages without a jumping logo
+  - [`android-system-bars.md`](doc/android-system-bars.md): system bars, safe area and keyboard insets, and what not to try
+- `template/` is the skeleton used by `new-app.sh`, and `tests/` holds the unit tests for the libs.
 
 ## Starting a new app
 
@@ -37,26 +30,20 @@ cmake --build build-desktop -j$(nproc)
 ./build-desktop/src/appmyapp
 ```
 
-`new-app.sh` writes `app.env`, the CMake tree, a minimal `main.cpp` and QML module, the
-`.clang-format` symlink and the `.claude` skill links. It never overwrites an existing
-file, so it is safe to re-run to pick up files added later.
+`new-app.sh` creates `app.env`, the CMake tree, a minimal `main.cpp` and QML module, the `.clang-format` symlink and the `.claude` skill links. It never overwrites existing files, so you can re-run it any time to pick up files added to the template later.
 
-## Options
+## Build options
 
 | Option | Default | Effect |
 |--------|---------|--------|
-| `LIBS_BUILD_TESTS` | ON standalone, OFF as a submodule | Build the libs' own tests |
-| `LIBS_AUTOMATION` | ON for Debug | Build `app_automation` and define `LIBS_AUTOMATION` for consumers |
-| `QML_LIVE_ENABLED` | OFF (forced OFF on Android) | Load QML from the source tree instead of the compiled resource, via `app_qmllive` — edit a `.qml`, restart the app, no rebuild. Declare the module→directory map with `app_qml_live_map(<target> URI dir …)` and call `QmlRegistrator::enableSourceReload(APP_QML_LIVE_MAP)` |
+| `LIBS_BUILD_TESTS` | ON standalone, OFF as a submodule | Build the unit tests for the libs |
+| `LIBS_AUTOMATION` | ON for Debug | Build `app_automation` and define `LIBS_AUTOMATION` for the app |
+| `QML_LIVE_ENABLED` | OFF (always OFF on Android) | Load QML from the source tree, see below |
 
-### QML sandbox
+## Live QML editing
 
-`app_qml_live_map()` also bakes `APP_QML_SANDBOX_DIR` (`<source root>/sandbox`). Pass it to
-`QmlRegistrator::enableSandbox(<module uri>, APP_QML_SANDBOX_DIR)` and the app gains a
-`QmlSandbox` singleton in that module. When the `APP_QML_SANDBOX` environment variable is
-set, the app should load `SandboxHost` (`libs/qml/app`) instead of its normal root: it
-lists the `.qml` files in that directory, instantiates the selected one by file path — so
-labs are never module types and never need a rebuild — and watches both the sandbox and
-every mapped QML source tree, calling `clearComponentCache()` on a change. That makes edits
-to real app components visible without a restart. QML singletons (`Theme.qml`) are the
-exception: the cache does not re-create them, so a theme edit needs a restart.
+**Source reload.** With `QML_LIVE_ENABLED` on, the app loads QML from the source tree instead of the compiled resources, so after editing a `.qml` file you just restart the app. No rebuild needed. Map each module to its directory with `app_qml_live_map(<target> URI dir …)` and call `QmlRegistrator::enableSourceReload(APP_QML_LIVE_MAP)`.
+
+**Sandbox.** `app_qml_live_map()` also defines `APP_QML_SANDBOX_DIR` (`<source root>/sandbox`). Pass it to `QmlRegistrator::enableSandbox(<module uri>, APP_QML_SANDBOX_DIR)` and the module gets a `QmlSandbox` singleton. When the `APP_QML_SANDBOX` environment variable is set, the app should load `SandboxHost` (from `libs/qml/app`) instead of its normal root.
+
+`SandboxHost` lists the `.qml` files in the sandbox and opens the one you pick by file path, so experiments never have to be module types and never need a rebuild. It also watches the sandbox and every mapped QML source tree and clears the component cache on each change, so edits to real app components show up without a restart. The only exception is QML singletons such as `Theme.qml`. The cache doesn't re-create them, so theme changes still need a restart.
