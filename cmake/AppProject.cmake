@@ -1,7 +1,5 @@
 include_guard(GLOBAL)
 
-include(${CMAKE_CURRENT_LIST_DIR}/AndroidPackage.cmake)
-
 function(app_load_env PATH)
     file(READ "${PATH}" CONTENT)
     string(REPLACE ";" "\\;" CONTENT "${CONTENT}")
@@ -254,9 +252,6 @@ function(app_configure_android TARGET)
     if(NOT ARG_TARGET_SDK)
         set(ARG_TARGET_SDK 36)
     endif()
-
-    app_android_install_java("${ARG_PACKAGE_SOURCE_DIR}")
-    app_android_install_resources("${ARG_PACKAGE_SOURCE_DIR}")
 
     set_target_properties(${TARGET} PROPERTIES
         QT_ANDROID_PACKAGE_NAME "${ARG_PACKAGE_NAME}"
